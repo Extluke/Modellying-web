@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * ==============================================================================
+ * MODELLYNG OFFICIAL DESIGN SYSTEM — SINGLE SOURCE OF TRUTH (STYLE GUIDE)
+ * Reference: modellyng/rekomendasi_arsitektur_web_dan_transisi.md (Bagian 3)
+ * Changing variables here will globally update all components and pages instantly.
+ * ==============================================================================
+ */
+
+@layer base {
+  :root {
+    /* 1. Brand & Primary (Indigo AI Identity) */
+    --primary: 244 76% 59%;               /* #5147E5 - Utama */
+    --primary-foreground: 0 0% 100%;       /* #FFFFFF */
+    --primary-hover: 244 54% 41%;         /* #3730A3 - State hover/pressed */
+    --primary-soft: 244 100% 96%;         /* #EEECFF - Surface lembut / active nav */
+    --primary-soft-foreground: 244 54% 41%;/* #3730A3 */
+
+    /* 2. Neutral & Canvas (Clean Academic Workspace) */
+    --background: 228 33% 97.5%;          /* #F6F7FB - Canvas latar utama */
+    --foreground: 221 38% 15%;            /* #172033 - Ink teks utama */
+    --card: 0 0% 100%;                    /* #FFFFFF - Kontainer kartu & panel */
+    --card-foreground: 221 38% 15%;       /* #172033 */
+    --popover: 0 0% 100%;                 /* #FFFFFF - Dropdown, popover, modal */
+    --popover-foreground: 221 38% 15%;
+    --muted: 228 15% 94%;                 /* #ECEFF5 - Background abu lembut */
+    --muted-foreground: 220 13% 46%;      /* #667085 - Teks sekunder, metadata */
+    --border: 221 21% 92%;                /* #E5E8EF - Garis tepi, divider */
+    --input: 221 21% 92%;                 /* #E5E8EF - Input field border */
+    --placeholder: 218 11% 65%;           /* #98A2B3 - Placeholder color */
+    --ring: 244 76% 59%;                  /* #5147E5 - Focus ring outline */
+
+    /* 3. Status & Academic Semantics */
+    --status-blue: 216 88% 55%;           /* #2878F0 - Paper / Ingest */
+    --status-blue-soft: 213 100% 96%;     /* #EAF3FF */
+    --status-green: 164 73% 30%;          /* #158466 - Ready / Verified */
+    --status-green-soft: 156 50% 94%;     /* #E8F7F1 */
+    --status-orange: 30 83% 48%;          /* #E17A15 - Needs Review / Warning */
+    --status-orange-soft: 35 100% 95%;    /* #FFF3E4 */
+    --status-red: 353 64% 55%;            /* #D64555 - Error / Rejected */
+    --status-red-soft: 349 79% 96%;       /* #FDECEF */
+
+    /* 4. Kanvas Graf & Alur Riset (React Flow / Canvas Tokens) */
+    --canvas-frequent: 128 62% 65%;       /* #6EDC7C - Solusi bersama (>= 2 paper) */
+    --canvas-rare: 0 100% 71%;            /* #FF6B6B - Solusi tunggal / Celah riset */
+    --canvas-neutral: 217 14% 88%;        /* #DFE2E7 - Node pengantar */
+    --canvas-edge: 217 12% 79%;           /* #C3C8D0 - Garis penghubung bezier */
+    --canvas-gap-fire: 24 88% 48%;        /* #EA580C - Celah riset bernilai novelty */
+
+    /* 5. Radius Tokens (Border Radius) */
+    --radius-card: 16px;                  /* 1rem - Kartu & Panel utama */
+    --radius-button: 12px;                /* 0.75rem - Tombol & Input Field */
+    --radius-modal: 16px;                 /* 1rem - Modal Dialog */
+    --radius-badge: 9999px;               /* Pill status badges */
+    --radius-badge-sm: 8px;               /* Mini status badges */
+
+    /* 6. Elevasi & Bayangan (Box Shadows) */
+    --shadow-card: 0 1px 3px 0 rgba(23, 32, 51, 0.05);
+    --shadow-floating: 0 4px 20px -2px rgba(23, 32, 51, 0.08);
+    --shadow-card-hover: 0 8px 24px -4px rgba(81, 71, 229, 0.08);
+
+    /* Compatibility default Shadcn */
+    --secondary: 244 100% 96%;
+    --secondary-foreground: 244 54% 41%;
+    --destructive: 353 64% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --accent: 244 100% 96%;
+    --accent-foreground: 244 54% 41%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 7%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 7%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 244 76% 65%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 244 76% 75%;
+    --primary-soft: 244 50% 15%;
+    --primary-soft-foreground: 244 100% 90%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 244 76% 65%;
+    --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+    --shadow-floating: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+    --shadow-card-hover: 0 8px 24px -4px rgba(81, 71, 229, 0.2);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1, "cv11" 1;
+  }
+}
