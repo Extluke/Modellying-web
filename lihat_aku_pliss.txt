@@ -1,0 +1,52 @@
+Sturktur Folder
+
+src/features/
+├── auth/                         # Zona Tamu / Akses Publik
+│   ├── WelcomeScreen.tsx         # /welcome (Halaman depan pembuka)
+│   ├── LoginScreen.tsx           # /login
+│   ├── RegisterScreen.tsx        # /register
+│   └── ForgotPasswordScreen.tsx  # /forgot-password
+│
+├── dashboard/                    # /dashboard (Dasbor utama & metrik ringkasan)
+│   └── DashboardScreen.tsx
+│
+├── projects/                     # /projects (JANTUNG APLIKASI: Hub Proyek & Paper)
+│   ├── ProjectsScreen.tsx        # /projects (Daftar & buat proyek)
+│   ├── overview/                 # /projects/:id (Workspace & upload PDF)
+│   │   ├── ProjectOverviewScreen.tsx
+│   │   └── UploadPdfModal.tsx
+│   ├── paper-analysis/           # /projects/:id/papers/:paperId (Hasil Ekstraksi & Bukti)
+│   │   ├── PaperResultScreen.tsx # Panel 11 komponen ekstraksi
+│   │   ├── PdfViewer.tsx         # Mesin penampil PDF & highlighter
+│   │   └── EvidencePanel.tsx     # Panel kutipan bukti
+│   ├── review/                   # /projects/:id/review (Antrean & Revisi AI)
+│   │   ├── ReviewQueueScreen.tsx
+│   │   └── ComponentRevisionModal.tsx
+│   └── chat/                     # /projects/:id/chat (RAG Chatbot per proyek)
+│       └── ProjectChatScreen.tsx
+│
+├── research/                     # Rumpun Analisis Lintas-Paper (Kanvas & Matriks)
+│   ├── matrix/                   # /matrix (Matriks Komparasi 10 parameter)
+│   │   └── MatrixScreen.tsx
+│   ├── gap-map/                  # /gap-map (Peta Celah Riset)
+│   │   └── GapMapScreen.tsx
+│   ├── research-flow/            # /research-flow (Kanvas Alur Riset 4 Tahap)
+│   │   └── ResearchFlowScreen.tsx
+│   ├── knowledge-graph/          # /knowledge-graph (Kanvas 2D Graf Spasial)
+│   │   └── KnowledgeGraphScreen.tsx
+│   ├── concept-map/              # /concept-map (Diagram Relasi Mermaid)
+│   │   └── ConceptMapScreen.tsx
+│   ├── synthesis/                # /synthesis (Rumusan Masalah & Tesis)
+│   │   └── SynthesisScreen.tsx
+│   └── export/                   # /export (Unduh Word, Excel, CSV, PPTX)
+│       └── ExportScreen.tsx
+│
+├── user/                         # Pengaturan Pengguna & Floating Tools
+│   ├── chat-global/              # /chat (Asisten Cerdas Global)
+│   ├── notifications/            # /notifications (Notifikasi tugas selesai)
+│   └── settings/                 # /settings (Preferensi Akun & Format Sitasi)
+│
+└── admin/                        # [MASA DEPAN] Khusus Administrator
+    ├── dashboard/                # /admin/dashboard
+    ├── user-management/          # /admin/users
+    └── model-quotas/             # /admin/models (Pengaturan kuota AI & log)
