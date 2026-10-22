@@ -52,6 +52,9 @@ Proyek ini adalah pivot aplikasi **Modellyng** (Evidence-Centered Academic PDF A
    * Panduan target web (Pilihan 2: React 19 + TypeScript + Vite + TanStack Query + Zustand + Tailwind/Shadcn + PDF.js + React Flow).
 3. **`modellyng/rencana_kerja_dan_pembagian_tugas_tim.md`**:
    * Roadmap bertahap 5 minggu (Sprint 0 s.d. Sprint 4) dan aturan kolaborasi anti-konflik tim (Arby, Faqih, Cahayu, Fatih).
+4. **Isolasi Mutlak Environment Modellyng Web vs Flutter Legacy:**
+   * **DILARANG KERAS** menggunakan, mengubah, atau menghubungkan layanan ke kontainer/port/database versi Flutter lama (port `18021-18027`, redis `6380`, kontainer `supabase_*_modellying`).
+   * Seluruh layanan Modellyng Web (Supabase, PostgreSQL, Redis, Celery, Backend) wajib berjalan di domain fresh tersendiri dengan penamaan `modellying-web` (port Postgres `28022`, Studio `28023`, Kong `28021`, InBucket `28024`, Redis `6381`, dan volume terisolasi `modellying_web_*`).
 
 ---
 
@@ -61,3 +64,14 @@ Proyek ini adalah pivot aplikasi **Modellyng** (Evidence-Centered Academic PDF A
 * **Stack Backend & Data:** FastAPI Python 3.10+, Celery, Redis, Supabase (PostgreSQL, Storage, Auth, RLS).
 * **Kebersihan Kode:** Tulis kode yang modular, bersih, terdokumentasi dengan baik, dan bebas dari file placeholder/dead code.
 * **Komunikasi:** Berikan penjelasan dan diskusi kepada pengguna dalam Bahasa Indonesia yang profesional dan jelas. Kode, nama variabel, dan komentar kode tetap menggunakan Bahasa Inggris standar.
+
+---
+
+## 4. Protokol Wajib: Pembaruan Buku Panduan Operasional (`lihat_aku_plisss.txt`)
+
+Berkas [`lihat_aku_plisss.txt`](file:///d:/Koding/Modellying%20Web%20By%20Github/lihat_aku_plisss.txt) adalah **buku panduan operasional (Run Guide & Architecture Map) resmi** repositori ini yang diperuntukkan bagi seluruh anggota tim.
+
+* **Kewajiban Mutlak:**
+  * Setiap kali ada penambahan fitur baru, layanan (*service*), proses latar belakang baru (misalnya: backend FastAPI, antrean tugas Celery worker, Redis, Docker Compose, Supabase lokal, atau skrip migrasi/testing) yang perlu di-running, Agen **WAJIB** memperbarui berkas `lihat_aku_plisss.txt`.
+  * Panduan yang ditambahkan wajib ditulis secara bertahap, runtut (*step-by-step*), sangat jelas, dan ramah bagi pemula (mencakup perintah terminal, prasyarat, direktori kerja eksekusi, serta cara memverifikasi bahwa layanan sudah berjalan).
+

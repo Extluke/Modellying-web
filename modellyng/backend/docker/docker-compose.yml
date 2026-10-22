@@ -1,0 +1,122 @@
+# ==============================================================================
+# MODELLYNG WEB — DEDICATED DOCKER COMPOSE STACK
+# Project: modellying-web (100% Isolated from legacy Flutter environment)
+# ==============================================================================
+name: modellying-web
+
+networks:
+  modellying_web_network:
+    name: modellying_web_network
+    driver: bridge
+
+volumes:
+  modellying_web_db_data:
+    name: modellying_web_db_data
+  modellying_web_redis_data:
+    name: modellying_web_redis_data
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. PostgreSQL with pgvector (Dedicated Web Database)
+  # Port: 28022 (Flutter lama menggunakan 18022)
+  # ----------------------------------------------------------------------------
+  db:
+    image: public.ecr.aws/supabase/postgres:17.11.0.002
+    container_name: modellying_web_db
+    restart: unless-stopped
+    ports:
+      - "28022:5432"
+    environment:
+      POSTGRES_PASSWORD: modellying_web_password
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+    volumes:
+      - modellying_web_db_data:/var/lib/postgresql/data
+      - ../database/migrations/001_initial_modellying_web_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+    networks:
+      - modellying_web_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 2. Redis Cache & Celery Queue (Dedicated Web Redis)
+  # Port: 6381 (Flutter lama menggunakan 6380)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: modellying_web_redis
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    volumes:
+      - modellying_web_redis_data:/data
+    networks:
+      - modellying_web_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 3. Supabase Postgres Meta (Schema & Table Inspector API for Studio)
+  # Internal: 8080 (Accessed by Studio inside modellying_web_network)
+  # ----------------------------------------------------------------------------
+  meta:
+    image: public.ecr.aws/supabase/postgres-meta:v0.99.0
+    container_name: modellying_web_meta
+    restart: unless-stopped
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PORT: 5432
+      PG_META_DB_PASSWORD: modellying_web_password
+    networks:
+      - modellying_web_network
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------------------
+  # 4. Supabase Studio (Database Dashboard GUI)
+  # Port: 28023 (Flutter lama menggunakan 18023)
+  # ----------------------------------------------------------------------------
+  studio:
+    image: public.ecr.aws/supabase/studio:2026.09.28-sha-5e59b60
+    container_name: modellying_web_studio
+    restart: unless-stopped
+    ports:
+      - "28023:3000"
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: modellying_web_password
+      DEFAULT_ORGANIZATION_NAME: "Modellyng Web"
+      DEFAULT_PROJECT_NAME: "Modellyng Web Workspace"
+      SUPABASE_URL: http://127.0.0.1:28021
+      SUPABASE_PUBLIC_URL: http://127.0.0.1:28021
+      HOSTNAME: "0.0.0.0"
+    networks:
+      - modellying_web_network
+    depends_on:
+      db:
+        condition: service_healthy
+      meta:
+        condition: service_started
+
+  # ----------------------------------------------------------------------------
+  # 4. InBucket / Mailpit (Local Email Testing Sandbox)
+  # Port: 28024 (Flutter lama menggunakan 18024)
+  # ----------------------------------------------------------------------------
+  mailpit:
+    image: public.ecr.aws/supabase/mailpit:v1.31.3
+    container_name: modellying_web_inbucket
+    restart: unless-stopped
+    ports:
+      - "28024:8025"
+    networks:
+      - modellying_web_network

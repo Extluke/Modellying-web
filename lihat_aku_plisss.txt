@@ -50,3 +50,216 @@ src/features/
     ├── dashboard/                # /admin/dashboard
     ├── user-management/          # /admin/users
     └── model-quotas/             # /admin/models (Pengaturan kuota AI & log)
+
+
+================================================================================
+PANDUAN MENJALANKAN PROYEK MODELLYNG WEB
+================================================================================
+
+PRASYARAT WAJIB (Sebelum Mulai):
+Pastikan di komputermu sudah terpasang:
+1. Node.js (Versi 18 atau 20 LTS disarankan). Cek di terminal: `node -v`
+2. Git. Cek di terminal: `git --version`
+3. Web Browser (Google Chrome, Microsoft Edge, atau Brave)
+
+
+--------------------------------------------------------------------------------
+1. CARA MENJALANKAN KETIKA BARU PERTAMA KALI COPY/CLONE DARI GITHUB
+--------------------------------------------------------------------------------
+Gunakan cara ini jika kamu baru saja mengunduh/meng-clone repositori ini ke komputer baru:
+
+Langkah 1: Buka Terminal / Command Prompt
+- Buka aplikasi Terminal, PowerShell, atau Git Bash di komputermu.
+
+Langkah 2: Clone (Salin) Repositori dari GitHub
+Ketik perintah berikut lalu tekan Enter:
+git clone https://github.com/Extluke/Modellying-web.git
+
+Langkah 3: Masuk ke Folder Hasil Clone
+cd Modellying-web
+
+Langkah 4: Masuk ke Folder Frontend Aplikasi (PENTING!)
+*Perhatian: Kode aplikasi web berada di dalam subfolder `modellyng/frontend`.*
+cd modellyng/frontend
+
+Langkah 5: Pasang Semua Pustaka/Dependencies (Hanya Sekali)
+Perintah ini akan mengunduh React, Tailwind, Lucide, dan pustaka lainnya:
+npm install
+
+(Tunggu 1-3 menit sampai proses selesai dan muncul tulisan "added ... packages").
+
+Langkah 6: Jalankan Server Lokal (Development Server)
+Ketik perintah:
+npm run dev
+
+Langkah 7: Buka Aplikasi di Browser
+Setelah perintah di atas dijalankan, terminal akan menampilkan alamat lokal:
+  ➜  Local:   http://localhost:3000/
+
+- Tekan tombol `Ctrl` lalu klik link tersebut, ATAU
+- Buka browser favoritmu dan ketik manual di URL: `http://localhost:3000/`
+
+*Halaman yang bisa kamu coba buka di browser:*
+- `http://localhost:3000/`           -> Otomatis diarahkan ke /welcome
+- `http://localhost:3000/welcome`    -> Halaman Selamat Datang / Tamu
+- `http://localhost:3000/login`      -> Halaman Masuk
+- `http://localhost:3000/projects`   -> Halaman Manajemen Proyek
+- `http://localhost:3000/styleguide` -> Katalog Desain Sistem (Warna, Tombol, Badge)
+
+
+--------------------------------------------------------------------------------
+2. CARA MENJALANKAN KETIKA SUDAH PERNAH DIBUKA & INGIN MEMBUKANYA KEMBALI
+--------------------------------------------------------------------------------
+Gunakan cara ini jika di hari berikutnya kamu menyalakan laptop dan ingin lanjut mengerjakan proyek:
+
+Langkah 1: Buka Folder Proyek di Text Editor (VS Code / Antigravity)
+- Buka VS Code / Antigravity IDE.
+- Klik menu: File -> Open Folder -> pilih folder `Modellying Web By Github` (atau folder utama proyekmu).
+
+Langkah 2: Buka Terminal Terintegrasi
+- Di menu atas VS Code / IDE, klik menu `Terminal` -> `New Terminal`
+  (atau tekan shortcut keyboard: `Ctrl + ~` / `Ctrl + Shift + \``).
+
+Langkah 3: Pastikan Posisi Terminal Berada di Folder Frontend
+Secara default terminal akan berada di folder terluar. Pindahkan terminal ke folder frontend dengan mengetik:
+cd modellyng/frontend
+
+*Tips:* Pastikan baris terminal kamu berakhiran `modellyng/frontend>`.
+
+Langkah 4 (Opsional tapi Disarankan jika kerja bareng tim): Ambil Update Terbaru
+Jika ada teman tim yang baru saja push kode baru ke GitHub, ketik:
+git pull origin main
+npm install
+
+Langkah 5: Langsung Nyalakan Server
+Ketik perintah:
+npm run dev
+
+Langkah 6: Buka Kembali Browser
+Buka browser di alamat:
+http://localhost:3000/
+
+--------------------------------------------------------------------------------
+TIPS TAMBAHAN UNTUK PEMULA:
+--------------------------------------------------------------------------------
+- CARA MEMATIKAN SERVER:
+  Jika kamu selesai bekerja, kembali ke jendela terminal tempat `npm run dev` berjalan,
+  lalu tekan kombinasi tombol keyboard: `Ctrl + C`. Jika muncul pertanyaan `Terminate batch job (Y/N)?`, ketik `Y` lalu Enter.
+- JIKA MUNCUL ERROR "PORT 3000 IN USE":
+  Vite akan otomatis berpindah ke port berikutnya, misalnya `http://localhost:3001/`. Cukup perhatikan link yang tertulis di terminal.
+- MEMERIKSA ERROR KODE SEBELUM COMMIT:
+  Ketik `npm run typecheck` di terminal `modellyng/frontend` untuk mengecek apakah ada error TypeScript.
+
+
+--------------------------------------------------------------------------------
+3. CARA MENJALANKAN BACKEND (FASTAPI AUTENTIKASI & API SERVICE)
+--------------------------------------------------------------------------------
+Aplikasi Modellyng Web membutuhkan 2 layanan berjalan: Frontend (port 3000) dan Backend (port 8000).
+
+Langkah 1: Buka Terminal Baru (Terminal ke-2 di VS Code/IDE)
+- Di menu terminal VS Code, klik tombol '+' di pojok kanan terminal untuk membuat tab terminal baru.
+
+Langkah 2: Masuk ke Folder Backend
+cd modellyng/backend
+
+Langkah 3: Pasang Dependensi Python (Hanya sekali saat awal)
+Pastikan Python 3.10+ sudah terpasang. Jalankan:
+pip install -r requirements.txt
+
+Langkah 4: Jalankan Server Backend FastAPI
+Ketik perintah berikut:
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+Langkah 5: Verifikasi Backend Berjalan
+Buka browser di alamat:
+http://127.0.0.1:8000/docs
+(Kamu akan melihat dokumentasi Swagger interaktif untuk 5 endpoint autentikasi & health check).
+
+
+--------------------------------------------------------------------------------
+4. INFORMASI AKUN UJI COBA (DEMO ACCOUNTS SIAP PAKAI)
+--------------------------------------------------------------------------------
+Backend sudah dilengkapi dengan akun demo siap pakai untuk pengujian instan:
+- Akun 1: Email: `cahayu@modellyng.ac.id`  | Sandi: `Password123`
+- Akun 2: Email: `arby@modellyng.ac.id`    | Sandi: `Password123`
+- Akun 3: Email: `demo@modellyng.ac.id`    | Sandi: `Password123`
+
+*Fitur Autentikasi yang Sudah Terpasang & Diuji:*
+1. Form Login (`/login`): Dilengkapi tombol 'Isi Otomatis' untuk akun demo, toggle intip sandi, spinner loading, dan proteksi brute force (Rate Limiting).
+2. Form Register (`/register`): Pengecekan regex email, kekuatan sandi (min 8 karakter huruf+angka), pencocokan konfirmasi sandi, dan enkripsi Argon2.
+3. Lupa Password (`/forgot-password`): Kartu feedback "Periksa Email Anda" dan tautan reset instan untuk mode lokal.
+4. Reset Password (`/reset-password`): Validasi token unik 1 jam dan update sandi baru.
+5. Route Guard: Pengguna yang belum login otomatis diarahkan ke `/login` jika mencoba membuka dasbor/proyek, dan pengguna yang sudah login otomatis diarahkan ke `/dashboard` jika membuka halaman login.
+6. Logout: Tombol keluar tersedia di bilah atas (Header) navigasi.
+
+
+--------------------------------------------------------------------------------
+5. CARA MENJALANKAN DOCKER SUPABASE & REDIS KHUSUS MODELLYNG-WEB (ISOLASI MUTLAK)
+--------------------------------------------------------------------------------
+Environment ini sepenuhnya baru (*fresh*) dan tidak menggunakan port atau kontainer versi Flutter lama.
+
+Langkah 1: Buka Terminal Baru
+- Buka terminal baru dan masuk ke folder docker backend:
+cd modellyng/backend/docker
+
+Langkah 2: Nyalakan Stack Kontainer
+Ketik perintah berikut:
+docker compose up -d
+
+(Docker akan menyalakan 5 kontainer terisolasi: Postgres DB, Redis, Postgres-Meta API, Supabase Studio, dan Mailpit).
+
+Langkah 3: Akses Layanan Melalui Browser / Tool
+- Supabase Studio (GUI Database Baru): http://localhost:28023
+- Email Sandbox (Mailpit Testing):    http://localhost:28024
+- PostgreSQL Connection String:        postgresql://postgres:modellying_web_password@127.0.0.1:28022/postgres
+- Redis Connection String:             redis://127.0.0.1:6381/0
+
+Langkah 4: Cara Mematikan Stack Docker (Jika selesai):
+cd modellyng/backend/docker
+docker compose down
+
+--------------------------------------------------------------------------------
+6. STATUS INTEGRASI BACKEND FASTAPI & DATABASE SUPABASE POSTGRESQL
+--------------------------------------------------------------------------------
+Backend FastAPI kini sudah terhubung 100% secara permanen ke Database Supabase PostgreSQL
+kontainer `modellying_web_db` (Port 28022):
+
+1. Konfigurasi Driver:
+   - Backend menggunakan `psycopg2-binary` dengan Connection Pool (`ThreadedConnectionPool`).
+   - Otomatis melakukan migrasi awal jika tabel belum ada (`public.password_reset_tokens`).
+
+2. Data Pengguna Tersimpan Permanen:
+   - Seluruh registrasi akun baru di frontend web otomatis disimpan ke tabel `public.users`.
+   - Data akun tidak akan hilang meskipun backend di-restart.
+   - Kata sandi di-hash menggunakan algoritma standar militer **Argon2id**.
+
+3. Cara Memverifikasi Data Melalui GUI Supabase Studio:
+   - Buka browser dan kunjungi: http://localhost:28023
+   - Masuk ke menu "Table Editor" di bilah sebelah kiri.
+   - Klik tabel `users` pada schema `public`.
+   - Anda akan melihat daftar akun yang sudah terdaftar (termasuk 5 akun peneliti demo).
+
+--------------------------------------------------------------------------------
+7. FITUR RUANG KERJA PROYEK RISET & UNGGAH PDF (DATABASE TERINTEGRASI)
+--------------------------------------------------------------------------------
+Seluruh modul proyek kini terhubung langsung ke tabel `public.projects` dan `public.papers`
+di database Supabase PostgreSQL (Port 28022):
+
+1. Tiga Halaman Utama:
+   - Halaman Proyek (http://localhost:3000/projects):
+     * Pencarian judul/deskripsi secara real-time.
+     * Filter tab status: Semua, Aktif, dan Diarsipkan.
+     * Kartu proyek dengan menu titik tiga: Edit Proyek & Hapus Proyek (dengan dialog konfirmasi).
+   - Halaman Buat Proyek (http://localhost:3000/projects/new):
+     * Halaman fokus (bebas distraksi, tanpa navbar/sidebar).
+     * Formulir judul riset, rumusan masalah, pilihan bidang studi, dan format sitasi (APA/IEEE/dll).
+   - Halaman Project Overview (http://localhost:3000/projects/:id/overview):
+     * Halaman fokus khusus ruang kerja proyek tersebut (tanpa navbar/sidebar).
+     * Dropzone interaktif untuk tarik-lepas file PDF (maksimal 15 paper, 50MB per paper).
+     * Daftar dokumen paper yang tersimpan permanen di basis data PostgreSQL.
+
+2. Verifikasi Data Proyek Melalui GUI Supabase Studio:
+   - Buka: http://localhost:28023/project/default/editor
+   - Klik tabel `projects` untuk melihat proyek yang dibuat oleh akun Anda.
+   - Klik tabel `papers` untuk melihat daftar file PDF yang berhasil diunggah.
+================================================================================

@@ -41,16 +41,25 @@ async function request<T>(
       window.dispatchEvent(new Event("auth:unauthorized"))
     }
 
-    let errorDetail: unknown
+    let errorDetail: any
     try {
       errorDetail = await response.json()
     } catch {
       errorDetail = await response.text()
     }
 
+    const message =
+      (typeof errorDetail === "object" && errorDetail !== null && errorDetail.detail)
+        ? (typeof errorDetail.detail === "string"
+            ? errorDetail.detail
+            : Array.isArray(errorDetail.detail)
+            ? errorDetail.detail[0]?.msg || "Validasi gagal."
+            : "Request failed")
+        : response.statusText || "Request failed"
+
     const error: ApiError = {
       status: response.status,
-      message: response.statusText || "Request failed",
+      message,
       detail: errorDetail,
     }
     throw error

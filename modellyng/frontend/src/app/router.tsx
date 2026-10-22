@@ -1,6 +1,8 @@
 import { lazy, Suspense } from "react"
 import { createBrowserRouter, Navigate } from "react-router-dom"
 import { AppShell } from "@/components/layout/AppShell"
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
+import { GuestRoute } from "@/components/auth/GuestRoute"
 import { ROUTES } from "@/app/routes"
 
 // Loading skeleton fallback for lazy-loaded route chunks
@@ -22,6 +24,9 @@ const RegisterScreen = lazy(() => import("@/features/auth/RegisterScreen"))
 const ForgotPasswordScreen = lazy(
   () => import("@/features/auth/ForgotPasswordScreen")
 )
+const ResetPasswordScreen = lazy(
+  () => import("@/features/auth/ResetPasswordScreen")
+)
 
 // 2. Dashboard Domain
 const DashboardScreen = lazy(
@@ -30,6 +35,9 @@ const DashboardScreen = lazy(
 
 // 3. Projects Domain
 const ProjectsScreen = lazy(() => import("@/features/projects/ProjectsScreen"))
+const CreateProjectScreen = lazy(
+  () => import("@/features/projects/CreateProjectScreen")
+)
 const ProjectOverviewScreen = lazy(
   () => import("@/features/projects/overview/ProjectOverviewScreen")
 )
@@ -86,7 +94,13 @@ const StyleGuideScreen = lazy(
 )
 
 export const router = createBrowserRouter([
-  // Public Guest Routes (No AppShell)
+  // 1. Root redirect: Mengarahkan pengunjung awal langsung ke /welcome
+  {
+    path: "/",
+    element: <Navigate to={ROUTES.WELCOME} replace />,
+  },
+
+  // 2. Public Visitor Landing (Dapat diakses siapapun)
   {
     path: ROUTES.WELCOME,
     element: (
@@ -95,54 +109,79 @@ export const router = createBrowserRouter([
       </Suspense>
     ),
   },
-  {
-    path: ROUTES.AUTH.LOGIN,
-    element: (
-      <Suspense fallback={<RouteLoader />}>
-        <LoginScreen />
-      </Suspense>
-    ),
-  },
-  {
-    path: ROUTES.AUTH.REGISTER,
-    element: (
-      <Suspense fallback={<RouteLoader />}>
-        <RegisterScreen />
-      </Suspense>
-    ),
-  },
-  {
-    path: ROUTES.AUTH.FORGOT_PASSWORD,
-    element: (
-      <Suspense fallback={<RouteLoader />}>
-        <ForgotPasswordScreen />
-      </Suspense>
-    ),
-  },
 
-  // Authenticated User Routes (With AppShell)
+  // 3. Guest Auth Routes (Hanya untuk tamu, jika sudah login otomatis dialihkan ke /dashboard)
   {
-    path: "/",
-    element: <AppShell />,
+    element: <GuestRoute />,
     children: [
       {
-        index: true,
-        element: <Navigate to={ROUTES.DASHBOARD} replace />,
-      },
-      {
-        path: ROUTES.DASHBOARD,
+        path: ROUTES.AUTH.LOGIN,
         element: (
           <Suspense fallback={<RouteLoader />}>
-            <DashboardScreen />
+            <LoginScreen />
           </Suspense>
         ),
       },
-      // Projects
       {
-        path: ROUTES.PROJECTS.ROOT,
+        path: "/auth/login",
+        element: <Navigate to={ROUTES.AUTH.LOGIN} replace />,
+      },
+      {
+        path: ROUTES.AUTH.REGISTER,
         element: (
           <Suspense fallback={<RouteLoader />}>
-            <ProjectsScreen />
+            <RegisterScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/auth/register",
+        element: <Navigate to={ROUTES.AUTH.REGISTER} replace />,
+      },
+      {
+        path: ROUTES.AUTH.FORGOT_PASSWORD,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ForgotPasswordScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/auth/forgot-password",
+        element: <Navigate to={ROUTES.AUTH.FORGOT_PASSWORD} replace />,
+      },
+      {
+        path: ROUTES.AUTH.RESET_PASSWORD,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ResetPasswordScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/auth/reset-password",
+        element: <Navigate to={ROUTES.AUTH.RESET_PASSWORD} replace />,
+      },
+    ],
+  },
+
+  // 4. Authenticated Focused Routes (Wajib login, TANPA NAVBAR/APPSHELL DKK - Fokus Penuh)
+  {
+    element: <ProtectedRoute />,
+    children: [
+      {
+        path: ROUTES.PROJECTS.NEW,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <CreateProjectScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.PROJECTS.OVERVIEW,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ProjectOverviewScreen />
           </Suspense>
         ),
       },
@@ -151,6 +190,34 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<RouteLoader />}>
             <ProjectOverviewScreen />
+          </Suspense>
+        ),
+      },
+    ],
+  },
+
+  // 5. Authenticated Protected Routes (Wajib login, menggunakan AppShell / Navbar)
+  {
+    element: (
+      <ProtectedRoute>
+        <AppShell />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: ROUTES.DASHBOARD,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <DashboardScreen />
+          </Suspense>
+        ),
+      },
+      // Projects (Main Listing)
+      {
+        path: ROUTES.PROJECTS.ROOT,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ProjectsScreen />
           </Suspense>
         ),
       },
