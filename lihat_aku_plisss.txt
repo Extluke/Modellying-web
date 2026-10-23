@@ -19,7 +19,12 @@ Modellying-web/
 │   ├── backend/                      # Layanan Backend Python FastAPI & Pipeline
 │   │   ├── app/                      # Sumber kode logika bisnis & API
 │   │   │   ├── auth/                 # Modul autentikasi, JWT, & hashing Argon2id
-│   │   │   ├── pipeline/             # Ekstraksi PDF PyMuPDF & LLM Gatekeeper
+│   │   │   ├── pipeline/             # Ekstraksi PDF PyMuPDF, LLM Gatekeeper, & Verifikasi DOI
+│   │   │   │   ├── source_verification.py # Layanan verifikasi keabsahan sumber paper via Crossref & DataCite
+│   │   │   │   └── ...
+│   │   │   ├── projects/             # Endpoint & layanan proyek, RAG, dan ekspor
+│   │   │   │   ├── export_service.py # Generator ekspor matriks sintesis (CSV BOM, XLSX multi-sheet, PDF)
+│   │   │   │   └── ...
 │   │   │   ├── celery_app.py         # Konfigurasi worker Celery asinkron
 │   │   │   ├── database.py           # Connection pool PostgreSQL
 │   │   │   └── main.py               # Titik masuk FastAPI & registrasi router
@@ -67,9 +72,11 @@ src/features/
 │   ├── NewProjectScreen.tsx          # /projects/new (Formulir inisialisasi riset)
 │   ├── overview/                     # Ruang Kerja Dokumen Riset
 │   │   ├── ProjectOverviewScreen.tsx # /projects/:id/overview (Dropzone & daftar paper)
+│   │   ├── ExportDropdownButton.tsx  # Tombol unduh matriks sintesis 13 parameter (PDF, CSV, XLSX)
 │   │   └── UploadPdfModal.tsx        # Modal unggah PDF (1-15 file, validasi magic bytes)
 │   ├── paper-analysis/               # Analisis Mendalam & Ketertelusuran Bukti
 │   │   ├── PaperResultScreen.tsx     # /projects/:id/papers/:paperId (Panel 13 parameter dalam 3 tab: Konteks, Metode, Hasil)
+│   │   ├── DoiVerificationDrawer.tsx # Drawer Cek Keabsahan Sumber (DOI) meluncur dari sebelah kiri layar (Crossref & DataCite)
 │   │   ├── ComponentAiRevisionModal.tsx # Modal interaktif asisten AI pembantu revisi formulasi (draggable & guided loop)
 │   │   ├── PdfViewer.tsx             # Mesin penampil PDF & penyorot teks interaktif
 │   │   └── EvidencePanel.tsx         # Panel kutipan bukti terhubung ke koordinat PDF
@@ -351,9 +358,12 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 | POST   | /api/v1/projects                                            | Buat proyek riset baru             |
 | GET    | /api/v1/projects/{id}                                       | Detail proyek & daftar paper       |
 | POST   | /api/v1/projects/{id}/papers/upload                         | Streaming unggah PDF (50MB limit)  |
+| GET    | /api/v1/projects/{id}/export                                | Unduh sintesis (PDF/CSV/XLSX)      |
 | GET    | /api/v1/projects/{id}/papers/{paper_id}/components          | Ekstraksi 13 parameter & tab_group |
 | GET    | /api/v1/projects/{id}/papers/{paper_id}/blocks              | Blok teks kanonik & koordinat bbox |
 | GET    | /api/v1/projects/{id}/papers/{paper_id}/pdf                 | Byte stream PDF untuk canvas viewer|
+| GET    | /api/v1/projects/{id}/papers/{paper_id}/source-verification | Data status keabsahan sumber DOI   |
+| POST   | /api/v1/projects/{id}/papers/{paper_id}/verify-source        | Verifikasi sumber paper via Crossref|
 | PATCH  | /api/v1/projects/{id}/papers/{paper_id}/components/{key}    | Validasi/revisi status komponen    |
 | POST   | /api/v1/projects/{id}/papers/{paper_id}/components/{key}/ai-revise | Asisten AI draf revisi formulasi   |
 | GET    | /api/v1/projects/{id}/review-queue                          | Antrean peninjauan komponen riset  |
@@ -470,15 +480,21 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Tahap Penyempurnaan AI (Stage 5 Celery): Model LLM (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`,
     `qwen/qwen3.8-27b`) mengekstrak judul penelitian akademik yang bersih serta array nama pengarang
     (`authors`), lalu menyimpannya ke tabel `public.papers`.
-- Gatekeeper LLM (Groq / GPT-OSS & Gemini):
-  Mendeteksi apakah dokumen merupakan artikel ilmiah valid atau sekadar salindia tugas.
-  Jika bukan artikel ilmiah, status otomatis beralih ke `needs_confirmation`.
-  * Kebijakan Penerjemahan Baku (Indonesian First Extraction):
-    System prompt mewajibkan seluruh nilai ekstraksi ilmiah (`value.text`) dan sintesis RAG
-    diterjemahkan dan diformulasikan ke dalam Bahasa Indonesia yang baku dan akademis.
-    Dilarang keras menyalin mentah teks Bahasa Inggris dari dokumen asli ke dalam JSON,
-    namun kutipan bukti verbatim (`evidence.quote`) tetap dipertahankan dalam bahasa asli
-    demi menjamin keakuratan pencocokan koordinat teks kanonik pada PDF.
+- Arsitektur Abstraksi Model AI Terpadu (ModelRegistry — Gemini Core & Groq Backup):
+  * Dual-Provider Resilient Architecture:
+    1. Model Utama (Core Provider): Google Gemini (`models/gemini-3.5-flash`), dioptimalkan untuk sintesis ilmiah Bahasa Indonesia baku dan ekstraksi terstruktur.
+    2. Model Cadangan (Backup Provider): Groq (`qwen/qwen3.8-27b` / `openai/gpt-oss-120b`), siap mengambil alih tugas seketika jika model utama mengalami kendala kuota.
+  * Mekanisme Token Bucket Rate Limiting & Micro-Retry:
+    - Pembatas laju independen sadar RPM dan TPM (`gemini_limiter` & `groq_limiter`) yang mencegah banjir request 429.
+    - Micro-retry per model hingga maksimal 2 kali retry (total 3x percobaan per model) dengan jeda eksponensial (*exponential backoff* dan jitter).
+    - Kegagalan total pada Core Model otomatis memicu pengalihan tugas (*seamless failover*) ke Backup Model tanpa memutus atau mengulang batch tugas yang sudah berhasil.
+  * Validasi Skema Pydantic Ketat & Log Bersih (Sanitized Logging):
+    - Seluruh respons LLM divalidasi secara ketat oleh skema Pydantic; data yang tidak lolos validasi tidak akan pernah masuk ke basis data.
+    - Log sistem hanya mencatat metadata, model alias, dan waktu eksekusi; teks mentah naskah pengguna dilarang keras dicetak pada log.
+- Gatekeeper LLM & Kebijakan Penerjemahan Baku (Indonesian First Extraction):
+  * Mendeteksi apakah dokumen merupakan artikel ilmiah valid atau sekadar naskah non-paper.
+  * System prompt mewajibkan seluruh nilai ekstraksi ilmiah (`value.text`) diterjemahkan dan diformulasikan ke dalam Bahasa Indonesia yang baku, elegan, dan akademis.
+  * Kutipan bukti verbatim (`evidence.quote`) tetap dipertahankan dalam bahasa asli naskah PDF demi menjamin ketertelusuran fisik kanonik (*ground truth*).
 - Sinkronisasi UI Cerdas (Smart Polling):
   TanStack Query pada frontend otomatis memantau status pemrosesan setiap 3 detik selama ada
   tugas aktif (`validating` / `processing`), dan otomatis berhenti saat status menjadi `ready` atau `needs_review`.
@@ -612,6 +628,54 @@ DETAIL FITUR & INTEGRASI SISTEM
   Pesan validasi bawaan backend FastAPI/Pydantic (seperti "String should have at least 2 characters")
   secara otomatis diterjemahkan oleh `client.ts` ke dalam Bahasa Indonesia yang santun dan
   akademis ("Nama proyek minimal harus terdiri dari 2 karakter.").
+
+9. FITUR EKSPOR MATRIKS SINTESIS RISET (UNDUH PDF, CSV, XLSX)
+--------------------------------------------------------------------------------
+- Tombol Unduh Dropdown di Halaman Project Overview (`ProjectOverviewScreen.tsx`):
+  * Ditempatkan berdampingan dengan tombol "Unggah Paper PDF" pada Action Button Cluster.
+  * Dilengkapi menu popover modern dengan ikon representatif dan deskripsi jelas untuk 3 format:
+    1. Dokumen PDF (.pdf): Laporan resmi berformat cetak A4 landscape menggunakan engine ReportLab,
+       dilengkapi header branding Modellyng, tabel ringkasan keabsahan sumber, serta dossier
+       rinci 13 parameter ilmiah lengkap dengan bukti kutipan kanonik dan nomor halaman.
+    2. Lembar Kerja Excel (.xlsx): Tabel multi-sheet menggunakan openpyxl dengan styling resmi
+       Modellyng Indigo (#5147E5), auto-fit kolom, dan sheet khusus profil sumber naskah.
+    3. Tabel Data CSV (.csv): Diformat dengan UTF-8 with BOM (\ufeff) sehingga teks berbahasa
+       Indonesia dan tanda baca terbuka sempurna tanpa distorsi karakter di Microsoft Excel Windows.
+  * Jaminan Anti-Kosong: Mengalirkan data aktual dari basis data (`extracted_components` dan `papers`),
+    menjamin berkas unduhan terisi penuh dan bebas dari galat.
+  * Endpoint Backend: `GET /api/v1/projects/{project_id}/export?format=pdf|csv|xlsx`
+    Menghasilkan byte stream langsung dengan header Content-Disposition attachment yang aman.
+
+10. FITUR CEK KEABSAHAN SUMBER (DOI VERIFICATION DRAWER) & GATEKEEPING STATUS
+--------------------------------------------------------------------------------
+- Tombol "Cek Keabsahan" pada Halaman Hasil Ekstraksi (`PaperResultScreen.tsx`):
+  * Terletak presisi di bawah teks deskripsi:
+    "13 parameter ilmiah diekstraksi dari naskah fisik dan ditautkan ke bukti kutipan dokumen kanonik."
+  * Menampilkan status terkini: Jika belum diverifikasi beraksen perhatian ("Perlu verifikasi sumber"),
+    dan jika sudah terverifikasi menampilkan lencana hijau berpenanda skor ("Cek Keabsahan (Terverifikasi) 96/100").
+- Panel Drawer Meluncur dari Sebelah Kiri Layar (`DoiVerificationDrawer.tsx`):
+  * Meluncur halus dari sisi kiri layar (`slide-in from left` dengan backdrop peredup kaca buram).
+  * Input DOI otomatis terisi (pre-filled) dari hasil deteksi kanonik teks naskah PDF asli (`papers.doi`).
+    Pengguna dapat menyunting atau memasukkan nomor DOI jika naskah belum memiliki DOI otomatis.
+  * Tombol "Verifikasi Sumber" memicu pemindaian sistem ke basis data kanonik resmi Crossref REST API
+    dengan fallback otomatis ke DataCite.
+  * Status Pembekuan (Loading Freeze State): Selama proses pemeriksaan berlangsung, panel membeku
+    dengan animasi loader terpadu untuk mencegah interaksi ganda.
+  * Ringkasan Evaluasi Kredibilitas Sumber:
+    - Skor Kredibilitas (0-100) dan Keputusan Keabsahan ("Sangat Kredibel (Jurnal Bereputasi Internasional)").
+    - Lencana Indeksasi Ilmiah ("Crossref Terdaftar Resmi", "Penerbit Bereputasi", "ISSN Terverifikasi", "Terindeks Scopus / SINTA").
+    - Metadata Kanonik Resmi: Judul naskah resmi, nama penerbit, nama berkala/jurnal, nomor ISSN, tahun terbit, dan jumlah sitasi.
+    - Evaluasi Auditor Cerdas: Paragraf ringkasan ilmiah objektif yang menjawab secara lugas: "Apakah naskah ini dapat dipercaya?".
+- Aturan Mutlak & Gatekeeping Status Dokumen:
+  1. Aturan 1 Kali Saja (Permanent Lock): Verifikasi sumber hanya dapat dijalankan 1 kali per dokumen.
+     Setelah diverifikasi, input DOI dan tombol aksi dikunci permanen.
+  2. Cache Laporan Otomatis: Jika tombol "Cek Keabsahan" diklik untuk kedua kalinya atau seterusnya,
+     panel langsung menyajikan ringkasan laporan kredibilitas yang telah tersimpan tanpa pemindaian ulang.
+  3. Gatekeeping Status Siap (Ready Gatekeeper): Jika verifikasi keabsahan sumber belum pernah dilakukan,
+     dokumen paper TIDAK AKAN PERNAH bertransisi ke status "Siap" (`ready`), baik melalui persetujuan
+     individual maupun tombol "Terima Semua Tinjauan (Bulk Accept)". Dokumen tetap tertahan dalam antrean
+     peninjauan (`needs_review`) sampai verifikasi sumber diselesaikan oleh peneliti.
+
 
 
 ================================================================================

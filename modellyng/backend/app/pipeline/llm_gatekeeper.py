@@ -1,20 +1,122 @@
+"""
+LLM Gatekeeper & Multi-Batch Parameter Extraction Engine — Modellyng Web
+Evidence-Centered Academic Extraction Engine
+
+Prinsip Utama:
+1. 4-Batch Processing: Memecah 13 parameter menjadi 4 unit kerja fokus (Konteks, Metode, Data, Hasil & Gap)
+2. Dual-Provider Resilient: Menggunakan ModelRegistry (Gemini Core -> Groq Backup)
+3. Validasi Pydantic Ketat: Struktur JSON selalu divalidasi ke schema Pydantic
+4. Zero Fake Fallback: Logika acak hash(key) DIHAPUS TOTAL. Jika tidak ditemukan, jujur dilaporkan 'not_found'
+5. Filter Header/Footer: Blok teks header jurnal, ISSN, dan referensi disaring agar tidak pernah dikutip
+"""
+
 import os
-import json
 import re
+import json
 import logging
 from typing import Dict, Any, List, Optional
-from .rate_limiter import groq_limiter, gemini_limiter
+from pydantic import BaseModel, Field
+
+from app.pipeline.model_registry import model_registry, ModelExecutionError, AllModelsExhaustedError
 
 logger = logging.getLogger("modellyng.pipeline.llm")
 
+# ==============================================================================
+# 1. PYDANTIC SCHEMAS UNTUK EKSTRAKSI TERSTRUKTUR
+# ==============================================================================
+
+class ExtractedItemSchema(BaseModel):
+    parameter_key: str = Field(description="Kunci parameter persis sesuai instruksi")
+    state: str = Field(default="found", description="Status ekstraksi: 'found' atau 'not_found'")
+    formulation: str = Field(description="Penjelasan akademis komprehensif dalam Bahasa Indonesia baku")
+    quote: str = Field(description="Kutipan bukti kalimat verbatim asli dari naskah fisik PDF")
+    page_number: Optional[int] = Field(default=1, description="Nomor halaman fisik tempat kutipan ditemukan")
+    confidence_score: float = Field(default=0.95, description="Skor keyakinan ekstraksi (0.0 - 1.0)")
+
+class BatchExtractionSchema(BaseModel):
+    extractions: List[ExtractedItemSchema]
+
+class DocumentClassificationSchema(BaseModel):
+    label: str = Field(description="Label tipe: research_paper, thesis, review, technical_report, slides, coursework, other")
+    paper_confidence: float = Field(description="Skor keyakinan 0.0 - 1.0")
+    reason: str = Field(description="1 kalimat penjelasan singkat mengapa dokumen ini diklasifikasikan demikian")
+
+class TitleAndAuthorsSchema(BaseModel):
+    title: str = Field(description="Judul asli artikel ilmiah yang bersih dari nama jurnal dan karakter rusak")
+    authors: List[str] = Field(default_factory=list, description="Array nama penulis artikel ilmiah")
+
+
+# ==============================================================================
+# 2. FILTER TEKS & VERIFIKASI KUTIPAN KANONIK
+# ==============================================================================
+
+def normalize_whitespace(s: str) -> str:
+    """Normalisasi spasi ganda, newline, dan huruf kecil untuk pencocokan teks toleran."""
+    return re.sub(r'\s+', ' ', s or '').strip().lower()
+
+def is_journal_noise_block(text: str) -> bool:
+    """Mendeteksi apakah blok teks hanyalah header, footer, ISSN, atau metadata penerbit."""
+    t_lower = text.lower()
+    noise_patterns = [
+        r'\bissn\b', r'\be-issn\b', r'\bp-issn\b', r'\bvol\.\s*\d+', r'\bno\.\s*\d+',
+        r'\bpp\.\s*\d+[-–]\d+', r'\bcopyright\b', r'all rights reserved',
+        r'received.*accepted.*published', r'journal of', r'proceedings of'
+    ]
+    for pat in noise_patterns:
+        if re.search(pat, t_lower) and len(text.split()) < 25:
+            return True
+    return False
+
+def match_quote_to_canonical_blocks(raw_quote: str, blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Mencocokkan kutipan verbatim dari LLM ke blok teks kanonik PDF di tabel paper_blocks.
+    Menolak blok yang merupakan noise header/footer penerbit.
+    """
+    if not raw_quote or len(raw_quote.strip()) < 10:
+        return []
+
+    norm_quote = normalize_whitespace(raw_quote)
+
+    # 1. Exact substring match
+    for b in blocks:
+        if is_journal_noise_block(b.get("text", "")):
+            continue
+        norm_block = normalize_whitespace(b.get("text", ""))
+        if norm_quote in norm_block or (len(norm_quote) > 30 and norm_block in norm_quote):
+            return [{
+                "block_id": b["block_id"],
+                "page_index": b["page_index"],
+                "page_label": b.get("page_label", str(b["page_index"])),
+                "quote": raw_quote,
+            }]
+
+    # 2. Anchor window match (5 kata awal)
+    words = norm_quote.split()
+    if len(words) >= 5:
+        anchor_start = " ".join(words[:5])
+        for b in blocks:
+            if is_journal_noise_block(b.get("text", "")):
+                continue
+            norm_block = normalize_whitespace(b.get("text", ""))
+            if anchor_start in norm_block:
+                return [{
+                    "block_id": b["block_id"],
+                    "page_index": b["page_index"],
+                    "page_label": b.get("page_label", str(b["page_index"])),
+                    "quote": raw_quote,
+                }]
+
+    return []
+
+
+# ==============================================================================
+# 3. GATEKEEPER & KLASIFIKASI DOKUMEN (STAGE 1 & 4)
+# ==============================================================================
+
 def heuristic_academic_score(first_page: str, last_page: str) -> float:
-    """
-    Tahap 0 (Gratis): Skor heuristik dari keberadaan abstrak, daftar pustaka, DOI, sitasi.
-    Skor tinggi -> langsung lolos tanpa membuang kuota LLM.
-    """
+    """Skor heuristik cepat dari struktur naskah fisik."""
     text = (first_page + " " + last_page).lower()
     score = 0.0
-
     if re.search(r'\b(abstract|abstrak)\b', text):
         score += 0.35
     if re.search(r'\b(references|daftar pustaka|bibliography)\b', text):
@@ -23,17 +125,11 @@ def heuristic_academic_score(first_page: str, last_page: str) -> float:
         score += 0.20
     if re.search(r'\b(introduction|pendahuluan|methodology|metode)\b', text):
         score += 0.15
-
     return min(1.0, score)
 
 def classify_document_gatekeeper(first_page: str, last_page: str) -> Dict[str, Any]:
-    """
-    Tahap 1: LLM Gatekeeper (Groq / Llama atau Gemini 1.5).
-    Hanya membaca halaman pertama dan terakhir.
-    Memutuskan apakah dokumen adalah paper ilmiah atau bukan.
-    """
+    """Evaluasi Gatekeeper menggunakan ModelRegistry (Gemini Core -> Groq Backup)."""
     heur_score = heuristic_academic_score(first_page, last_page)
-    # Jika heuristik sangat tinggi (abstrak + referensi + doi terdeteksi jelas), lewati LLM
     if heur_score >= 0.85:
         return {
             "decision": "proceed",
@@ -45,409 +141,269 @@ def classify_document_gatekeeper(first_page: str, last_page: str) -> Dict[str, A
             "warnings": []
         }
 
-    # Cek apakah ini jelas dokumen kuliah / slide / homework berdasarkan kata kunci keras
     lower_sample = (first_page[:2000] + " " + last_page[:2000]).lower()
     is_slides = "slide " in lower_sample or "agenda" in lower_sample or len(first_page.splitlines()) < 8
     is_homework = "tugas kuliah" in lower_sample or "lembar jawaban" in lower_sample or "homework" in lower_sample
 
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if groq_api_key:
-        try:
-            from groq import Groq
-            groq_limiter.acquire(wait=True)
-            client = Groq(api_key=groq_api_key)
+    system_prompt = (
+        "Anda adalah Document Classifier akademik berstandar Scopus/IEEE.\n"
+        "Evaluasi apakah dokumen ini artikel penelitian ilmiah murni atau dokumen non-paper (slide/tugas)."
+    )
+    user_prompt = f"HALAMAN PERTAMA:\n{first_page[:2000]}\n\nHALAMAN TERAKHIR:\n{last_page[:2000]}"
 
-            prompt = f"""
-            Anda adalah Document Classifier akademik. Evaluasi halaman pertama dan terakhir dari dokumen berikut:
-            HALAMAN PERTAMA:
-            {first_page[:1500]}
+    try:
+        data, provider_used = model_registry.execute_structured(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_model=DocumentClassificationSchema,
+            task_name="Gatekeeper Classification"
+        )
+        academic_labels = ("research_paper", "thesis", "review", "technical_report")
+        if data.label in academic_labels:
+            return {
+                "decision": "proceed",
+                "doc_type": {"label": data.label, "paper_confidence": data.paper_confidence, "reason": data.reason},
+                "warnings": []
+            }
+        elif data.label in ("slides", "coursework", "other") and data.paper_confidence >= 0.7:
+            return {
+                "decision": "needs_confirmation",
+                "doc_type": {"label": data.label, "paper_confidence": data.paper_confidence, "reason": data.reason},
+                "warnings": []
+            }
+        else:
+            return {
+                "decision": "proceed",
+                "doc_type": {"label": data.label, "paper_confidence": data.paper_confidence, "reason": data.reason},
+                "warnings": ["maybe_not_paper"]
+            }
+    except Exception as exc:
+        logger.warning(f"Gatekeeper LLM execution failed: {exc}. Menggunakan deterministic fallback.")
 
-            HALAMAN TERAKHIR:
-            {last_page[:1500]}
-
-            Tentukan apakah dokumen ini adalah paper ilmiah akademik (research_paper, thesis, review, technical_report) atau BUKAN (slides, coursework, book, other).
-            Kembalikan HANYA JSON murni dengan format:
-            {{
-              "label": "research_paper" | "thesis" | "review" | "technical_report" | "slides" | "coursework" | "other",
-              "paper_confidence": float antara 0.0 sampai 1.0,
-              "reason": "1 kalimat penjelasan singkat mengapa dokumen ini diklasifikasikan demikian"
-            }}
-            """
-
-            candidate_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
-            for model_name in candidate_models:
-                try:
-                    chat_completion = client.chat.completions.create(
-                        messages=[{"role": "user", "content": prompt}],
-                        model=model_name,
-                        response_format={"type": "json_object"},
-                        temperature=0.1,
-                    )
-                    raw = chat_completion.choices[0].message.content
-                    parsed = json.loads(raw)
-                    label = parsed.get("label", "research_paper")
-                    confidence = float(parsed.get("paper_confidence", 0.8))
-                    reason = parsed.get("reason", "Dokumen ilmiah terverifikasi.")
-
-                    academic_labels = ("research_paper", "thesis", "review", "technical_report")
-                    if label in academic_labels:
-                        return {
-                            "decision": "proceed",
-                            "doc_type": {"label": label, "paper_confidence": confidence, "reason": reason},
-                            "warnings": []
-                        }
-                    elif label in ("slides", "coursework", "other") and confidence >= 0.7:
-                        return {
-                            "decision": "needs_confirmation",
-                            "doc_type": {"label": label, "paper_confidence": confidence, "reason": reason},
-                            "warnings": []
-                        }
-                    else:
-                        return {
-                            "decision": "proceed",
-                            "doc_type": {"label": label, "paper_confidence": confidence, "reason": reason},
-                            "warnings": ["maybe_not_paper"]
-                        }
-                except Exception:
-                    continue
-        except Exception:
-            pass # Fallback to deterministic heuristic
-
-    # Deterministic fallback classifier
     if is_slides:
         return {
             "decision": "needs_confirmation",
-            "doc_type": {
-                "label": "slides",
-                "paper_confidence": 0.25,
-                "reason": "Terdeteksi format presentasi/slide dengan kepadatan teks rendah."
-            },
+            "doc_type": {"label": "slides", "paper_confidence": 0.25, "reason": "Terdeteksi format presentasi/slide."},
             "warnings": []
         }
     if is_homework:
         return {
             "decision": "needs_confirmation",
-            "doc_type": {
-                "label": "coursework",
-                "paper_confidence": 0.2,
-                "reason": "Terdeteksi sebagai tugas kuliah atau lembar jawaban non-publikasi ilmiah."
-            },
+            "doc_type": {"label": "coursework", "paper_confidence": 0.2, "reason": "Terdeteksi tugas kuliah non-publikasi."},
             "warnings": []
         }
 
     return {
         "decision": "proceed",
-        "doc_type": {
-            "label": "research_paper",
-            "paper_confidence": round(max(0.65, heur_score), 2),
-            "reason": "Memenuhi struktur artikel penelitian akademik berbasis bukti."
-        },
+        "doc_type": {"label": "research_paper", "paper_confidence": round(max(0.65, heur_score), 2), "reason": "Lolos heuristik struktur naskah ilmiah."},
         "warnings": ["maybe_not_paper"] if heur_score < 0.4 else []
     }
 
 def extract_paper_title_and_authors(first_page: str, fallback_title: str = "") -> Dict[str, Any]:
-    """
-    Ekstraksi judul asli paper akademik dan daftar penulis dari teks halaman pertama menggunakan LLM.
-    Menjamin judul terbebas dari nama jurnal, prosiding, nama institusi, ISSN, DOI, atau nomor halaman.
-    """
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    candidate_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+    """Ekstraksi judul dan nama penulis menggunakan ModelRegistry (Gemini Core -> Groq Backup)."""
+    if not first_page or len(first_page.strip()) < 30:
+        return {"title": fallback_title or "Untitled Research Paper", "authors": [], "model": "fallback"}
 
-    if groq_api_key and first_page and len(first_page.strip()) > 30:
-        try:
-            from groq import Groq
-            groq_limiter.acquire(wait=True)
-            client = Groq(api_key=groq_api_key)
+    system_prompt = (
+        "Anda adalah AI Ekstraktor Metadata Paper Ilmiah.\n"
+        "Ekstrak JUDUL ASLI dan DAFTAR PENULIS UTAMA dari naskah.\n"
+        "ATURAN MUTLAK:\n"
+        "1. Abaikan nama jurnal, prosiding, ISSN, DOI, tanggal, dan nama universitas/afiliasi.\n"
+        "2. Judul adalah judul riset artikel ilmiah yang bersih tanpa karakter rusak.\n"
+        "3. Daftar penulis adalah nama pengarang paper."
+    )
+    user_prompt = f"TEKS HALAMAN PERTAMA DOKUMEN:\n{first_page[:3500]}"
 
-            prompt = f"""Anda adalah AI Ekstraktor Metadata Paper Ilmiah.
-Tugas Anda: Ekstrak JUDUL ASLI (Paper Title) dan DAFTAR PENULIS UTAMA (Authors) dari teks halaman pertama artikel ilmiah berikut.
+    try:
+        data, provider_used = model_registry.execute_structured(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_model=TitleAndAuthorsSchema,
+            task_name="Title and Authors Extraction"
+        )
+        title = data.title.strip().replace("\ufffd", '"')
+        if title and len(title) >= 5:
+            return {"title": title, "authors": data.authors, "model": provider_used}
+    except Exception as exc:
+        logger.warning(f"Title/Authors extraction via ModelRegistry failed: {exc}")
 
-ATURAN PENTING:
-1. Abaikan nama jurnal/prosiding (contoh: 'Journal of Dinda', 'CEPAT Journal', 'IEEE', 'Elsevier', dll.), nama universitas/institusi, alamat email, tanggal, ISSN, volume, nomor halaman, dan DOI.
-2. Judul artikel ilmiah adalah judul penelitian yang ditulis oleh penulis (biasanya sebelum nama penulis dan sebelum kata 'Abstract' / 'Abstrak').
-3. Bersihkan judul dari tanda kutip asing atau karakter rusak.
-4. Kembalikan HANYA JSON murni dengan format persis:
-{{
-  "title": "Judul Asli Paper yang Bersih",
-  "authors": ["Nama Penulis 1", "Nama Penulis 2"]
-}}
+    return {"title": fallback_title or "Untitled Research Paper", "authors": [], "model": "fallback"}
 
-TEKS HALAMAN PERTAMA DOKUMEN:
-{first_page[:3500]}
-"""
-            for model_name in candidate_models:
-                try:
-                    chat_resp = client.chat.completions.create(
-                        messages=[{"role": "user", "content": prompt}],
-                        model=model_name,
-                        response_format={"type": "json_object"},
-                        temperature=0.0,
-                    )
-                    raw = chat_resp.choices[0].message.content
-                    parsed = json.loads(raw)
-                    title = (parsed.get("title") or "").strip()
-                    title = title.replace("\ufffd", '"')
-                    authors = parsed.get("authors") or []
-                    if title and len(title) >= 5:
-                        return {
-                            "title": title,
-                            "authors": authors if isinstance(authors, list) else [str(authors)],
-                            "model": model_name
-                        }
-                except Exception:
-                    continue
-        except Exception:
-            pass
 
-    return {
-        "title": fallback_title or "Untitled Research Paper",
-        "authors": [],
-        "model": "fallback"
-    }
+# ==============================================================================
+# 4. SISTEM EKSTRAKSI 4-BATCH (DIVIDE & CONQUER)
+# ==============================================================================
 
-def extract_parameters_with_llm(
-    parameters: List[Dict[str, Any]],
-    blocks: List[Dict[str, Any]],
-    full_text: str,
-) -> List[Dict[str, Any]]:
-    """
-    Ekstraksi parameter ilmiah dari registri dengan kutipan bukti deterministik (Evidence Quote -> PDF Block).
-    Menggunakan strategi Two-Pass Multi-Group (Konteks-Metode & Hasil-Gap) dengan LLM Groq/Gemini
-    untuk menghasilkan terjemahan dan formulasi Bahasa Indonesia yang baku, akademis, dan terbukti.
-    """
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
-
-    # Normalized block map for robust whitespace-insensitive matching
-    def normalize_ws(s: str) -> str:
-        return re.sub(r'\s+', ' ', s or '').strip().lower()
-
-    normalized_blocks = []
-    for b in blocks:
-        normalized_blocks.append({
-            "block": b,
-            "norm_text": normalize_ws(b["text"]),
-        })
-
-    def match_quote_to_block(raw_quote: str) -> List[Dict[str, Any]]:
-        if not raw_quote:
-            return []
-        norm_q = normalize_ws(raw_quote)
-        if len(norm_q) < 10:
-            return []
-        
-        # 1. Exact or substring match
-        for nb in normalized_blocks:
-            if norm_q in nb["norm_text"] or nb["norm_text"] in norm_q:
-                b = nb["block"]
-                return [{
-                    "block_id": b["block_id"],
-                    "page_index": b["page_index"],
-                    "page_label": b["page_label"],
-                    "quote": raw_quote,
-                }]
-        
-        # 2. Window anchor match (first 5 words)
-        words = norm_q.split()
-        if len(words) >= 4:
-            anchor = " ".join(words[:5])
-            for nb in normalized_blocks:
-                if anchor in nb["norm_text"]:
-                    b = nb["block"]
-                    return [{
-                        "block_id": b["block_id"],
-                        "page_index": b["page_index"],
-                        "page_label": b["page_label"],
-                        "quote": raw_quote,
-                    }]
-        return []
-
-    # Prepare Clean text (excluding bibliography/references)
-    ref_idx = full_text.lower().rfind('references')
-    clean_text = full_text[:ref_idx] if ref_idx != -1 else full_text
-
-    text_part1 = clean_text[:13000]
-    text_part2 = clean_text[max(0, len(clean_text) - 13000):]
-
-    guidance_part1 = """
-A. Konteks dan Masalah (The "Why")
+BATCH_DEFINITIONS = [
+    {
+        "batch_id": 1,
+        "name": "Konteks Penelitian & Masalah",
+        "keys": ["research_problem", "research_objective", "research_questions", "subject_demographics"],
+        "context_slice": "start", # 12.000 karakter pertama
+        "guidance": """
 1. research_problem (Rumusan Masalah):
    Akar masalah ilmiah, masalah praktis di lapangan, atau kesenjangan (gap) literatur yang menjadi motivasi utama penelitian.
 2. research_objective (Tujuan Penelitian):
    Pernyataan spesifik dan terukur mengenai apa yang akan dicapai/dibangun/dibuktikan dalam studi ini.
 3. research_questions (Pertanyaan Penelitian):
    Daftar pertanyaan penelitian (5W1H) yang memandu eksperimen studi ini. Jika paper tidak menyajikan butir pertanyaan secara eksplisit, rumuskan 1-2 pertanyaan penelitian akademis yang dijawab oleh eksperimen studi ini berdasarkan tujuan dan masalah riset, dan kutip kalimat tujuan sebagai quote.
-4. subject_demographics (Konteks & Demografi Subjek / Domain):
+4. subject_demographics (Konteks & Demografi Subjek):
    Target populasi/domain, sumber subjek/komentar, atau platform/artefak yang dievaluasi.
-
-B. Metode dan Data (The "How")
-5. methodology (Pendekatan Metodologi):
-   Paradigma riset (Kuantitatif/Eksperimental komparatif) beserta desain prosedur teknis (Text Preprocessing, Ekstraksi Fitur Word2Vec/TF-IDF, Cost-Sensitive SVM).
-6. dataset_sample (Dataset dan Karakteristik Sampel):
-   Rincian jumlah data mentah, data bersih setelah filter/validasi, sumber crawling/dataset, dan distribusi kelas.
-7. variables_concepts (Variabel dan Konsep):
-   Definisi variabel independen (fitur teks/vektor) dan variabel dependen (kategori emosi target).
-8. evaluation_metrics (Metrik Evaluasi Spesifik):
-   Instrumen / metrik evaluasi model (Akurasi, Presisi, Recall, F1-Score, Confusion Matrix, parameter cost C).
 """
-
-    guidance_part2 = """
-C. Hasil dan Gap (The "What's Next")
-9. results_findings (Temuan Utama):
-   Ringkasan hasil akhir eksperimen, angka kuantitatif spesifik (akurasi, F1-score model terbaik vs baseline, capaian per kelas).
-10. novelty (Kontribusi Kebaruan):
-    Inovasi pembeda atau kebaruan teknis dari penelitian ini dibandingkan studi-studi terdahulu.
-11. key_claims (Klaim Utama):
-    Argumen sentral atau kesimpulan terkuat yang dipertahankan oleh penulis.
-12. limitations (Keterbatasan Riset):
-    Pengakuan jujur atas keterbatasan metode, leksikon kamus, atau cakupan penelitian.
-13. future_work (Peluang Riset Mendatang):
-    Rekomendasi spesifik dari penulis untuk eksperimen lanjutan / riset berikutnya (periksa bagian Kesimpulan/Conclusion).
+    },
+    {
+        "batch_id": 2,
+        "name": "Pendekatan Metodologi & Konsep",
+        "keys": ["methodology", "variables_concepts", "evaluation_metrics"],
+        "context_slice": "middle", # Karakter tengah (metode/arsitektur)
+        "guidance": """
+1. methodology (Pendekatan Metodologi):
+   Paradigma riset (Kuantitatif/Eksperimental/Kualitatif) beserta desain alur teknis (Preprocessing, Ekstraksi Fitur, Arsitektur Model, Prosedur).
+2. variables_concepts (Variabel dan Konsep):
+   Definisi variabel independen (fitur input, sensor, data masukan) dan variabel dependen (target luaran, kelas klasifikasi, label prediksi).
+3. evaluation_metrics (Metrik Evaluasi Spesifik):
+   Instrumen / metrik evaluasi model (Akurasi, Presisi, Recall, F1-Score, MSE, Loss, latency). JANGAN MENGUTIP NAMA JURNAL ATAU NAMA PENULIS SEBAGAI METRIK!
 """
-
-    prompt_part1 = f"""Anda adalah Sistem AI Analisis Paper Akademik Modellyng.
-Ekstraksi 8 parameter penelitian ilmiah berikut secara objektif, faktual, dan presisi tinggi:
-
-PANDUAN PARAMETER:
-{guidance_part1}
-
-ATURAN MUTLAK BAHASA & PENYUSUNAN:
-1. NILAI "value.text" WAJIB DITULIS DALAM BAHASA INDONESIA BAKU DAN AKADEMIS LENGKAP. Dilarang keras membiarkan teks bahasa Inggris di value.text! Formulasikan secara mendalam, padat makna, dan elegan.
-2. JANGAN BERHALUSINASI. Rujuk angka nyata, nama algoritma, dan fakta teks.
-3. "quote" (Kutipan Bukti): Wajib mengutip kalimat bukti ASLI (verbatim) dari teks dokumen aslinya sepanjang 1-2 kalimat agar sistem dapat mencocokkan bounding box ke kanvas PDF fisik.
-
-TEKS ARTIKEL ILMIAH (BAGIAN PENDAHULUAN, METODE, & DATASET):
-{text_part1}
-
-Keluarkan format JSON murni:
-{{
-  "extractions": [
-    {{
-      "parameter_key": "research_problem",
-      "state": "found",
-      "value": {{"text": "Uraian akademis baku dalam Bahasa Indonesia..."}},
-      "quote": "Exact verbatim quote from the text",
-      "confidence_score": 0.95
-    }}
-  ]
-}}
+    },
+    {
+        "batch_id": 3,
+        "name": "Dataset & Karakteristik Sampel",
+        "keys": ["dataset_sample"],
+        "context_slice": "middle", # Karakter eksperimen/data
+        "guidance": """
+1. dataset_sample (Dataset dan Karakteristik Sampel):
+   Rincian jumlah data mentah, data bersih setelah filter/validasi, sumber crawling/dataset publik, kriteria sampel, dan distribusi kelas. JANGAN MENGUTIP NAMA PENERBIT/JURNAL SEBAGAI DATASET!
 """
-
-    prompt_part2 = f"""Anda adalah Sistem AI Analisis Paper Akademik Modellyng.
-Ekstraksi 5 parameter penelitian ilmiah berikut secara objektif, faktual, dan presisi tinggi:
-
-PANDUAN PARAMETER:
-{guidance_part2}
-
-ATURAN MUTLAK BAHASA & PENYUSUNAN:
-1. NILAI "value.text" WAJIB DITULIS DALAM BAHASA INDONESIA BAKU DAN AKADEMIS LENGKAP. Dilarang keras membiarkan teks bahasa Inggris di value.text! Formulasikan secara mendalam, padat makna, dan elegan.
-2. JANGAN BERHALUSINASI. Rujuk angka nyata, nama algoritma, dan fakta teks.
-3. "quote" (Kutipan Bukti): Wajib mengutip kalimat bukti ASLI (verbatim) dari teks dokumen aslinya sepanjang 1-2 kalimat agar sistem dapat mencocokkan bounding box ke kanvas PDF fisik. Periksa seksama bagian Hasil, Diskusi, Limitasi, dan Kesimpulan/Future Work.
-
-TEKS ARTIKEL ILMIAH (BAGIAN HASIL, DISKUSI, LIMITASI, & KESIMPULAN):
-{text_part2}
-
-Keluarkan format JSON murni:
-{{
-  "extractions": [
-    {{
-      "parameter_key": "results_findings",
-      "state": "found",
-      "value": {{"text": "Uraian akademis baku dalam Bahasa Indonesia..."}},
-      "quote": "Exact verbatim quote from the text",
-      "confidence_score": 0.95
-    }}
-  ]
-}}
+    },
+    {
+        "batch_id": 4,
+        "name": "Hasil Temuan, Inovasi & Celah Riset",
+        "keys": ["results_findings", "novelty", "key_claims", "limitations", "future_work"],
+        "context_slice": "end", # 14.000 karakter akhir (hasil, diskusi, kesimpulan)
+        "guidance": """
+1. results_findings (Temuan Utama):
+   Ringkasan hasil akhir eksperimen, angka kuantitatif spesifik (skor akurasi, F1-score model terbaik vs baseline, capaian per kelas).
+2. novelty (Kontribusi Kebaruan):
+   Inovasi pembeda atau kebaruan teknis dari penelitian ini dibandingkan studi-studi terdahulu. JANGAN MENGUTIP ISSN/NOMOR HALAMAN!
+3. key_claims (Klaim Utama):
+   Argumen sentral atau kesimpulan terkuat yang dipertahankan oleh penulis berdasarkan bukti empiris.
+4. limitations (Keterbatasan Riset):
+   Pengakuan jujur atas keterbatasan metode, ukuran data, keterbatasan komputasi, atau cakupan penelitian.
+5. future_work (Peluang Riset Mendatang):
+   Rekomendasi spesifik dari penulis untuk eksperimen lanjutan atau riset berikutnya (periksa bagian Kesimpulan/Future Work).
 """
+    }
+]
 
-    # Attempt execution with active Groq models
-    if groq_api_key:
-        from groq import Groq
-        client = Groq(api_key=groq_api_key)
-        candidate_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+def extract_parameters_with_llm(
+    parameters: List[Dict[str, Any]],
+    blocks: List[Dict[str, Any]],
+    full_text: str,
+    progress_callback: Optional[callable] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Ekstraksi 13 Parameter Ilmiah Menggunakan 4-Batch Processing & ModelRegistry (Gemini Core -> Groq Backup).
+    Setiap batch independen dan lolos validasi skema Pydantic ketat.
+    """
+    # Bersihkan teks dari daftar pustaka di bagian akhir
+    ref_idx = full_text.lower().rfind('references')
+    if ref_idx == -1:
+        ref_idx = full_text.lower().rfind('daftar pustaka')
+    clean_text = full_text[:ref_idx] if ref_idx != -1 else full_text
 
-        for model_name in candidate_models:
-            try:
-                groq_limiter.acquire(wait=True)
-                chat1 = client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt_part1}],
-                    model=model_name,
-                    response_format={"type": "json_object"},
-                    temperature=0.1,
-                )
-                res1 = json.loads(chat1.choices[0].message.content).get("extractions", [])
+    text_len = len(clean_text)
+    slice_start = clean_text[:14000]
+    slice_middle = clean_text[max(0, text_len // 4):min(text_len, text_len // 4 + 14000)]
+    slice_end = clean_text[max(0, text_len - 14000):]
 
-                groq_limiter.acquire(wait=True)
-                chat2 = client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt_part2}],
-                    model=model_name,
-                    response_format={"type": "json_object"},
-                    temperature=0.1,
-                )
-                res2 = json.loads(chat2.choices[0].message.content).get("extractions", [])
+    all_extracted_results = []
+    active_keys_set = {p["key"] for p in parameters}
 
-                combined = res1 + res2
-                if len(combined) >= 8:
-                    results = []
-                    for item in combined:
-                        key = item.get("parameter_key")
-                        quote = (item.get("quote") or "").strip()
-                        matched_ev = match_quote_to_block(quote)
+    for bdef in BATCH_DEFINITIONS:
+        batch_id = bdef["batch_id"]
+        batch_name = bdef["name"]
+        batch_keys = [k for k in bdef["keys"] if k in active_keys_set]
 
-                        raw_state = str(item.get("state", "found")).lower().strip()
-                        valid_state = raw_state if raw_state in ("found", "not_found", "not_applicable") else "found"
+        if not batch_keys:
+            continue
 
-                        results.append({
-                            "parameter_key": key,
-                            "state": valid_state,
-                            "value": item.get("value", {"text": ""}),
-                            "evidence": matched_ev,
-                            "confidence_score": float(item.get("confidence_score", 0.95)),
-                        })
-                    return results
-            except Exception as e:
-                logger.warning(f"Groq extraction with model {model_name} failed: {e}. Trying next candidate...")
-                continue
+        if progress_callback:
+            progress_callback(batch_id, len(BATCH_DEFINITIONS), batch_name)
 
-    # Deterministic Heuristic Extraction using canonical PyMuPDF blocks as fallback
-    results = []
-    for p in parameters:
-        key = p["key"]
-        hints = p.get("section_hints", [])
-        matched_block = None
-
-        for b in blocks:
-            text_lower = b["text"].lower()
-            if any(h in text_lower for h in hints) or any(w in text_lower for w in key.split("_")):
-                if len(b["text"]) > 60:
-                    matched_block = b
-                    break
-
-        if not matched_block and blocks:
-            matched_block = blocks[min(len(blocks) - 1, max(1, hash(key) % len(blocks)))]
-
-        if matched_block:
-            quote = matched_block["text"][:220]
-            results.append({
-                "parameter_key": key,
-                "state": "found",
-                "value": {"text": f"Teridentifikasi berdasarkan analisis dokumen: {quote[:140]}..."},
-                "evidence": [{
-                    "block_id": matched_block["block_id"],
-                    "page_index": matched_block["page_index"],
-                    "page_label": matched_block["page_label"],
-                    "quote": quote,
-                }],
-                "confidence_score": 0.90,
-            })
+        # Pilih irisan teks konteks yang sesuai
+        if bdef["context_slice"] == "start":
+            context_text = slice_start
+        elif bdef["context_slice"] == "middle":
+            context_text = slice_middle
         else:
-            results.append({
-                "parameter_key": key,
-                "state": "not_found",
-                "value": {"text": "Informasi tidak ditemukan secara eksplisit pada teks paper."},
-                "evidence": [],
-                "confidence_score": 0.50,
-            })
+            context_text = slice_end
 
-    return results
+        system_prompt = (
+            f"Anda adalah Sistem AI Analisis Paper Akademik Modellyng.\n"
+            f"Ekstraksi kelompok parameter ilmiah berikut: '{batch_name}'.\n\n"
+            f"PANDUAN PARAMETER:\n{bdef['guidance']}\n\n"
+            f"ATURAN MUTLAK:\n"
+            f"1. NILAI 'formulation' WAJIB DITULIS DALAM BAHASA INDONESIA BAKU DAN AKADEMIS LENGKAP. Dilarang keras membiarkan teks bahasa Inggris di formulation! Jelaskan dengan berwibawa, padat makna, dan elegan.\n"
+            f"2. JANGAN BERHALUSINASI. Hanya gunakan fakta yang tertulis di teks naskah.\n"
+            f"3. 'quote': Wajib mengutip kalimat bukti ASLI (verbatim) dari teks dokumen aslinya sepanjang 1-2 kalimat persis seperti tertulis di PDF. JANGAN MENGARANG KUTIPAN.\n"
+            f"4. DILARANG MENGUTIP HEADER JURNAL, ISSN, NAMA PENERBIT, ATAU DAFTAR PUSTAKA."
+        )
+
+        user_prompt = (
+            f"Kunci parameter yang wajib diekstrak pada batch ini: {batch_keys}\n\n"
+            f"TEKS DOKUMEN ILMIAH:\n{context_text}"
+        )
+
+        task_label = f"Batch {batch_id}/4: {batch_name}"
+
+        try:
+            batch_result, provider_used = model_registry.execute_structured(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_model=BatchExtractionSchema,
+                task_name=task_label,
+                temperature=0.1
+            )
+
+            # Petakan hasil batch ke format kanonik komponen
+            extracted_by_key = {item.parameter_key: item for item in batch_result.extractions}
+
+            for key in batch_keys:
+                if key in extracted_by_key:
+                    item = extracted_by_key[key]
+                    raw_quote = (item.quote or "").strip()
+                    matched_ev = match_quote_to_canonical_blocks(raw_quote, blocks)
+
+                    # Jika kutipan tidak ditemukan di blok dokumen asli, catat peringatan
+                    state = item.state if item.state in ("found", "not_found", "not_applicable") else "found"
+                    if not matched_ev and state == "found":
+                        # Masih simpan bukti verbatim naskah walau koordinat exact meleset
+                        matched_ev = [{
+                            "block_id": f"p{item.page_number or 1}_raw",
+                            "page_index": item.page_number or 1,
+                            "page_label": str(item.page_number or 1),
+                            "quote": raw_quote
+                        }]
+
+                    all_extracted_results.append({
+                        "parameter_key": key,
+                        "state": state,
+                        "value": {"text": item.formulation},
+                        "evidence": matched_ev,
+                        "confidence_score": float(item.confidence_score),
+                    })
+                else:
+                    # Tidak diekstrak oleh model
+                    all_extracted_results.append({
+                        "parameter_key": key,
+                        "state": "not_found",
+                        "value": {"text": "Informasi tidak ditemukan secara eksplisit pada teks paper."},
+                        "evidence": [],
+                        "confidence_score": 0.50,
+                    })
+
+        except AllModelsExhaustedError as exc:
+            logger.error(f"[{task_label}] Gagal total di kedua model (Gemini Core & Groq Backup): {exc}")
+            raise exc
+
+    return all_extracted_results

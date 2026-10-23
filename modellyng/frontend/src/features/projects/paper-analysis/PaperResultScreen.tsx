@@ -18,6 +18,7 @@ import {
 import { PdfViewer } from "@/features/projects/paper-analysis/PdfViewer"
 import { EvidencePanel } from "@/features/projects/paper-analysis/EvidencePanel"
 import { ComponentAiRevisionModal } from "./ComponentAiRevisionModal"
+import { DoiVerificationDrawer } from "./DoiVerificationDrawer"
 import {
   ArrowLeft,
   Sparkles,
@@ -80,6 +81,8 @@ export default function PaperResultScreen() {
   const [activeComponentLabel, setActiveComponentLabel] = useState<string>("")
   const [targetPage, setTargetPage] = useState<number>(1)
   const [editingComponent, setEditingComponent] = useState<ExtractedComponent | null>(null)
+  const [isDoiDrawerOpen, setIsDoiDrawerOpen] = useState<boolean>(false)
+  const isPaperVerified = Boolean(paper?.source_verification)
 
   // 4. Layout States: Resizable Split Pane & Resizable Evidence Panel
   const [leftWidthPercent, setLeftWidthPercent] = useState<number>(48)
@@ -323,14 +326,46 @@ export default function PaperResultScreen() {
             className="h-full overflow-y-auto p-4 sm:p-5 space-y-4 bg-slate-50/50 dark:bg-background/80 shrink-0 select-text"
           >
             {/* Panel Section Header (Clean, Academic) */}
-            <div className="pb-1 border-b border-border/70 space-y-0.5">
-              <h3 className="font-bold text-sm text-foreground flex items-center gap-1.5 tracking-tight">
-                <Sparkles className="size-4 text-primary" />
-                <span>Parameter Hasil Ekstraksi Ilmiah</span>
-              </h3>
-              <p className="text-[11px] text-muted-foreground">
-                13 parameter ilmiah diekstraksi dari naskah fisik dan ditautkan ke bukti kutipan dokumen kanonik.
-              </p>
+            <div className="pb-2.5 border-b border-border/70 space-y-2">
+              <div className="space-y-0.5">
+                <h3 className="font-bold text-sm text-foreground flex items-center gap-1.5 tracking-tight">
+                  <Sparkles className="size-4 text-primary" />
+                  <span>Parameter Hasil Ekstraksi Ilmiah</span>
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  13 parameter ilmiah diekstraksi dari naskah fisik dan ditautkan ke bukti kutipan dokumen kanonik.
+                </p>
+              </div>
+
+              {/* Tombol Cek Keabsahan Sumber */}
+              <div className="flex items-center gap-2 pt-0.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDoiDrawerOpen(true)}
+                  className={`gap-2 h-8 px-3 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs ${
+                    isPaperVerified
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
+                      : "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                  }`}
+                  title="Buka panel Cek Keabsahan DOI dan reputasi sumber paper"
+                >
+                  <ShieldCheck className={`size-3.5 ${isPaperVerified ? "text-emerald-600 dark:text-emerald-400" : "text-primary"}`} />
+                  <span>{isPaperVerified ? "Cek Keabsahan (Terverifikasi)" : "Cek Keabsahan"}</span>
+                  {isPaperVerified && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-emerald-600/20 text-emerald-800 dark:text-emerald-200">
+                      {paper?.source_verification?.trust_score || 96}/100
+                    </span>
+                  )}
+                </Button>
+
+                {!isPaperVerified && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 animate-pulse">
+                    <AlertTriangle className="size-3" />
+                    <span>Perlu verifikasi sumber</span>
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* High-Contrast Navigation Tabs */}
@@ -516,6 +551,17 @@ export default function PaperResultScreen() {
           paperTitle={paper?.title}
         />
       )}
+
+      {/* Drawer Cek Keabsahan Sumber (Meluncur dari sebelah Kiri Layar) */}
+      <DoiVerificationDrawer
+        isOpen={isDoiDrawerOpen}
+        onClose={() => setIsDoiDrawerOpen(false)}
+        projectId={projectId || ""}
+        paperId={paperId || ""}
+        paperTitle={paper?.title || "Dokumen Paper Ilmiah"}
+        initialDoi={paper?.doi || ""}
+        existingVerification={paper?.source_verification || null}
+      />
     </div>
   )
 }

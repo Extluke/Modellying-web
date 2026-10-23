@@ -131,9 +131,10 @@ def process_paper_pipeline(self, paper_id: str, force: bool = False):
         final_title = meta_extracted.get("title") or current_title
         final_authors = meta_extracted.get("authors") or []
 
-        if final_title and len(final_title) >= 5:
-            with get_db() as conn:
-                with conn.cursor() as cur:
+        extracted_doi = parse_result.get("extracted_doi") or ""
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                if final_title and len(final_title) >= 5:
                     cur.execute(
                         """
                         UPDATE public.papers 
@@ -142,7 +143,17 @@ def process_paper_pipeline(self, paper_id: str, force: bool = False):
                         """,
                         (final_title, final_authors, paper_id),
                     )
-            logger.info(f"Updated paper {paper_id} metadata: title='{final_title}', authors={final_authors}")
+                    logger.info(f"Updated paper {paper_id} metadata: title='{final_title}', authors={final_authors}")
+                if extracted_doi:
+                    cur.execute(
+                        """
+                        UPDATE public.papers 
+                        SET doi = %s 
+                        WHERE id = %s AND (doi IS NULL OR doi = '');
+                        """,
+                        (extracted_doi, paper_id),
+                    )
+                    logger.info(f"Updated paper {paper_id} DOI: '{extracted_doi}'")
 
         doc_type = gatekeeper_res["doc_type"]
         gatekeeper_warnings = gatekeeper_res["warnings"]
@@ -183,8 +194,22 @@ def process_paper_pipeline(self, paper_id: str, force: bool = False):
                         (paper_id, b["block_id"], b["page_index"], Json(b["bbox"]), b["text"]),
                     )
 
-        # Stage 7: ai_extraction
-        update_paper_stage(paper_id, stage="ai_extraction", status="processing")
+        # Stage 7: ai_extraction (4-Batch Divide & Conquer via ModelRegistry)
+        update_paper_stage(
+            paper_id,
+            stage="ai_extraction",
+            status="processing",
+            stage_detail={"current_batch": 1, "total_batches": 4, "batch_name": "Inisialisasi 4-Batch Ekstraksi"}
+        )
+
+        def on_batch_progress(batch_id: int, total_batches: int, batch_name: str):
+            logger.info(f"Paper {paper_id} extraction progress: Batch {batch_id}/{total_batches} ({batch_name})")
+            update_paper_stage(
+                paper_id,
+                stage="ai_extraction",
+                status="processing",
+                stage_detail={"current_batch": batch_id, "total_batches": total_batches, "batch_name": batch_name}
+            )
 
         # Fetch active parameters from registry
         with get_db() as conn:
@@ -199,7 +224,22 @@ def process_paper_pipeline(self, paper_id: str, force: bool = False):
                 )
                 active_params = cur.fetchall()
 
-        extraction_results = extract_parameters_with_llm(active_params, blocks, full_text)
+        try:
+            extraction_results = extract_parameters_with_llm(
+                parameters=active_params,
+                blocks=blocks,
+                full_text=full_text,
+                progress_callback=on_batch_progress
+            )
+        except Exception as exc:
+            logger.error(f"AI Extraction failed for paper {paper_id}: {exc}")
+            update_paper_stage(
+                paper_id,
+                stage="ai_extraction",
+                status="failed",
+                error={"message": "Gagal mengekstrak parameter ilmiah karena batasan kuota API penyedia.", "details": str(exc)[:200]}
+            )
+            return {"status": "failed", "error": str(exc)}
 
         # Stage 8: verifying_evidence
         update_paper_stage(paper_id, stage="verifying_evidence", status="processing")
@@ -235,10 +275,11 @@ def process_paper_pipeline(self, paper_id: str, force: bool = False):
 
         # Stage 10: ai_extraction_complete -> paper is now needs_review
         run_meta = {
-            "model_used": "groq/llama-3.3-70b-versatile",
+            "model_used": "gemini-3.5-flash (core) + groq (backup)",
+            "pipeline_architecture": "4-batch-divide-and-conquer",
             "parser_version": "pymupdf_v2",
-            "prompt_version": "v1.0",
-            "schema_version": "v1.0",
+            "prompt_version": "v2.0",
+            "schema_version": "v2.0",
         }
         update_paper_stage(
             paper_id,

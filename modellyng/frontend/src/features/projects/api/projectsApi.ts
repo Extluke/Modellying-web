@@ -48,6 +48,32 @@ export interface PaperError {
   user_message: string
 }
 
+export interface SourceVerificationMetadata {
+  doi: string
+  title: string
+  publisher: string
+  journal: string
+  issn: string
+  year: string
+  volume?: string
+  issue?: string
+  page?: string
+  citations_count?: number
+  resource_type?: string
+  is_registered?: boolean
+}
+
+export interface SourceVerificationData {
+  verified_at: string
+  doi: string
+  is_valid: boolean
+  trust_score: number
+  trust_verdict: string
+  indexation_badges: string[]
+  metadata: SourceVerificationMetadata
+  summary: string
+}
+
 export interface Paper {
   id: string
   title: string
@@ -57,15 +83,27 @@ export interface Paper {
   sha256?: string | null
   status: PaperStatus
   stage?: string | null
-  stage_detail?: { attempt?: number; next_retry_at?: string | null } | null
+  stage_detail?: {
+    attempt?: number
+    next_retry_at?: string | null
+    current_batch?: number
+    total_batches?: number
+    batch_name?: string
+  } | null
   error?: PaperError | null
   warnings?: string[]
   coverage?: PaperCoverage | null
   doc_type?: PaperDocType | null
   run?: PaperRunMeta | null
+  doi?: string | null
+  authors?: string[]
+  year?: number | null
+  journal?: string | null
+  source_verification?: SourceVerificationData | null
   uploaded_at: string
   updated_at?: string | null
 }
+
 
 export interface ProjectDetail extends Project {
   papers: Paper[]
@@ -521,4 +559,104 @@ export function useReviseComponentAi(projectId: string, paperId: string) {
       ),
   })
 }
+
+// ==============================================================================
+// EXPORT SYNTHESIS MATRIX API
+// ==============================================================================
+
+export async function downloadProjectExport(
+  projectId: string,
+  format: "pdf" | "csv" | "xlsx",
+  projectName: string
+): Promise<void> {
+  const token = localStorage.getItem("modellyng_token")
+  const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api"
+  const url = `${base}/projects/${projectId}/export?format=${format}`
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+
+  if (!response.ok) {
+    let errMsg = "Gagal mengunduh berkas sintesis riset."
+    try {
+      const err = await response.json()
+      errMsg = err.detail || errMsg
+    } catch {
+      // ignore
+    }
+    throw new Error(errMsg)
+  }
+
+  const blob = await response.blob()
+  const downloadUrl = window.URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = downloadUrl
+  const cleanName = projectName.replace(/[^a-zA-Z0-9_-]/g, "_")
+  const dateStr = new Date().toISOString().slice(0, 10)
+  a.download = `Modellyng_${cleanName}_${dateStr}.${format}`
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(downloadUrl)
+  document.body.removeChild(a)
+}
+
+// ==============================================================================
+// SOURCE VERIFICATION HOOKS
+// ==============================================================================
+
+export interface SourceVerificationResponse {
+  paper_id: string
+  doi: string
+  source_verification: SourceVerificationData | null
+  is_verified: boolean
+  status: string
+}
+
+export interface VerifySourceResult {
+  already_verified: boolean
+  verification: SourceVerificationData
+  message: string
+}
+
+export function usePaperSourceVerification(projectId?: string, paperId?: string) {
+  return useQuery({
+    queryKey: ["projects", projectId, "papers", paperId, "source-verification"],
+    queryFn: () =>
+      apiClient.get<SourceVerificationResponse>(
+        `/projects/${projectId}/papers/${paperId}/source-verification`
+      ),
+    enabled: Boolean(projectId && paperId),
+    staleTime: 1000 * 60,
+  })
+}
+
+export function useVerifyPaperSource(projectId: string, paperId: string) {
+  const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.user)
+  const userId = user?.id
+
+  return useMutation({
+    mutationFn: (doi?: string) =>
+      apiClient.post<VerifySourceResult>(
+        `/projects/${projectId}/papers/${paperId}/verify-source`,
+        { doi }
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["projects", projectId, "papers", paperId, "source-verification"],
+      })
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(userId, projectId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.lists(userId),
+      })
+    },
+  })
+}
+
 

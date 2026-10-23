@@ -31,6 +31,7 @@ import {
   Paper,
 } from "../api/projectsApi"
 import { UploadPdfModal } from "./UploadPdfModal"
+import { ExportDropdownButton } from "./ExportDropdownButton"
 import { ROUTES } from "@/app/routes"
 import { toast } from "@/lib/store/useToastStore"
 
@@ -250,6 +251,13 @@ export default function ProjectOverviewScreen() {
 
           {/* Action Button Cluster */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* Tombol Unduh Matriks Sintesis (PDF, CSV, XLSX) */}
+            <ExportDropdownButton
+              projectId={project.id}
+              projectName={project.name}
+              paperCount={project.papers?.length || 0}
+            />
+
             <Button
               onClick={() => setIsUploadModalOpen(true)}
               className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/25 h-10 px-4 text-xs font-medium cursor-pointer"
@@ -430,9 +438,13 @@ export default function ProjectOverviewScreen() {
               const isFailed = p.status === "failed"
               const isReady = ["ready", "needs_review"].includes(p.status)
 
-              const stageText = p.stage
+              let stageText = p.stage
                 ? STAGE_LABELS[p.stage] || "Memproses analisis dokumen..."
                 : "Menunggu giliran pemrosesan..."
+
+              if (p.stage === "ai_extraction" && p.stage_detail?.current_batch) {
+                stageText = `Menganalisis Batch ${p.stage_detail.current_batch}/${p.stage_detail.total_batches || 4}: ${p.stage_detail.batch_name || "Parameter Ilmiah"}...`
+              }
 
               return (
                 <div

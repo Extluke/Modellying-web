@@ -164,11 +164,21 @@ def extract_canonical_blocks_and_coverage(file_path: Path) -> Dict[str, Any]:
     if len(unreadable_pages) > 0:
         warnings.append("partial_scan")
 
+    # Detect canonical DOI in first 3 pages
+    extracted_doi = ""
+    for p_text in full_text_list[:3]:
+        match = re.search(r'\b(10\.\d{4,9}/[-._;()/:a-zA-Z0-9]+)\b', p_text)
+        if match:
+            extracted_doi = match.group(1).rstrip(".,;)>]")
+            break
+
     return {
         "coverage": coverage,
         "blocks": blocks,
         "warnings": warnings,
+        "extracted_doi": extracted_doi,
         "first_page_text": full_text_list[0] if full_text_list else "",
         "last_page_text": full_text_list[-1] if full_text_list else "",
         "full_text": "\n\n".join(full_text_list),
     }
+

@@ -4,8 +4,10 @@ import re
 import shutil
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel
 from psycopg2.extras import RealDictCursor, Json
 
 from app.database import get_db
@@ -31,12 +33,23 @@ from .models import (
 from app.pipeline.storage import STORAGE_ROOT, get_paper_file_path
 from app.pipeline.pdf_parser import inspect_pdf_metadata, PDFParseError, extract_canonical_blocks_and_coverage
 from app.pipeline.tasks import process_paper_pipeline, generate_paper_embeddings_task
+from app.pipeline.source_verification import verify_paper_doi
+from .export_service import (
+    fetch_project_export_data,
+    generate_csv_export,
+    generate_xlsx_export,
+    generate_pdf_export,
+)
 from .hybrid_search import perform_hybrid_search
 from .rag_service import generate_rag_response
 from .revision_service import generate_component_ai_revision
 
 projects_router = APIRouter(prefix="/projects", tags=["Projects & Papers"])
 papers_router = APIRouter(prefix="/papers", tags=["Papers"])
+
+
+class VerifyDoiRequest(BaseModel):
+    doi: Optional[str] = None
 
 
 def map_paper_row(pr: dict) -> PaperItem:
@@ -56,9 +69,15 @@ def map_paper_row(pr: dict) -> PaperItem:
         coverage=pr.get("coverage"),
         doc_type=pr.get("doc_type"),
         run=pr.get("run"),
+        doi=pr.get("doi"),
+        authors=pr.get("authors") or [],
+        year=pr.get("year"),
+        journal=pr.get("journal"),
+        source_verification=pr.get("source_verification"),
         uploaded_at=pr["uploaded_at"].isoformat() if hasattr(pr["uploaded_at"], "isoformat") else str(pr["uploaded_at"]),
         updated_at=pr["updated_at"].isoformat() if hasattr(pr.get("updated_at"), "isoformat") and pr.get("updated_at") else None,
     )
+
 
 
 # ==============================================================================
@@ -177,6 +196,7 @@ def get_project_detail(
                 SELECT 
                     id, title, file_name, file_size_bytes, status, total_pages, sha256,
                     stage, stage_detail, error, warnings, coverage, doc_type, run,
+                    doi, authors, year, journal, source_verification,
                     uploaded_at, updated_at
                 FROM public.papers
                 WHERE project_id = %s
@@ -1047,16 +1067,158 @@ def bulk_accept_project_reviews(
             )
 
             # 3. Transition all papers in project from 'needs_review' to 'ready'
+            # STRICT GATEKEEPING: Hanya dokumen yang telah diverifikasi keabsahannya (source_verification IS NOT NULL) yang dapat beralih ke 'ready'!
             cur.execute(
                 """
                 UPDATE public.papers
                 SET status = 'ready', updated_at = NOW()
-                WHERE project_id = %s AND status = 'needs_review';
+                WHERE project_id = %s 
+                  AND status = 'needs_review'
+                  AND source_verification IS NOT NULL;
                 """,
                 (project_id,),
             )
 
-    return {"success": True, "message": "Seluruh tinjauan dokumen dalam proyek berhasil diterima."}
+            # Hitung apakah masih ada paper yang tertahan karena belum diverifikasi
+            cur.execute(
+                """
+                SELECT COUNT(id) FROM public.papers 
+                WHERE project_id = %s AND status = 'needs_review' AND source_verification IS NULL;
+                """,
+                (project_id,),
+            )
+            unverified_count = cur.fetchone()[0]
+
+            if unverified_count > 0:
+                msg = f"Tinjauan diterima. Sebanyak {unverified_count} dokumen belum beralih ke status Siap karena belum menyelesaikan Cek Keabsahan Sumber (DOI)."
+            else:
+                msg = "Seluruh tinjauan dokumen dalam proyek berhasil diterima dan dokumen telah Siap."
+
+    return {"success": True, "message": msg, "unverified_count": unverified_count}
+
+
+# ==============================================================================
+# EXPORT SYNTHESIS MATRIX (CSV, XLSX, PDF)
+# ==============================================================================
+
+@projects_router.get("/{project_id}/export")
+def export_project_synthesis(
+    project_id: str,
+    format: str = Query("xlsx", regex="^(csv|xlsx|pdf)$", description="Format unduhan (csv, xlsx, pdf)"),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Mengunduh matriks sintesis 13 parameter ilmiah seluruh paper dalam proyek
+    dalam format CSV, Excel (.xlsx), atau PDF resmi secara presisi dan non-empty.
+    """
+    user_id = current_user["id"]
+    try:
+        data = fetch_project_export_data(project_id, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    
+    project_name = re.sub(r'[^a-zA-Z0-9_-]', '_', data["project"]["name"])
+    date_str = datetime.now().strftime("%Y%m%d_%H%M")
+    
+    if format == "csv":
+        csv_bytes = generate_csv_export(data)
+        filename = f"Modellyng_{project_name}_{date_str}.csv"
+        return Response(
+            content=csv_bytes,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    elif format == "xlsx":
+        xlsx_bytes = generate_xlsx_export(data)
+        filename = f"Modellyng_{project_name}_{date_str}.xlsx"
+        return Response(
+            content=xlsx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    elif format == "pdf":
+        pdf_bytes = generate_pdf_export(data)
+        filename = f"Modellyng_{project_name}_{date_str}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Format unduhan tidak didukung.")
+
+
+# ==============================================================================
+# SOURCE VERIFICATION ENDPOINTS (CEK KEABSAHAN DOI)
+# ==============================================================================
+
+@projects_router.get("/{project_id}/papers/{paper_id}/source-verification")
+def get_paper_source_verification(
+    project_id: str,
+    paper_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Mengambil status dan ringkasan keabsahan sumber paper yang telah diverifikasi sebelumnya.
+    """
+    user_id = current_user["id"]
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT p.id, p.doi, p.source_verification, p.status 
+                FROM public.papers p
+                JOIN public.projects pr ON pr.id = p.project_id
+                WHERE p.id = %s AND p.project_id = %s AND pr.user_id = %s;
+                """,
+                (paper_id, project_id, user_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Dokumen paper tidak ditemukan.")
+            
+            return {
+                "paper_id": str(row["id"]),
+                "doi": row["doi"] or "",
+                "source_verification": row["source_verification"],
+                "is_verified": row["source_verification"] is not None,
+                "status": row["status"],
+            }
+
+
+@projects_router.post("/{project_id}/papers/{paper_id}/verify-source")
+def verify_paper_source_endpoint(
+    project_id: str,
+    paper_id: str,
+    req: VerifyDoiRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Menjalankan proses Cek Keabsahan Sumber (DOI) melalui Crossref / DataCite / Scopus-SINTA heuristics.
+    Aturan Ketat: Verifikasi hanya dapat dilakukan 1 kali saja.
+    """
+    user_id = current_user["id"]
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.id FROM public.papers p 
+                JOIN public.projects pr ON pr.id = p.project_id 
+                WHERE p.id = %s AND p.project_id = %s AND pr.user_id = %s;
+                """,
+                (paper_id, project_id, user_id),
+            )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Dokumen paper tidak ditemukan.")
+    
+    try:
+        result = verify_paper_doi(paper_id, req.doi)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal memverifikasi sumber paper: {str(e)}")
+
 
 
 # ==============================================================================

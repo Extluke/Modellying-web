@@ -29,6 +29,11 @@ class PaperItem(BaseModel):
     coverage: Optional[Dict[str, Any]] = None
     doc_type: Optional[Dict[str, Any]] = None
     run: Optional[Dict[str, Any]] = None
+    doi: Optional[str] = None
+    authors: Optional[List[str]] = []
+    year: Optional[int] = None
+    journal: Optional[str] = None
+    source_verification: Optional[Dict[str, Any]] = None
     uploaded_at: str
     updated_at: Optional[str] = None
 

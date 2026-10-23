@@ -22,3 +22,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.tsbuildinfo
+
+# Uploaded research papers storage (Runtime artifacts)
+modellyng/backend/storage_files/
+storage_files/
+

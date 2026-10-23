@@ -77,7 +77,7 @@ export function ComponentAiRevisionModal({
       const initialGreeting: ChatTurn = {
         id: `greeting-${Date.now()}`,
         role: "assistant",
-        content: `Halo! Saya Asisten Revisi Ilmiah Modellyng. Anda sedang meninjau komponen **${componentLabel}**. Formulasi saat ini adalah:\n\n> "${currentText}"\n\nSilakan berikan instruksi perbaikan atau penajaman naskah yang Anda inginkan...`,
+        content: `Halo! Saya Asisten Revisi Ilmiah Modellyng. Anda sedang meninjau komponen **${componentLabel}**.\n\nFormulasi aktif saat ini adalah:\n> "${currentText}"\n\nSilakan berikan instruksi perbaikan yang Anda inginkan (contoh: *"ubah menjadi 2 paragraf"*, *"buat lebih ringkas"*, atau *"pertegas kontribusinya"*). Saya akan langsung mengeksekusi teks hasilnya sesuai arahan Anda...`,
       }
       setMessages([initialGreeting])
     }
@@ -208,7 +208,7 @@ export function ComponentAiRevisionModal({
       id: `notice-${Date.now()}`,
       role: "assistant",
       content:
-        "Draf ditolak. Silakan tuliskan arahan atau aspek yang perlu disempurnakan lebih lanjut pada kotak di bawah...",
+        "Hasil revisi belum sesuai keinginan Anda. Silakan ketikkan instruksi atau arahan perbaikan berikutnya pada kotak di bawah...",
     }
     setMessages((prev) => [...prev, rejectNotice])
   }
@@ -292,25 +292,26 @@ export function ComponentAiRevisionModal({
                       ) : (
                         <>
                           <Sparkles className="size-3 text-primary" />
-                          <span>Asisten Revisi Ilmiah</span>
+                          <span>{msg.isDraft ? "Hasil Eksekusi Revisi" : "Asisten Revisi Ilmiah"}</span>
                         </>
                       )}
                     </span>
                   </div>
 
                   {/* Body Text */}
-                  <div className="text-xs leading-relaxed whitespace-pre-wrap">
+                  <div className="text-xs leading-relaxed whitespace-pre-wrap font-sans">
                     {msg.content}
                   </div>
 
                   {/* Explanation if any */}
                   {msg.explanation && (
                     <div className="text-[11px] text-muted-foreground bg-primary/5 p-2 rounded-lg border border-primary/10 italic">
+                      <span className="font-semibold not-italic text-primary/80">Keterangan: </span>
                       {msg.explanation}
                     </div>
                   )}
 
-                  {/* Decision Gate Actions for Latest Draft */}
+                  {/* Decision Gate Actions for Latest Revised Text */}
                   {msg.isDraft && isWaitingDecision && (
                     <div className="pt-2 border-t border-border/50 flex flex-wrap items-center justify-end gap-2">
                       <Button
@@ -322,7 +323,7 @@ export function ComponentAiRevisionModal({
                         className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer rounded-xl"
                       >
                         <RotateCcw className="size-3.5" />
-                        <span>Tolak & Minta Revisi Ulang</span>
+                        <span>Tolak / Berikan Arahan Lagi</span>
                       </Button>
 
                       <Button
@@ -337,7 +338,7 @@ export function ComponentAiRevisionModal({
                         ) : (
                           <Check className="size-3.5" />
                         )}
-                        <span>Setujui & Simpan</span>
+                        <span>Setujui & Simpan Perubahan</span>
                       </Button>
                     </div>
                   )}
