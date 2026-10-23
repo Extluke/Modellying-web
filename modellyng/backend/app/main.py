@@ -1,7 +1,15 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# Load .env file from modellyng/backend/.env
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
 from .auth.router import auth_router
-from .projects.router import projects_router
+from .projects.router import projects_router, papers_router
 
 app = FastAPI(
     title="Modellyng Academic PDF Analysis API",
@@ -25,9 +33,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
+# Register routers (Supports root, /api, and /api/v1 for maximum client compatibility)
 app.include_router(auth_router)
+app.include_router(auth_router, prefix="/api")
+app.include_router(auth_router, prefix="/api/v1")
+
 app.include_router(projects_router)
+app.include_router(projects_router, prefix="/api")
+app.include_router(projects_router, prefix="/api/v1")
+
+app.include_router(papers_router)
+app.include_router(papers_router, prefix="/api")
+app.include_router(papers_router, prefix="/api/v1")
 
 
 @app.get("/api/health")

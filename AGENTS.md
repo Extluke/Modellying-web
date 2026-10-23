@@ -63,6 +63,7 @@ Proyek ini adalah pivot aplikasi **Modellyng** (Evidence-Centered Academic PDF A
 * **Stack Utama Frontend:** React 19, TypeScript, Vite, Tailwind CSS, Shadcn UI, TanStack Query v5, Zustand, Lucide React Icons.
 * **Stack Backend & Data:** FastAPI Python 3.10+, Celery, Redis, Supabase (PostgreSQL, Storage, Auth, RLS).
 * **Kebersihan Kode:** Tulis kode yang modular, bersih, terdokumentasi dengan baik, dan bebas dari file placeholder/dead code.
+* **Standar Notifikasi / Toast Seragam:** Seluruh pesan umpan balik (*toast / notification banner*) di semua halaman aplikasi WAJIB menggunakan durasi seragam tepat 5 detik (5000 ms), desain visual terpadu berkelas (glassmorphism/card elevated dengan ikon, progress timer countdown, dan tombol tutup), serta menggunakan teks Bahasa Indonesia baku yang jelas, sopan, dan bebas dari istilah teknis/AI yang membingungkan.
 * **Komunikasi:** Berikan penjelasan dan diskusi kepada pengguna dalam Bahasa Indonesia yang profesional dan jelas. Kode, nama variabel, dan komentar kode tetap menggunakan Bahasa Inggris standar.
 
 ---
@@ -71,7 +72,17 @@ Proyek ini adalah pivot aplikasi **Modellyng** (Evidence-Centered Academic PDF A
 
 Berkas [`lihat_aku_plisss.txt`](file:///d:/Koding/Modellying%20Web%20By%20Github/lihat_aku_plisss.txt) adalah **buku panduan operasional (Run Guide & Architecture Map) resmi** repositori ini yang diperuntukkan bagi seluruh anggota tim.
 
-* **Kewajiban Mutlak:**
-  * Setiap kali ada penambahan fitur baru, layanan (*service*), proses latar belakang baru (misalnya: backend FastAPI, antrean tugas Celery worker, Redis, Docker Compose, Supabase lokal, atau skrip migrasi/testing) yang perlu di-running, Agen **WAJIB** memperbarui berkas `lihat_aku_plisss.txt`.
-  * Panduan yang ditambahkan wajib ditulis secara bertahap, runtut (*step-by-step*), sangat jelas, dan ramah bagi pemula (mencakup perintah terminal, prasyarat, direktori kerja eksekusi, serta cara memverifikasi bahwa layanan sudah berjalan).
+* **Kewajiban Mutlak & Format Baku Permanen:**
+  1. **Struktur 6 Bagian Utama Wajib Dipertahankan Permanen:**
+     - **Bagian 1:** STRUKTUR DIREKTORI & ARSITEKTUR FOLDER (Global + `src/features/`)
+     - **Bagian 2:** PANDUAN INSTALASI & MENJALANKAN PROYEK PERTAMA KALI (CLONE DARI GITHUB)
+     - **Bagian 3:** PANDUAN MENJALANKAN KEMBALI PROYEK (WORKFLOW MEMBUKA KEMBALI PROYEK)
+     - **Bagian 4:** CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
+     - **Bagian 5:** DETAIL FITUR & INTEGRASI SISTEM
+     - **Bagian 6:** CATATAN TEKNIS & PEMECAHAN MASALAH (TROUBLESHOOTING)
+  2. **Aturan Ketat Penempatan Informasi Baru:**
+     - Setiap ada penambahan fitur, dependensi, proses latar belakang, atau konfigurasi baru, Agen **WAJIB** menempatkannya pada bagian yang benar dan sesuai konteksnya.
+     - **DILARANG KERAS** asal menempelkan informasi tanpa memperhatikan urutan logis (*flow*), kesesuaian topik, dan potensi membingungkan pembaca.
+     - Setiap panduan baru wajib ditulis bertahap, runtut (*step-by-step*), mencakup direktori kerja eksekusi (`cd`), perintah terminal eksak, dan cara verifikasi.
+     - **DILARANG KERAS** menggunakan frasa bernada merendahkan seperti *"untuk pemula"*, gunakan bahasa teknis yang jelas, sopan, objektif, dan mudah dipahami.
 

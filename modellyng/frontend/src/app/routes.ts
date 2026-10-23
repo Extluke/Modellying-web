@@ -20,6 +20,7 @@ export const ROUTES = {
     PAPER_ANALYSIS: "/projects/:projectId/papers/:paperId",
     REVIEW: "/projects/:projectId/review",
     CHAT: "/projects/:projectId/chat",
+    MATRIX: "/projects/:projectId/matrix",
   },
   RESEARCH: {
     MATRIX: "/matrix",

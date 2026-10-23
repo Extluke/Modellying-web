@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { authApi, type User, type LoginPayload, type RegisterPayload } from "@/lib/api/auth"
+import { queryClient } from "@/lib/query-client"
 
 interface AuthState {
   user: User | null
@@ -41,6 +42,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (payload: LoginPayload) => {
     set({ isLoading: true, error: null })
     try {
+      // Purge query cache to prevent any account data leakage
+      queryClient.clear()
       const response = await authApi.login(payload)
       localStorage.setItem(STORAGE_KEY_TOKEN, response.token)
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(response.user))
@@ -63,6 +66,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (payload: RegisterPayload) => {
     set({ isLoading: true, error: null })
     try {
+      // Purge query cache on registration
+      queryClient.clear()
       const response = await authApi.register(payload)
       localStorage.setItem(STORAGE_KEY_TOKEN, response.token)
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(response.user))
@@ -85,6 +90,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem(STORAGE_KEY_TOKEN)
     localStorage.removeItem(STORAGE_KEY_USER)
+    // Clear all TanStack Query cache to guarantee zero cross-account project leakage
+    queryClient.clear()
     set({
       user: null,
       token: null,

@@ -193,6 +193,22 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: ROUTES.PROJECTS.PAPER_ANALYSIS,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <PaperResultScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.PROJECTS.CHAT,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ProjectChatScreen />
+          </Suspense>
+        ),
+      },
     ],
   },
 
@@ -222,14 +238,6 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: ROUTES.PROJECTS.PAPER_ANALYSIS,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <PaperResultScreen />
-          </Suspense>
-        ),
-      },
-      {
         path: ROUTES.PROJECTS.REVIEW,
         element: (
           <Suspense fallback={<RouteLoader />}>
@@ -238,10 +246,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: ROUTES.PROJECTS.CHAT,
+        path: ROUTES.PROJECTS.MATRIX,
         element: (
           <Suspense fallback={<RouteLoader />}>
-            <ProjectChatScreen />
+            <MatrixScreen />
           </Suspense>
         ),
       },

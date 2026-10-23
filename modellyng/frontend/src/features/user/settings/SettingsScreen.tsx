@@ -1,7 +1,18 @@
 import { Settings, User, Sliders, LogOut } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { useAuthStore } from "@/features/auth/store/authStore"
+import { ROUTES } from "@/app/routes"
 
 export default function SettingsScreen() {
+  const navigate = useNavigate()
+  const { user, logout } = useAuthStore()
+
+  const handleLogout = () => {
+    logout()
+    navigate(ROUTES.AUTH.LOGIN, { replace: true })
+  }
+
   return (
     <div className="p-6 space-y-6 max-w-2xl mx-auto">
       <div className="border-b pb-4">
@@ -27,7 +38,7 @@ export default function SettingsScreen() {
               <label className="text-[11px] font-medium text-muted-foreground">Nama Lengkap</label>
               <input
                 type="text"
-                defaultValue="Dr. Arby Tech Lead"
+                defaultValue={user?.full_name || "Peneliti Modellyng"}
                 className="h-9 w-full rounded-md border bg-background px-3 text-xs"
               />
             </div>
@@ -35,7 +46,7 @@ export default function SettingsScreen() {
               <label className="text-[11px] font-medium text-muted-foreground">Email</label>
               <input
                 type="email"
-                defaultValue="arby@modellyng.ac.id"
+                defaultValue={user?.email || "peneliti@modellyng.ac.id"}
                 disabled
                 className="h-9 w-full rounded-md border bg-muted px-3 text-xs opacity-75"
               />
@@ -76,7 +87,13 @@ export default function SettingsScreen() {
         </div>
 
         <div className="flex justify-between items-center pt-2">
-          <Button variant="ghost" size="sm" className="text-destructive gap-1.5 text-xs">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-destructive hover:bg-destructive/10 gap-1.5 text-xs"
+          >
             <LogOut className="size-3.5" />
             <span>Keluar Akun</span>
           </Button>

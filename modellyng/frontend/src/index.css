@@ -103,3 +103,8 @@
     font-feature-settings: "rlig" 1, "calt" 1, "cv11" 1;
   }
 }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}

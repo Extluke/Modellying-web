@@ -1,265 +1,671 @@
-Sturktur Folder
+================================================================================
+BUKU PANDUAN OPERASIONAL & ARSITEKTUR SISTEM (MODELLYNG WEB)
+Evidence-Centered Academic PDF Analysis Platform
+================================================================================
 
+Dokumen ini merupakan panduan operasional resmi untuk menjalankan, mengelola,
+dan mengembangkan seluruh ekosistem Modellyng Web (Frontend, Backend API,
+Antrean Tugas Celery, Basis Data Supabase PostgreSQL, dan Redis).
+
+
+================================================================================
+STRUKTUR DIREKTORI & ARSITEKTUR FOLDER
+================================================================================
+
+1. ARSITEKTUR GLOBAL REPOSITORI
+--------------------------------------------------------------------------------
+Modellying-web/
+├── modellyng/
+│   ├── backend/                      # Layanan Backend Python FastAPI & Pipeline
+│   │   ├── app/                      # Sumber kode logika bisnis & API
+│   │   │   ├── auth/                 # Modul autentikasi, JWT, & hashing Argon2id
+│   │   │   ├── pipeline/             # Ekstraksi PDF PyMuPDF & LLM Gatekeeper
+│   │   │   ├── celery_app.py         # Konfigurasi worker Celery asinkron
+│   │   │   ├── database.py           # Connection pool PostgreSQL
+│   │   │   └── main.py               # Titik masuk FastAPI & registrasi router
+│   │   ├── database/                 # Skema & skrip migrasi SQL PostgreSQL
+│   │   ├── docker/                   # Konfigurasi Docker Compose stack terisolasi
+│   │   │   ├── docker-compose.yml    # Layanan DB, Redis, Meta, Studio, & Mailpit
+│   │   │   └── .env.example          # Contoh variabel environment Docker
+│   │   ├── requirements.txt          # Dependensi pustaka Python
+│   │   └── .env                      # Variabel konfigurasi aktif backend & API keys
+│   │
+│   └── frontend/                     # Aplikasi Web SPA (React 19 + TypeScript + Vite)
+│       ├── public/                   # Aset publik statis
+│       ├── src/                      # Sumber kode frontend (arsitektur fitur)
+│       │   ├── components/           # Komponen UI global (Shadcn UI & Radix)
+│       │   ├── features/             # Modul halaman & logika fitur aplikasi
+│       │   ├── hooks/                # Custom React hooks
+│       │   ├── lib/                  # Utilitas, helper, & API client
+│       │   ├── store/                # Manajemen global state (Zustand)
+│       │   ├── App.tsx               # Konfigurasi rute utama (React Router v7)
+│       │   ├── index.css             # Konfigurasi Tailwind CSS & token warna
+│       │   └── main.tsx              # Titik masuk aplikasi React
+│       ├── package.json              # Konfigurasi skrip & dependensi npm
+│       ├── tailwind.config.js        # Konfigurasi tema Tailwind CSS
+│       ├── tsconfig.json             # Konfigurasi strict TypeScript
+│       └── vite.config.ts            # Konfigurasi Vite & chunk splitting
+│
+└── lihat_aku_plisss.txt              # Buku panduan operasional proyek (berkas ini)
+
+
+2. RINCIAN MODUL FITUR FRONTEND (src/features/)
+--------------------------------------------------------------------------------
 src/features/
-├── auth/                         # Zona Tamu / Akses Publik
-│   ├── WelcomeScreen.tsx         # /welcome (Halaman depan pembuka)
-│   ├── LoginScreen.tsx           # /login
-│   ├── RegisterScreen.tsx        # /register
-│   └── ForgotPasswordScreen.tsx  # /forgot-password
+├── auth/                             # Zona Publik & Autentikasi
+│   ├── WelcomeScreen.tsx             # /welcome (Halaman pembuka publik)
+│   ├── LoginScreen.tsx               # /login (Halaman masuk & autofill demo)
+│   ├── RegisterScreen.tsx            # /register (Pendaftaran akun baru)
+│   ├── ForgotPasswordScreen.tsx      # /forgot-password (Permintaan reset sandi)
+│   └── ResetPasswordScreen.tsx       # /reset-password (Setel sandi baru via token)
 │
-├── dashboard/                    # /dashboard (Dasbor utama & metrik ringkasan)
-│   └── DashboardScreen.tsx
+├── dashboard/                        # Dasbor Utama
+│   └── DashboardScreen.tsx           # /dashboard (Ringkasan metrik riset & aktivitas)
 │
-├── projects/                     # /projects (JANTUNG APLIKASI: Hub Proyek & Paper)
-│   ├── ProjectsScreen.tsx        # /projects (Daftar & buat proyek)
-│   ├── overview/                 # /projects/:id (Workspace & upload PDF)
-│   │   ├── ProjectOverviewScreen.tsx
-│   │   └── UploadPdfModal.tsx
-│   ├── paper-analysis/           # /projects/:id/papers/:paperId (Hasil Ekstraksi & Bukti)
-│   │   ├── PaperResultScreen.tsx # Panel 11 komponen ekstraksi
-│   │   ├── PdfViewer.tsx         # Mesin penampil PDF & highlighter
-│   │   └── EvidencePanel.tsx     # Panel kutipan bukti
-│   ├── review/                   # /projects/:id/review (Antrean & Revisi AI)
-│   │   ├── ReviewQueueScreen.tsx
-│   │   └── ComponentRevisionModal.tsx
-│   └── chat/                     # /projects/:id/chat (RAG Chatbot per proyek)
-│       └── ProjectChatScreen.tsx
+├── projects/                         # Pusat Manajemen Proyek & Dokumen Paper
+│   ├── ProjectsScreen.tsx            # /projects (Katalog proyek, filter, sort, arsip)
+│   ├── NewProjectScreen.tsx          # /projects/new (Formulir inisialisasi riset)
+│   ├── overview/                     # Ruang Kerja Dokumen Riset
+│   │   ├── ProjectOverviewScreen.tsx # /projects/:id/overview (Dropzone & daftar paper)
+│   │   └── UploadPdfModal.tsx        # Modal unggah PDF (1-15 file, validasi magic bytes)
+│   ├── paper-analysis/               # Analisis Mendalam & Ketertelusuran Bukti
+│   │   ├── PaperResultScreen.tsx     # /projects/:id/papers/:paperId (Panel 13 parameter dalam 3 tab: Konteks, Metode, Hasil)
+│   │   ├── ComponentAiRevisionModal.tsx # Modal interaktif asisten AI pembantu revisi formulasi (draggable & guided loop)
+│   │   ├── PdfViewer.tsx             # Mesin penampil PDF & penyorot teks interaktif
+│   │   └── EvidencePanel.tsx         # Panel kutipan bukti terhubung ke koordinat PDF
+│   ├── review/                       # Antrean Tinjauan Komponen
+│   │   ├── ReviewQueueScreen.tsx     # /projects/:id/review (Validasi hasil AI)
+│   │   └── ComponentRevisionModal.tsx# Modal perbaikan data ekstraksi
+│   ├── chat/                         # Dual RAG Chatbot Berbasis Dokumen Proyek
+│   │   └── ProjectChatScreen.tsx     # /projects/:id/chat (Tanya-jawab AI, react-markdown, sitasi ke PDF)
+│   └── matrix/                       # Matriks Komparasi Proyek
+│       └── ProjectMatrixDetailScreen.tsx # /projects/:id/matrix (Tabel komparasi 13 parameter tersinkronisasi)
 │
-├── research/                     # Rumpun Analisis Lintas-Paper (Kanvas & Matriks)
-│   ├── matrix/                   # /matrix (Matriks Komparasi 10 parameter)
+├── research/                         # Rumpun Analisis Sintesis Lintas Dokumen
+│   ├── matrix/                       # /matrix (Pusat matriks komparasi 13 parameter lintas dokumen)
 │   │   └── MatrixScreen.tsx
-│   ├── gap-map/                  # /gap-map (Peta Celah Riset)
+│   ├── gap-map/                      # /gap-map (Visualisasi peta celah penelitian)
 │   │   └── GapMapScreen.tsx
-│   ├── research-flow/            # /research-flow (Kanvas Alur Riset 4 Tahap)
+│   ├── research-flow/                # /research-flow (Kanvas grafis alur riset 4 tahap)
 │   │   └── ResearchFlowScreen.tsx
-│   ├── knowledge-graph/          # /knowledge-graph (Kanvas 2D Graf Spasial)
+│   ├── knowledge-graph/              # /knowledge-graph (Kanvas 2D graf spasial)
 │   │   └── KnowledgeGraphScreen.tsx
-│   ├── concept-map/              # /concept-map (Diagram Relasi Mermaid)
+│   ├── concept-map/                  # /concept-map (Diagram relasi konsep berbasis Mermaid)
 │   │   └── ConceptMapScreen.tsx
-│   ├── synthesis/                # /synthesis (Rumusan Masalah & Tesis)
+│   ├── synthesis/                    # /synthesis (Perumusan sintesis & tesis riset)
 │   │   └── SynthesisScreen.tsx
-│   └── export/                   # /export (Unduh Word, Excel, CSV, PPTX)
+│   └── export/                       # /export (Ekspor hasil ke Word, Excel, CSV, PPTX)
 │       └── ExportScreen.tsx
 │
-├── user/                         # Pengaturan Pengguna & Floating Tools
-│   ├── chat-global/              # /chat (Asisten Cerdas Global)
-│   ├── notifications/            # /notifications (Notifikasi tugas selesai)
-│   └── settings/                 # /settings (Preferensi Akun & Format Sitasi)
+├── user/                             # Utilitas Pengguna & Pengaturan Akun
+│   ├── chat-global/                  # /chat (Asisten AI universal)
+│   ├── notifications/                # /notifications (Pusat notifikasi status tugas)
+│   └── settings/                     # /settings (Profil, preferensi sitasi, & tema)
 │
-└── admin/                        # [MASA DEPAN] Khusus Administrator
-    ├── dashboard/                # /admin/dashboard
-    ├── user-management/          # /admin/users
-    └── model-quotas/             # /admin/models (Pengaturan kuota AI & log)
+└── admin/                            # Panel Manajemen Sistem
+    ├── dashboard/                    # /admin/dashboard
+    ├── user-management/              # /admin/users (Kelola hak akses pengguna)
+    └── model-quotas/                 # /admin/models (Pemantauan kuota & token AI)
 
 
 ================================================================================
-PANDUAN MENJALANKAN PROYEK MODELLYNG WEB
+PANDUAN INSTALASI & MENJALANKAN PROYEK PERTAMA KALI (CLONE DARI GITHUB)
 ================================================================================
 
-PRASYARAT WAJIB (Sebelum Mulai):
-Pastikan di komputermu sudah terpasang:
-1. Node.js (Versi 18 atau 20 LTS disarankan). Cek di terminal: `node -v`
-2. Git. Cek di terminal: `git --version`
-3. Web Browser (Google Chrome, Microsoft Edge, atau Brave)
+Ikuti langkah-langkah di bawah ini secara runtut saat baru pertama kali menyalin
+repositori ke komputer atau laptop:
+
+--------------------------------------------------------------------------------
+PRASYARAT PERANGKAT LUNAK (WAJIB TERPASANG)
+--------------------------------------------------------------------------------
+Pastikan aplikasi berikut sudah terpasang pada sistem operasi:
+1. Git: Memeriksa instalasi di terminal -> `git --version`
+2. Node.js (Versi 18 atau 20 LTS disarankan): Memeriksa instalasi -> `node -v`
+3. Python (Versi 3.10 atau lebih baru): Memeriksa instalasi -> `python --version`
+4. Docker Desktop: Pastikan aplikasi Docker Desktop sudah terpasang dan dalam status berjalan (*Engine running*).
+5. Peramban Web Modern: Google Chrome, Microsoft Edge, Brave, atau Mozilla Firefox.
 
 
 --------------------------------------------------------------------------------
-1. CARA MENJALANKAN KETIKA BARU PERTAMA KALI COPY/CLONE DARI GITHUB
+LANGKAH 1: MENGUNDUH (CLONE) REPOSITORI DARI GITHUB
 --------------------------------------------------------------------------------
-Gunakan cara ini jika kamu baru saja mengunduh/meng-clone repositori ini ke komputer baru:
+1. Buka aplikasi Terminal (PowerShell, Command Prompt, atau Git Bash).
+2. Jalankan perintah untuk mengunduh kode proyek:
+   git clone https://github.com/Extluke/Modellying-web.git
 
-Langkah 1: Buka Terminal / Command Prompt
-- Buka aplikasi Terminal, PowerShell, atau Git Bash di komputermu.
-
-Langkah 2: Clone (Salin) Repositori dari GitHub
-Ketik perintah berikut lalu tekan Enter:
-git clone https://github.com/Extluke/Modellying-web.git
-
-Langkah 3: Masuk ke Folder Hasil Clone
-cd Modellying-web
-
-Langkah 4: Masuk ke Folder Frontend Aplikasi (PENTING!)
-*Perhatian: Kode aplikasi web berada di dalam subfolder `modellyng/frontend`.*
-cd modellyng/frontend
-
-Langkah 5: Pasang Semua Pustaka/Dependencies (Hanya Sekali)
-Perintah ini akan mengunduh React, Tailwind, Lucide, dan pustaka lainnya:
-npm install
-
-(Tunggu 1-3 menit sampai proses selesai dan muncul tulisan "added ... packages").
-
-Langkah 6: Jalankan Server Lokal (Development Server)
-Ketik perintah:
-npm run dev
-
-Langkah 7: Buka Aplikasi di Browser
-Setelah perintah di atas dijalankan, terminal akan menampilkan alamat lokal:
-  ➜  Local:   http://localhost:3000/
-
-- Tekan tombol `Ctrl` lalu klik link tersebut, ATAU
-- Buka browser favoritmu dan ketik manual di URL: `http://localhost:3000/`
-
-*Halaman yang bisa kamu coba buka di browser:*
-- `http://localhost:3000/`           -> Otomatis diarahkan ke /welcome
-- `http://localhost:3000/welcome`    -> Halaman Selamat Datang / Tamu
-- `http://localhost:3000/login`      -> Halaman Masuk
-- `http://localhost:3000/projects`   -> Halaman Manajemen Proyek
-- `http://localhost:3000/styleguide` -> Katalog Desain Sistem (Warna, Tombol, Badge)
+3. Masuk ke folder utama proyek:
+   cd Modellying-web
 
 
 --------------------------------------------------------------------------------
-2. CARA MENJALANKAN KETIKA SUDAH PERNAH DIBUKA & INGIN MEMBUKANYA KEMBALI
+LANGKAH 2: PENYIAPAN BERKAS KONFIGURASI ENVIRONMENT (.env)
 --------------------------------------------------------------------------------
-Gunakan cara ini jika di hari berikutnya kamu menyalakan laptop dan ingin lanjut mengerjakan proyek:
+Layanan backend membutuhkan konfigurasi koneksi basis data, Redis, dan kunci API AI.
 
-Langkah 1: Buka Folder Proyek di Text Editor (VS Code / Antigravity)
-- Buka VS Code / Antigravity IDE.
-- Klik menu: File -> Open Folder -> pilih folder `Modellying Web By Github` (atau folder utama proyekmu).
+1. Periksa keberadaan berkas `modellyng/backend/.env`.
+2. Jika belum ada, buat berkas baru dengan nama `.env` di folder `modellyng/backend/`.
+3. Pastikan isi berkas tersebut memuat konfigurasi berikut:
 
-Langkah 2: Buka Terminal Terintegrasi
-- Di menu atas VS Code / IDE, klik menu `Terminal` -> `New Terminal`
-  (atau tekan shortcut keyboard: `Ctrl + ~` / `Ctrl + Shift + \``).
+   DATABASE_URL="postgresql://postgres:modellying_web_password@127.0.0.1:28022/postgres"
+   REDIS_URL="redis://127.0.0.1:6381/0"
+   CELERY_RESULT_BACKEND="redis://127.0.0.1:6381/1"
+   GROQ_API_KEY="masukkan_groq_api_key_di_sini"
+   GEMINI_API_KEY="masukkan_gemini_api_key_di_sini"
 
-Langkah 3: Pastikan Posisi Terminal Berada di Folder Frontend
-Secara default terminal akan berada di folder terluar. Pindahkan terminal ke folder frontend dengan mengetik:
-cd modellyng/frontend
-
-*Tips:* Pastikan baris terminal kamu berakhiran `modellyng/frontend>`.
-
-Langkah 4 (Opsional tapi Disarankan jika kerja bareng tim): Ambil Update Terbaru
-Jika ada teman tim yang baru saja push kode baru ke GitHub, ketik:
-git pull origin main
-npm install
-
-Langkah 5: Langsung Nyalakan Server
-Ketik perintah:
-npm run dev
-
-Langkah 6: Buka Kembali Browser
-Buka browser di alamat:
-http://localhost:3000/
-
---------------------------------------------------------------------------------
-TIPS TAMBAHAN UNTUK PEMULA:
---------------------------------------------------------------------------------
-- CARA MEMATIKAN SERVER:
-  Jika kamu selesai bekerja, kembali ke jendela terminal tempat `npm run dev` berjalan,
-  lalu tekan kombinasi tombol keyboard: `Ctrl + C`. Jika muncul pertanyaan `Terminate batch job (Y/N)?`, ketik `Y` lalu Enter.
-- JIKA MUNCUL ERROR "PORT 3000 IN USE":
-  Vite akan otomatis berpindah ke port berikutnya, misalnya `http://localhost:3001/`. Cukup perhatikan link yang tertulis di terminal.
-- MEMERIKSA ERROR KODE SEBELUM COMMIT:
-  Ketik `npm run typecheck` di terminal `modellyng/frontend` untuk mengecek apakah ada error TypeScript.
+   *Keterangan Kunci API AI:*
+   - Groq API Key dapat diperoleh secara gratis di: https://console.groq.com/keys
+   - Gemini API Key dapat diperoleh secara gratis di: https://aistudio.google.com/app/apikey
+   - *Catatan:* Jika kunci API AI belum diisi, sistem tetap dapat beroperasi normal menggunakan
+     mekanisme ekstraksi kanonik PyMuPDF bawaan dengan bukti kutipan nyata.
 
 
 --------------------------------------------------------------------------------
-3. CARA MENJALANKAN BACKEND (FASTAPI AUTENTIKASI & API SERVICE)
+LANGKAH 3: MENJALANKAN BASIS DATA & CACHE (DOCKER SUPABASE & REDIS)
 --------------------------------------------------------------------------------
-Aplikasi Modellyng Web membutuhkan 2 layanan berjalan: Frontend (port 3000) dan Backend (port 8000).
+Modellyng Web menggunakan konfigurasi kontainer Docker yang sepenuhnya terisolasi
+(Domain `modellying-web`, Port Database `28022`, Port Redis `6381`).
 
-Langkah 1: Buka Terminal Baru (Terminal ke-2 di VS Code/IDE)
-- Di menu terminal VS Code, klik tombol '+' di pojok kanan terminal untuk membuat tab terminal baru.
+1. Pastikan aplikasi Docker Desktop di komputer Anda sudah berstatus aktif (*Running*).
+2. Di jendela terminal, masuk ke direktori docker backend:
+   cd modellyng/backend/docker
 
-Langkah 2: Masuk ke Folder Backend
-cd modellyng/backend
+3. Jalankan seluruh layanan kontainer di latar belakang:
+   docker compose up -d
 
-Langkah 3: Pasang Dependensi Python (Hanya sekali saat awal)
-Pastikan Python 3.10+ sudah terpasang. Jalankan:
-pip install -r requirements.txt
+4. Tunggu beberapa saat hingga 5 kontainer aktif:
+   - `modellying_web_db` (PostgreSQL Port 28022)
+   - `modellying_web_redis` (Redis Port 6381)
+   - `modellying_web_meta` (PostgreSQL Meta API Port 8080)
+   - `modellying_web_studio` (Supabase Studio Web GUI Port 28023)
+   - `modellying_web_inbucket` (Mailpit Email Sandbox Port 28024)
 
-Langkah 4: Jalankan Server Backend FastAPI
-Ketik perintah berikut:
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-
-Langkah 5: Verifikasi Backend Berjalan
-Buka browser di alamat:
-http://127.0.0.1:8000/docs
-(Kamu akan melihat dokumentasi Swagger interaktif untuk 5 endpoint autentikasi & health check).
-
-
---------------------------------------------------------------------------------
-4. INFORMASI AKUN UJI COBA (DEMO ACCOUNTS SIAP PAKAI)
---------------------------------------------------------------------------------
-Backend sudah dilengkapi dengan akun demo siap pakai untuk pengujian instan:
-- Akun 1: Email: `cahayu@modellyng.ac.id`  | Sandi: `Password123`
-- Akun 2: Email: `arby@modellyng.ac.id`    | Sandi: `Password123`
-- Akun 3: Email: `demo@modellyng.ac.id`    | Sandi: `Password123`
-
-*Fitur Autentikasi yang Sudah Terpasang & Diuji:*
-1. Form Login (`/login`): Dilengkapi tombol 'Isi Otomatis' untuk akun demo, toggle intip sandi, spinner loading, dan proteksi brute force (Rate Limiting).
-2. Form Register (`/register`): Pengecekan regex email, kekuatan sandi (min 8 karakter huruf+angka), pencocokan konfirmasi sandi, dan enkripsi Argon2.
-3. Lupa Password (`/forgot-password`): Kartu feedback "Periksa Email Anda" dan tautan reset instan untuk mode lokal.
-4. Reset Password (`/reset-password`): Validasi token unik 1 jam dan update sandi baru.
-5. Route Guard: Pengguna yang belum login otomatis diarahkan ke `/login` jika mencoba membuka dasbor/proyek, dan pengguna yang sudah login otomatis diarahkan ke `/dashboard` jika membuka halaman login.
-6. Logout: Tombol keluar tersedia di bilah atas (Header) navigasi.
+5. Verifikasi: Buka peramban web dan akses `http://localhost:28023`.
+   Jika tampilan dasbor Supabase Studio terbuka, basis data telah siap digunakan.
 
 
 --------------------------------------------------------------------------------
-5. CARA MENJALANKAN DOCKER SUPABASE & REDIS KHUSUS MODELLYNG-WEB (ISOLASI MUTLAK)
+LANGKAH 4: MENYIAPKAN & MENJALANKAN BACKEND FASTAPI (TERMINAL 1)
 --------------------------------------------------------------------------------
-Environment ini sepenuhnya baru (*fresh*) dan tidak menggunakan port atau kontainer versi Flutter lama.
+1. Buka jendela terminal baru atau kembali ke folder backend:
+   cd modellyng/backend
 
-Langkah 1: Buka Terminal Baru
-- Buka terminal baru dan masuk ke folder docker backend:
-cd modellyng/backend/docker
+2. Pasang seluruh dependensi Python yang dibutuhkan:
+   pip install -r requirements.txt
 
-Langkah 2: Nyalakan Stack Kontainer
-Ketik perintah berikut:
-docker compose up -d
+   (Tunggu proses instalasi pustaka FastAPI, Uvicorn, PyMuPDF, Celery, Argon2, dll. selesai).
 
-(Docker akan menyalakan 5 kontainer terisolasi: Postgres DB, Redis, Postgres-Meta API, Supabase Studio, dan Mailpit).
+3. Jalankan server FastAPI:
+   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
-Langkah 3: Akses Layanan Melalui Browser / Tool
-- Supabase Studio (GUI Database Baru): http://localhost:28023
-- Email Sandbox (Mailpit Testing):    http://localhost:28024
-- PostgreSQL Connection String:        postgresql://postgres:modellying_web_password@127.0.0.1:28022/postgres
-- Redis Connection String:             redis://127.0.0.1:6381/0
+4. Verifikasi: Buka peramban web dan akses alamat:
+   http://127.0.0.1:8000/docs
+   Dokumentasi interaktif Swagger API akan muncul dan siap menerima permintaan.
 
-Langkah 4: Cara Mematikan Stack Docker (Jika selesai):
-cd modellyng/backend/docker
-docker compose down
 
 --------------------------------------------------------------------------------
-6. STATUS INTEGRASI BACKEND FASTAPI & DATABASE SUPABASE POSTGRESQL
+LANGKAH 5: MENJALANKAN PIPELINE EKSTRAKSI ASINKRON / CELERY WORKER (TERMINAL 2)
 --------------------------------------------------------------------------------
-Backend FastAPI kini sudah terhubung 100% secara permanen ke Database Supabase PostgreSQL
-kontainer `modellying_web_db` (Port 28022):
+Celery Worker bertugas memproses validasi berkas PDF, ekstraksi teks, segmentasi blok,
+dan analisis 11 parameter ekstraksi di latar belakang.
 
-1. Konfigurasi Driver:
-   - Backend menggunakan `psycopg2-binary` dengan Connection Pool (`ThreadedConnectionPool`).
-   - Otomatis melakukan migrasi awal jika tabel belum ada (`public.password_reset_tokens`).
+1. Buka jendela terminal baru (Terminal ke-2).
+2. Posisikan direktori kerja pada folder backend:
+   cd modellyng/backend
 
-2. Data Pengguna Tersimpan Permanen:
-   - Seluruh registrasi akun baru di frontend web otomatis disimpan ke tabel `public.users`.
-   - Data akun tidak akan hilang meskipun backend di-restart.
-   - Kata sandi di-hash menggunakan algoritma standar militer **Argon2id**.
+3. Jalankan worker Celery:
+   *Pada sistem operasi Windows, parameter `--pool=solo` wajib disertakan:*
+   celery -A app.celery_app worker --loglevel=info --pool=solo
 
-3. Cara Memverifikasi Data Melalui GUI Supabase Studio:
-   - Buka browser dan kunjungi: http://localhost:28023
-   - Masuk ke menu "Table Editor" di bilah sebelah kiri.
-   - Klik tabel `users` pada schema `public`.
-   - Anda akan melihat daftar akun yang sudah terdaftar (termasuk 5 akun peneliti demo).
+4. Verifikasi: Terminal akan menampilkan log koneksi ke broker Redis dan tanda siap:
+   `[tasks] . app.pipeline.tasks.process_paper_pipeline`
+   `celery@... ready.`
+
 
 --------------------------------------------------------------------------------
-7. FITUR RUANG KERJA PROYEK RISET & UNGGAH PDF (DATABASE TERINTEGRASI)
+LANGKAH 6: MENYIAPKAN & MENJALANKAN FRONTEND WEB (TERMINAL 3)
 --------------------------------------------------------------------------------
-Seluruh modul proyek kini terhubung langsung ke tabel `public.projects` dan `public.papers`
-di database Supabase PostgreSQL (Port 28022):
+1. Buka jendela terminal baru (Terminal ke-3).
+2. Masuk ke direktori frontend aplikasi:
+   cd modellyng/frontend
 
-1. Tiga Halaman Utama:
-   - Halaman Proyek (http://localhost:3000/projects):
-     * Pencarian judul/deskripsi secara real-time.
-     * Filter tab status: Semua, Aktif, dan Diarsipkan.
-     * Kartu proyek dengan menu titik tiga: Edit Proyek & Hapus Proyek (dengan dialog konfirmasi).
-   - Halaman Buat Proyek (http://localhost:3000/projects/new):
-     * Halaman fokus (bebas distraksi, tanpa navbar/sidebar).
-     * Formulir judul riset, rumusan masalah, pilihan bidang studi, dan format sitasi (APA/IEEE/dll).
-   - Halaman Project Overview (http://localhost:3000/projects/:id/overview):
-     * Halaman fokus khusus ruang kerja proyek tersebut (tanpa navbar/sidebar).
-     * Dropzone interaktif untuk tarik-lepas file PDF (maksimal 15 paper, 50MB per paper).
-     * Daftar dokumen paper yang tersimpan permanen di basis data PostgreSQL.
+3. Pasang paket dependensi JavaScript/TypeScript:
+   npm install
 
-2. Verifikasi Data Proyek Melalui GUI Supabase Studio:
-   - Buka: http://localhost:28023/project/default/editor
-   - Klik tabel `projects` untuk melihat proyek yang dibuat oleh akun Anda.
-   - Klik tabel `papers` untuk melihat daftar file PDF yang berhasil diunggah.
+   (Tunggu hingga proses selesai dan seluruh pustaka React 19, Tailwind, serta Lucide terpasang).
+
+4. Jalankan server pengembangan lokal (Vite Development Server):
+   npm run dev
+
+5. Terminal akan menampilkan informasi alamat server lokal:
+   ➜  Local:   http://localhost:3000/
+
+
+--------------------------------------------------------------------------------
+LANGKAH 7: PENGUJIAN & AKSES APLIKASI DI PERAMBAN WEB
+--------------------------------------------------------------------------------
+1. Buka peramban web dan akses URL:
+   http://localhost:3000/
+
+2. Sistem secara otomatis akan mengarahkan rute awal ke halaman pembuka (`/welcome`).
+3. Klik tombol "Masuk" untuk menuju halaman login (`/login`).
+4. Gunakan salah satu akun uji coba siap pakai yang tercantum pada Bagian 4 dokumen ini.
+
+
+================================================================================
+PANDUAN MENJALANKAN KEMBALI PROYEK (WORKFLOW MEMBUKA KEMBALI PROYEK)
+================================================================================
+
+Gunakan panduan ringkas ini jika sebelumnya sudah pernah melakukan instalasi awal,
+dan ingin menyalakan kembali aplikasi pada sesi kerja berikutnya:
+
+--------------------------------------------------------------------------------
+URUTAN MENJALANKAN LAYANAN
+--------------------------------------------------------------------------------
+
+Langkah 1: Buka Editor Kode & Folder Proyek
+- Jalankan editor kode (VS Code, Cursor, atau IDE pilihan).
+- Buka folder utama `Modellying-web`.
+
+Langkah 2: Nyalakan Basis Data Docker
+- Pastikan aplikasi Docker Desktop sudah dalam posisi menyala.
+- Buka terminal, masuk ke folder docker, dan jalankan:
+  cd modellyng/backend/docker
+  docker compose up -d
+
+Langkah 3: Jalankan Backend FastAPI (Terminal 1)
+- Buka tab terminal pertama di editor kode:
+  cd modellyng/backend
+  python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+Langkah 4: Jalankan Worker Celery (Terminal 2)
+- Buka tab terminal kedua (klik ikon '+' pada bilah terminal):
+  cd modellyng/backend
+  celery -A app.celery_app worker --loglevel=info --pool=solo
+
+Langkah 5: Jalankan Frontend Web (Terminal 3)
+- Buka tab terminal ketiga:
+  cd modellyng/frontend
+  npm run dev
+
+Langkah 6: Buka Peramban Web
+- Akses aplikasi utama: http://localhost:3000/
+- Akses dokumentasi API : http://127.0.0.1:8000/docs
+- Akses GUI Database   : http://localhost:28023/
+
+--------------------------------------------------------------------------------
+SINKRONISASI KODE TERBARU DARI TIM (KOLABORASI GITHUB)
+--------------------------------------------------------------------------------
+Sebelum memulai pengerjaan fitur baru bersama tim, perbarui repositori lokal Anda:
+
+1. Tarik pembaruan kode terbaru dari cabang utama:
+   git pull origin main
+
+2. Jika terdapat pembaruan dependensi pada frontend:
+   cd modellyng/frontend
+   npm install
+
+3. Jika terdapat pembaruan dependensi pada backend:
+   cd modellyng/backend
+   pip install -r requirements.txt
+
+--------------------------------------------------------------------------------
+CARA MEMATIKAN SELURUH LAYANAN SETELAH SELESAI BEKERJA
+--------------------------------------------------------------------------------
+1. Mematikan Server Frontend, Backend, dan Worker Celery:
+   - Masuk ke masing-masing tab terminal yang sedang aktif.
+   - Tekan kombinasi tombol keyboard: `Ctrl + C`.
+   - Jika muncul konfirmasi `Terminate batch job (Y/N)?`, ketik `Y` lalu tekan Enter.
+
+2. Mematikan Kontainer Docker (Basis Data & Redis):
+   - Di terminal, jalankan perintah:
+     cd modellyng/backend/docker
+     docker compose down
+
+
+================================================================================
+CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
+================================================================================
+
+1. DAFTAR PORT & LAYANAN SISTEM
+--------------------------------------------------------------------------------
++-------------------+------------+---------------------------------------------+
+| Layanan           | Port       | URL Akses / Connection String               |
++-------------------+------------+---------------------------------------------+
+| Frontend Web      | 3000       | http://localhost:3000/                      |
+| Backend FastAPI   | 8000       | http://127.0.0.1:8000/                      |
+| Swagger API Docs  | 8000       | http://127.0.0.1:8000/docs                  |
+| Supabase Studio   | 28023      | http://localhost:28023/                     |
+| PostgreSQL DB     | 28022      | postgresql://postgres:modellying_web_...    |
+| Redis Server      | 6381       | redis://127.0.0.1:6381/0                    |
+| Mailpit Sandbox   | 28024      | http://localhost:28024/                     |
++-------------------+------------+---------------------------------------------+
+
+
+2. DAFTAR ENDPOINT UTAMA BACKEND (REST API V1)
+--------------------------------------------------------------------------------
++--------+-------------------------------------------------------------+------------------------------------+
+| Metode | Rute Endpoint                                               | Keterangan Fungsi                  |
++--------+-------------------------------------------------------------+------------------------------------+
+| POST   | /api/v1/auth/login                                          | Autentikasi akun & penerbitan JWT  |
+| GET    | /api/v1/projects                                            | Daftar proyek & filter status      |
+| POST   | /api/v1/projects                                            | Buat proyek riset baru             |
+| GET    | /api/v1/projects/{id}                                       | Detail proyek & daftar paper       |
+| POST   | /api/v1/projects/{id}/papers/upload                         | Streaming unggah PDF (50MB limit)  |
+| GET    | /api/v1/projects/{id}/papers/{paper_id}/components          | Ekstraksi 13 parameter & tab_group |
+| GET    | /api/v1/projects/{id}/papers/{paper_id}/blocks              | Blok teks kanonik & koordinat bbox |
+| GET    | /api/v1/projects/{id}/papers/{paper_id}/pdf                 | Byte stream PDF untuk canvas viewer|
+| PATCH  | /api/v1/projects/{id}/papers/{paper_id}/components/{key}    | Validasi/revisi status komponen    |
+| POST   | /api/v1/projects/{id}/papers/{paper_id}/components/{key}/ai-revise | Asisten AI draf revisi formulasi   |
+| GET    | /api/v1/projects/{id}/review-queue                          | Antrean peninjauan komponen riset  |
+| POST   | /api/v1/projects/{id}/review-queue/bulk-accept              | Terima semua tinjauan serentak     |
+| POST   | /api/v1/projects/{id}/papers/{paper_id}/confirm             | Gatekeeper konfirmasi non-paper    |
+| POST   | /api/v1/projects/{id}/chat                                  | Obrolan RAG hibrida RRF & sitasi   |
+| GET    | /api/v1/projects/{id}/chat                                  | Riwayat pesan obrolan RAG proyek   |
+| GET    | /api/v1/projects/{id}/comparative-matrix                    | Matriks komparasi 13 parameter     |
++--------+-------------------------------------------------------------+------------------------------------+
+
+
+3. AKUN UJI COBA SIAP PAKAI (DEMO RESEARCHER ACCOUNTS)
+--------------------------------------------------------------------------------
+Backend telah dilengkapi dengan akun peneliti siap pakai yang tersimpan permanen
+di basis data:
+
+- Akun Peneliti 1:
+  Email    : cahayu@modellyng.ac.id
+  Kata Sandi: Password123
+
+- Akun Peneliti 2:
+  Email    : arby@modellyng.ac.id
+  Kata Sandi: Password123
+
+- Akun Peneliti 3:
+  Email    : demo@modellyng.ac.id
+  Kata Sandi: Password123
+
+*Fitur Cepat:* Pada layar Login (`http://localhost:3000/login`), tersedia tombol
+"Isi Otomatis" untuk memasukkan kredensial akun demo secara instan.
+
+
+4. KREDENSIAL KONEKSI BASIS DATA (SUPABASE POSTGRESQL)
+--------------------------------------------------------------------------------
+- Host       : 127.0.0.1 (atau localhost)
+- Port       : 28022
+- User       : postgres
+- Password   : modellying_web_password
+- Database   : postgres
+- URL Lengkap: postgresql://postgres:modellying_web_password@127.0.0.1:28022/postgres
+
+
+================================================================================
+DETAIL FITUR & INTEGRASI SISTEM
+================================================================================
+
+1. INTEGRASI FASTAPI & BASIS DATA SUPABASE POSTGRESQL
+--------------------------------------------------------------------------------
+- Backend menggunakan koneksi pool aman (`psycopg2-binary` dengan `ThreadedConnectionPool`).
+- Seluruh registrasi akun baru dienkripsi menggunakan standar keamanan militer Argon2id.
+- Skema tabel relasional meliputi:
+  * `public.users`: Manajemen identitas, nama, email, dan hash sandi pengguna.
+  * `public.projects`: Judul penelitian, rumusan masalah, bidang riset, dan format sitasi.
+  * `public.papers`: Metadata dokumen PDF (judul, pengarang, tahun, hash SHA-256, jumlah halaman, dan status proses).
+  * `public.extracted_components`: Hasil ekstraksi 11 parameter dalam format JSONB dinamis.
+  * `public.paper_blocks`: Koordinat bounding box dan segmen teks per halaman untuk highlighter bukti PDF.
+  * `public.password_reset_tokens`: Pengelolaan token unik pemulihan kata sandi dengan masa kedaluwarsa 1 jam.
+
+2. FITUR RUANG KERJA PROYEK RISET & UNGGAH PDF
+--------------------------------------------------------------------------------
+- Halaman Proyek (http://localhost:3000/projects):
+  * Pencarian instan judul/deskripsi dengan tombol bersihkan teks sekali klik.
+  * Tab filter status: "Semua" dan "Diarsipkan".
+  * Sistem pengurutan 5 kriteria: Terakhir Diperbarui, Tanggal Dibuat, Abjad (A-Z), Total Paper, dan Paper Siap (Ready).
+  * Tombol pengalihan arah urutan: Naik (Ascending) dan Turun (Descending).
+  * Kartu proyek interaktif dengan menu opsi: Edit, Arsipkan/Pulihkan, dan Hapus (kaskade).
+  * Akses cepat: Mengklik area kartu proyek akan langsung membuka ruang kerja dokumen.
+- Halaman Inisialisasi Riset (http://localhost:3000/projects/new):
+  * Tampilan fokus bebas distraksi (tanpa bilah navigasi atas maupun bilah samping).
+  * Judul resmi tunggal: "Inisialisasi Ruang Riset Baru" (terbebas dari penomoran langkah "1 dari 2" atau label non-profesional).
+  * Formulir esensial dan bersih: Hanya menyisakan kolom Nama Proyek dan Deskripsi Ruang Riset.
+  * Validasi nama proyek dalam Bahasa Indonesia yang santun ("Nama proyek minimal harus terdiri dari 2 karakter.") dengan notifikasi toast seragam durasi tepat 5 detik.
+- Halaman Ruang Kerja Dokumen (http://localhost:3000/projects/:id/overview):
+  * Judul seksi resmi dan bersih: "Dokumen Paper Ilmiah" tanpa embel-embel angka/hitungan pada teks judul.
+  * Tombol aksi cepat: "Terima Semua Tinjauan" di sisi kanan judul seksi untuk menyelesaikan seluruh status tinjauan dokumen secara serentak.
+  * Fitur pencarian paper instan dan pengurutan dinamis (berdasarkan Waktu Unggah, Abjad Judul, dan Jumlah Halaman dengan toggle Menaik / Menurun).
+  * Desain kartu paper estetis dan profesional dengan penghapusan seluruh teks berbau jargon teknologi/model (bebas groq/llama/gatekeeper).
+  * Indikator progres ekstraksi berupa progress bar bercahaya halus (glowing shimmer) lengkap dengan teks tahap aktif, menggantikan ikon jam statis.
+  * Tombol pembuka asisten sintesis diberi nama profesional: "Tanya AI".
+  * Modal Unggah PDF (`UploadPdfModal.tsx`): Desain elegan dengan backdrop blur mendalam (`backdrop-blur-md`), dropzone intuitif, dan pemantauan status unggah multi-berkas.
+
+3. ISOLASI DATA MULTI-TENANT & NAVIGASI AKUN
+--------------------------------------------------------------------------------
+- Mekanisme Anti-Kebocoran Cache:
+  Setiap kali pengguna melakukan pergantian akun atau keluar (*Logout*), seluruh cache
+  in-memory TanStack Query langsung dibersihkan (`queryClient.clear()`).
+- Pengikatan Kunci Kueri (Query Key Binding):
+  Daftar proyek dan dokumen terikat secara ketat pada ID pengguna aktif (`userId`),
+  memastikan data antar akun tidak pernah bercampur.
+- Navigasi Otomatis Sesi:
+  Setelah login berhasil, pengguna selalu diarahkan langsung ke Dasbor Utama (`/dashboard`).
+  Akses ke halaman terlindungi otomatis dialihkan ke `/login` jika sesi belum terautentikasi.
+
+4. PIPELINE EKSTRAKSI PDF ASINKRON (CELERY WORKER & REDIS)
+--------------------------------------------------------------------------------
+- Alur Pemrosesan 10 Tahap Idempoten:
+  `queued` -> `downloading` -> `extracting_text` -> `quality_check` ->
+  `doc_type_check` -> `saving_blocks` -> `ai_extraction` -> `verifying_evidence` ->
+  `saving_ai_results` -> `ai_extraction_complete`.
+- Validasi Magic Bytes:
+  Memverifikasi penanda biner asli `%PDF-` untuk mencegah pengunggahan file rusak atau palsu.
+- Deteksi Duplikasi Cerdas & Manajemen Berkas:
+  Menggunakan enkripsi hash SHA-256 untuk mendeteksi dokumen identik dalam satu proyek (`duplicate_content`).
+  Pesan error kini secara spesifik mencantumkan judul asli paper yang berkonflik.
+  Jika paper yang pernah diunggah sebelumnya berstatus gagal (`failed`), sistem secara otomatis
+  membersihkan entri lama dan mengizinkan pengunggahan ulang berkas yang sama tanpa terblokir.
+  Penghapusan proyek (`DELETE /projects/:id`) membersihkan rekaman basis data (kaskade) serta
+  seluruh file PDF fisik di dalam direktori `STORAGE_ROOT/{user_id}/{project_id}`.
+- Ekstraksi Judul Asli & Penulis Paper Otomatis (Anti-Judul Semrawut):
+  * Tahap Cepat saat Upload (Fast Heuristic): Fungsi `inspect_pdf_metadata` menyaring dan membuang
+    metadata rusak bawaan template penerbit/Word (seperti `Author,+Information...`, `7952_2`, atau UUID).
+    Sistem menganalisis ukuran font terbesar pada halaman pertama (excluding journal headers)
+    sehingga judul asli langsung rapi sejak detik pertama diunggah, terbebas dari nama file sembarang.
+  * Tahap Penyempurnaan AI (Stage 5 Celery): Model LLM (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`,
+    `qwen/qwen3.8-27b`) mengekstrak judul penelitian akademik yang bersih serta array nama pengarang
+    (`authors`), lalu menyimpannya ke tabel `public.papers`.
+- Gatekeeper LLM (Groq / GPT-OSS & Gemini):
+  Mendeteksi apakah dokumen merupakan artikel ilmiah valid atau sekadar salindia tugas.
+  Jika bukan artikel ilmiah, status otomatis beralih ke `needs_confirmation`.
+  * Kebijakan Penerjemahan Baku (Indonesian First Extraction):
+    System prompt mewajibkan seluruh nilai ekstraksi ilmiah (`value.text`) dan sintesis RAG
+    diterjemahkan dan diformulasikan ke dalam Bahasa Indonesia yang baku dan akademis.
+    Dilarang keras menyalin mentah teks Bahasa Inggris dari dokumen asli ke dalam JSON,
+    namun kutipan bukti verbatim (`evidence.quote`) tetap dipertahankan dalam bahasa asli
+    demi menjamin keakuratan pencocokan koordinat teks kanonik pada PDF.
+- Sinkronisasi UI Cerdas (Smart Polling):
+  TanStack Query pada frontend otomatis memantau status pemrosesan setiap 3 detik selama ada
+  tugas aktif (`validating` / `processing`), dan otomatis berhenti saat status menjadi `ready` atau `needs_review`.
+
+5. DISTRIBUSI DATA EKSTRAKSI & MESIN PENAMPIL PDF INTERAKTIF (PDFJS-DIST)
+--------------------------------------------------------------------------------
+- Jalur Distribusi Data RESTful API (Mendukung prefix `/api/v1` dan `/api`):
+  * `GET /api/v1/projects/{project_id}/papers/{paper_id}/components`: Mengalirkan 13 parameter ekstraksi ilmiah dalam format JSONB dinamis lengkap dengan pemetaan `tab_group`.
+  * `GET /api/v1/projects/{project_id}/papers/{paper_id}/blocks`: Mengembalikan blok teks kanonik beserta koordinat bounding box [x0, y0, x1, y1] dalam satuan PDF points.
+  * `GET /api/v1/projects/{project_id}/papers/{paper_id}/pdf`: Mengalirkan byte stream dokumen PDF fisik dengan validasi token JWT pengguna dan aturan RLS.
+  * `PATCH /api/v1/projects/{project_id}/papers/{paper_id}/components/{component_key}`: Menerima mutasi status komponen (`accepted`, `rejected`, `edited`), revisi formulasi teks, dan catatan reviewer.
+  * `GET /api/v1/projects/{project_id}/review-queue`: Menampilkan seluruh komponen dalam satu proyek yang berstatus `needs_review` atau memiliki skor keyakinan di bawah 80%.
+- Arsitektur 13 Parameter Ekstraksi Ilmiah & 3 Tab Navigasi (`tab_group`):
+  * Group 1: `konteks_masalah` (Konteks dan Masalah):
+    - `research_problem` (Rumusan Masalah)
+    - `research_objective` (Tujuan Penelitian)
+    - `research_questions` (Pertanyaan Penelitian)
+    - `subject_demographics` [BARU] (Konteks & Demografi Subjek)
+  * Group 2: `metode_data` (Metode dan Data):
+    - `methodology` (Pendekatan Metodologi)
+    - `dataset_sample` (Dataset dan Karakteristik Sampel)
+    - `variables_concepts` (Variabel dan Konsep)
+    - `evaluation_metrics` [BARU] (Metrik Evaluasi Spesifik)
+  * Group 3: `hasil_gap` (Hasil dan Gap):
+    - `results_findings` (Temuan Utama)
+    - `novelty` (Kontribusi Kebaruan)
+    - `key_claims` (Klaim Utama)
+    - `limitations` (Keterbatasan Riset)
+    - `future_work` (Peluang Riset Mendatang)
+- Redesain Kartu Komponen Ilmiah (`ComponentCard`) & Navigasi Tab Mengambang (`PaperResultScreen.tsx`):
+  * Mengadopsi tata letak modern persegi panjang dengan tipografi rapi dan proporsi seimbang:
+    1. Geometri Kartu Persegi Panjang Kokoh (`rounded-2xl` dengan border halus, transisi hover mulus, dan bayangan terangkat lembut).
+    2. Lencana Ikon Squircle Menonjol: Wadah ikon bersudut melengkung (`size-10 rounded-2xl bg-slate-100 dark:bg-slate-800`) di sudut kiri atas dengan ikon representatif untuk 13 parameter (Kompas untuk Rumusan Masalah, Database untuk Sampel/Data, Grafik Bar untuk Metrik Evaluasi, Perisai untuk Limitasi, Roket untuk Future Work, dll.).
+    3. Hirarki Tipografi Bersih & Elegan: Judul parameter berukuran `text-base font-bold` diimbangi lencana status interaktif (Perlu Ditinjau / Disetujui / Diedit) serta lencana skor akurasi model dalam palet warna kontras yang harmonis.
+    4. Kontainer Bukti Kaca Buram Tersemat (Embedded Evidence Container): Wadah kutipan beraksen lembut (`rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80`) yang menampilkan kutipan dokumen verbatim, nomor halaman kanonik, serta tombol aksi "Sorot di PDF ↗".
+    5. Bilah Tombol Aksi Rata Kanan: Tombol "Revisi" beraksen outline dan tombol "Setujui" beraksen solid Indigo dengan ikon umpan balik visual instan.
+  * Navigasi Tab Kontras Tinggi (High-Contrast Tabs):
+    3 tab grup utama (`Konteks & Masalah`, `Metode & Data`, `Hasil & Gap`) disajikan dengan diferensiasi kontras tinggi yang tegas antara tab aktif (solid Indigo dengan teks putih tebal dan bayangan fokus) vs tab non-aktif (subdued muted).
+  * Tampilan Split-Screen Interaktif (VS Code Resizable Split-Pane):
+    Pengguna dapat menyesuaikan proporsi lebar antara panel parameter dan panel penampil PDF secara fleksibel dengan menarik pembatas tengah (drag divider).
+  * Panel Kutipan Bukti Vertikal Fleksibel (`EvidencePanel.tsx`):
+    Menampilkan "Kutipan Bukti Dokumen Asli" dengan tombol "Lompat ke Hal X" yang strategis, tombol tutup (X) yang dapat dibuka kembali kapan saja, serta fitur perbesaran tinggi panel ke atas/bawah layaknya terminal terintegrasi di VS Code.
+  * Mesin Penampil PDF Kanonik (`pdfjs-dist` & `PdfViewer.tsx`):
+    Merender halaman naskah PDF secara native di atas elemen HTML5 `<canvas>` dengan kontrol pembesaran (Zoom In +, Zoom Out -, Reset Skala 100%, dan Toggle Sepenuh Layar/Fokus PDF) yang sepenuhnya interaktif dan operasional.
+    Bebas dari istilah nama model AI yang tidak profesional.
+- Asisten AI Pembantu Revisi Formulasi Ilmiah (Guided Looping State Machine & Draggable Floating Modal):
+  * Perbedaan Bagian yang Direvisi vs Bukti Kanonik:
+    1. Bagian yang Direvisi: `value.text` (formulasi teks deskriptif ilmiah dalam Bahasa Indonesia akademik).
+    2. Jangkar Kebenaran Tak Berubah (*Ground Truth Anchor*): `evidence.quote` (kutipan bukti verbatim asli naskah PDF beserta nomor halaman kanonik dan koordinat bounding box) tetap dipertahankan utuh dan disuntikkan ke prompt AI sebagai batasan ketat pencegah halusinasi.
+  * Alur Mesin State Terpandu Ketat (Strict Guided Loop):
+    1. Klik tombol "Revisi" membuka Modal Mengambang (`ComponentAiRevisionModal.tsx`) yang dapat digeser bebas (*draggable*) dengan drag handle pada bilah judul, dilengkapi latar belakang peredup kaca buram (`bg-slate-950/45 backdrop-blur-xs`) dan batas tinggi maksimal layar (`max-h-[85vh]` dengan area pesan scrollable mandiri).
+    2. Sapaan Otomatis: Asisten AI menyapa pengguna secara otomatis di awal dengan menyebutkan nama parameter spesifik serta memaparkan formulasi teks aktif saat ini.
+    3. Input Pengguna & Pembekuan Input: Pengguna memasukkan instruksi perbaikan (misal: "Sederhanakan kalimatnya dan pertegas kontribusi utamanya"). Saat AI memproses, kotak input dihilangkan/dibekukan sementara untuk menjaga alur terpandu.
+    4. Gerbang Keputusan (Decision Gate): AI menyajikan draf formulasi hasil revisi yang grounded pada bukti naskah. Muncul dua tombol aksi: "Setujui Hasil Revisi" dan "Tolak / Minta Revisi Ulang".
+    5. Looping Tak Terbatas: Jika "Tolak" diklik, kotak input dimunculkan kembali untuk instruksi perbaikan berikutnya hingga pengguna merasa puas.
+    6. Persistensi & Mutasi Status Otomatis: Saat "Setujui" diklik, sistem memanggil mutasi backend `PATCH /api/v1/projects/{id}/papers/{paper_id}/components/{key}` dengan payload formulasi baru dan status otomatis disetel menjadi `accepted`. Kartu komponen seketika berubah hijau (Disetujui), notifikasi toast seragam 5 detik muncul, dan modal tertutup otomatis.
+- Logika Antrean Peninjauan Manusia (*Review Queue*):
+  * Halaman `/projects/:id/review` terhubung langsung ke kueri server secara real-time.
+  * Dilengkapi tombol aksi "Setujui", "Tolak", "Revisi Teks", dan "Setujui Semua (Bulk Accept)".
+  * Pemicu otomatis `queryClient.invalidateQueries` setelah mutasi berhasil untuk mengubah status paper menjadi `Ready` tanpa perlu memuat ulang halaman secara manual.
+- Pipeline Vektor Asinkron untuk Semantic RAG (`pgvector`):
+  * Ekstensi `vector` (pgvector v0.8.2) aktif di Supabase PostgreSQL dengan indeks HNSW berkecepatan tinggi (`idx_paper_embeddings_hnsw`).
+  * Celery task `generate_paper_embeddings_task` otomatis membagi teks paper ke dalam chunk semantik (150-250 kata), mengekstrak vektor 768 dimensi via Gemini `text-embedding-004`, dan menyimpannya ke tabel `public.paper_embeddings` sebagai persiapan modul Project RAG.
+
+6. PENCARIAN HIBRIDA POSTGRESQL & MESIN OBROLAN TANYA AI (ANTI-HALUSINASI)
+--------------------------------------------------------------------------------
+- Algoritma Pencarian Hibrida PostgreSQL & Reciprocal Rank Fusion (RRF):
+  * Mengombinasikan pencarian semantik padat (dense retrieval) via pgvector indeks HNSW
+    (`public.paper_embeddings` dengan operator jarak kosinus `<=>`) dan pencarian kata kunci
+    eksak (sparse lexical retrieval) via Full-Text Search bawaan PostgreSQL (kolom
+    `paper_blocks.fts_tokens` berindeks GIN dengan fungsi `to_tsvector` dan `plainto_tsquery`).
+  * Mengintegrasikan algoritma fusi Reciprocal Rank Fusion (RRF dengan parameter konstanta k=60):
+    RRF_Score(d) = SUM( 1 / (60 + rank_semantik) + 1 / (60 + rank_bm25) )
+  * Menyaring 5 hingga 7 blok teks teratas dengan relevansi tertinggi untuk diinjeksikan
+    sebagai konteks primer ke System Prompt LLM.
+- Validasi Anti-Halusinasi & Structured Outputs LLM:
+  * System prompt menginstruksikan LLM (Groq Llama 3.3 70B atau Gemini 1.5 Flash) bekerja
+    dalam mode Structured Outputs (Pydantic / JSON Mode).
+  * Menghasilkan dua objek terstruktur: `answer` (teks balasan berformat Markdown kaya) dan
+    `citations` (array sitasi kanonik berisi ID blok teks, judul paper, nomor halaman fisik,
+    dan koordinat bounding box [x0, y0, x1, y1]).
+  * Kebijakan Nol Halusinasi: Jika informasi yang ditanyakan tidak tercantum dalam konteks
+    hasil RRF, sistem wajib membalas secara eksplisit: "Informasi tidak ditemukan dalam
+    dokumen proyek ini".
+- Antarmuka Obrolan Tanya AI Fokus Penuh (`ProjectChatScreen.tsx`):
+  * Tampilan mandiri bebas distraksi tanpa navbar dan sidebar (`ProtectedRoute` langsung).
+  * Header memuat tombol "Kembali ke Proyek" dan judul spesifik "Asisten Tanya AI Proyek: [Nama Proyek]".
+  * Spanduk peringatan privasi sesi: "Riwayat percakapan pada sesi Tanya AI ini bersifat sementara dan tidak disimpan secara permanen saat Anda meninggalkan halaman ini."
+  * Penyelarasan Tema Resmi Modellyng (Modellyng Light Academic Style):
+    Menggunakan latar belakang kanvas terang (`#F6F7FB`), tipografi tinta gelap pekat (`#172033`),
+    kartu putih bersih (`#FFFFFF`) dengan border halus (`#E5E8EF`), aksen warna ungu primer Indigo (`#5147E5`),
+    serta efek pendar lembut gradien ungu/indigo yang harmonis dan nyaman di mata akademisi,
+    terbebas dari nuansa gelap gulita yang kontras.
+  * Kotak input obrolan dilengkapi bingkai batas gradien berpendar halus (*outer box soft indigo glow*)
+    yang bereaksi elegan saat kursor difokuskan.
+  * Pencegatan Sitasi Dinamis: Lencana sitasi interaktif [S1], [S2] yang otomatis membuka naskah
+    PDF kanonik di panel samping dengan penyorotan bounding box berdenyut.
+
+7. TABEL KOMPARASI TERSINKRONISASI (SYNCHRONIZED COMPARATIVE MATRIX)
+--------------------------------------------------------------------------------
+- Komponen Antarmuka Grid (ProjectMatrixDetailScreen.tsx & MatrixScreen.tsx):
+  * Mengakses endpoint `GET /api/v1/projects/{project_id}/comparative-matrix` yang menyajikan
+    struktur 2D dari 11 parameter ilmiah lintas seluruh dokumen paper yang telah berstatus Ready.
+  * Sinkronisasi Gulir Horizontal Sempurna (Synchronized Horizontal Scrolling):
+    Menggunakan satu wadah tabel dengan kolom parameter tetap di sisi kiri (sticky left column).
+    Saat pengguna menggeser tabel ke arah kanan atau kiri, seluruh baris data dari 11 parameter
+    berbeda bergerak bersama secara sejajar tanpa jeda (zero lag).
+  * Tombol Kendali Navigasi Gulir: Tersedia tombol pintasan "Gulir Kiri" dan "Gulir Kanan" pada
+    bilah atas untuk mempermudah penjelajahan paper dalam jumlah banyak.
+  * Penyaringan Cerdas: Filter kategori parameter (Identitas & Rumusan Masalah, Metodologi &
+    Model, Temuan & Evaluasi) serta kotak pencarian instan teks konsep.
+  * Indikator Status & Keyakinan Sel: Menampilkan label status ekstraksi (Ditemukan / Tidak
+    Ditemukan), persentase keyakinan model, dan status tinjauan (Diterima / Diedit).
+  * Modal Telaah Bukti PDF: Mengklik kutipan bukti di dalam sel tabel akan membuka penampil
+    PDF modal dengan pembuktian penyorotan teks kanonik secara langsung.
+  * Fitur Ekspor: Tombol "Ekspor CSV" untuk mengunduh seluruh matriks perbandingan 11 parameter
+    ke dalam berkas spreadsheet CSV berformat UTF-8 dengan BOM.
+
+8. SISTEM NOTIFIKASI TOAST TERPADU (UNIVERSAL 5-SECOND TOAST)
+--------------------------------------------------------------------------------
+- Standar Durasi Mutlak: Seluruh notifikasi toast di setiap halaman aplikasi secara
+  konsisten tampil tepat selama 5.0 detik (5000 ms) sebelum menghilang secara halus.
+- Wadah Global Tunggal: `AppToastContainer` diinjeksikan pada `src/app/providers.tsx`
+  sehingga muncul seragam di sudut kanan atas seluruh rute halaman.
+- Manajemen Status Reaktif: Dikelola secara terpusat oleh Zustand store `useToastStore.ts`
+  dengan fungsi pemanggilan cepat `toast.success()`, `toast.error()`, dan `toast.info()`.
+- Estetika & Tipografi: Menggunakan kartu elevasi modern dengan efek kaca buram
+  (`backdrop-blur-md`), bilah pengatur waktu mundur (countdown timer line) 5 detik,
+  dan tombol tutup manual.
+- Penerjemahan Kesalahan Baku (Indonesian Error Formatter):
+  Pesan validasi bawaan backend FastAPI/Pydantic (seperti "String should have at least 2 characters")
+  secara otomatis diterjemahkan oleh `client.ts` ke dalam Bahasa Indonesia yang santun dan
+  akademis ("Nama proyek minimal harus terdiri dari 2 karakter.").
+
+
+================================================================================
+CATATAN TEKNIS & PEMECAHAN MASALAH (TROUBLESHOOTING)
+================================================================================
+
+1. PORT 3000 ATAU 8000 SEDANG DIGUNAKAN (PORT IN USE)
+--------------------------------------------------------------------------------
+- Jika port 3000 sedang terpakai oleh aplikasi lain, Vite secara otomatis akan berpindah
+  ke port berikutnya (misalnya: `http://localhost:3001/`). Perhatikan alamat URL yang
+  ditampilkan pada terminal.
+- Jika port 8000 terpakai, Anda dapat menghentikan proses lama atau menentukan port lain
+  pada perintah uvicorn dengan mengganti `--port 8000` menjadi `--port 8008`. Pastikan
+  untuk menyesuaikan variabel `VITE_API_BASE_URL` di frontend jika mengubah port backend.
+
+2. EKSEKUSI CELERY WORKER DI SISTEM OPERASI WINDOWS
+--------------------------------------------------------------------------------
+Sistem operasi Windows tidak mendukung mekanisme multiprocessing default Celery (fork).
+Oleh karena itu, selalu gunakan argumen `--pool=solo`:
+  celery -A app.celery_app worker --loglevel=info --pool=solo
+
+3. DOCKER DESKTOP BELUM AKTIF ATAU GAGAL TERHUBUNG
+--------------------------------------------------------------------------------
+- Pastikan aplikasi Docker Desktop sudah dibuka sebelum menjalankan `docker compose up -d`.
+- Jika kontainer gagal menyala karena konflik port, pastikan port `28022` dan `6381` tidak
+  digunakan oleh aplikasi basis data lain di komputer Anda.
+- Untuk mereset kontainer Docker ke kondisi bersih:
+  cd modellyng/backend/docker
+  docker compose down
+  docker compose up -d
+
+4. VERIFIKASI KETEPATAN TIPE DATA (TYPECHECK FRONTEND)
+--------------------------------------------------------------------------------
+Sebelum melakukan *commit* atau pembagian kode ke repositori tim, periksa validitas
+tipe data TypeScript pada frontend dengan menjalankan perintah:
+  cd modellyng/frontend
+  npm run typecheck
+
+5. PANDUAN PEMECAHAN MASALAH: DUPLIKASI PAPER & PENAMAAN JUDUL
+--------------------------------------------------------------------------------
+- Masalah Peringatan "Isi dokumen identik dengan paper yang sudah ada":
+  * Duplikasi dicek berbasis hash kriptografis SHA-256 per proyek riset (`project_id`).
+  * Jika Anda menghapus proyek lama melalui tombol "Hapus Proyek", seluruh rekaman paper
+    beserta file fisik otomatis terhapus secara tuntas, dan paper dapat diunggah kembali
+    ke proyek baru tanpa batasan.
+  * Catatan: Jika proyek sebelumnya hanya "Diarsipkan", proyek tersebut tetap tersimpan di tab
+    "Diarsipkan". Gunakan tombol "Hapus Proyek" di menu kartu jika memang ingin membuangnya secara permanen.
+  * Jika proses ekstraksi suatu paper sebelumnya sempat gagal (`failed`), sistem kini otomatis
+    membersihkan rekaman gagal tersebut saat Anda mengunggah ulang file yang sama.
+- Masalah Penamaan Judul PDF (Anti-Semrawut):
+  * Pengunggahan file dengan nama acak (misal: `kudagoreng.pdf` atau `Cepat-Vol 5-No 1-pp1-8.pdf`)
+    tidak akan lagi menghasilkan judul rusak seperti UUID atau metadata template jurnal.
+  * Sistem menggunakan PyMuPDF font-size span heuristic seketika pada tahap upload, dan
+    disempurnakan oleh model LLM pada Stage 5 Celery untuk memastikan judul ilmiah asli
+    100% akurat diambil langsung dari isi dokumen akademik.
+
 ================================================================================

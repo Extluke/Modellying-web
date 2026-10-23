@@ -70,9 +70,8 @@ export default function LoginScreen() {
         remember_me: rememberMe,
       })
 
-      // Redirect to the originally requested URL or default to /dashboard
-      const from = (location.state as any)?.from?.pathname || ROUTES.DASHBOARD
-      navigate(from, { replace: true })
+      // Always navigate directly to dashboard after login as required
+      navigate(ROUTES.DASHBOARD, { replace: true })
     } catch (err: any) {
       setApiError(err?.message || "Email atau kata sandi salah. Silakan coba lagi.")
     }
