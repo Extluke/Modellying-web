@@ -148,9 +148,58 @@ export function uploadFileWithProgress<T>(
   })
 }
 
+export async function requestArrayBuffer(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<ArrayBuffer> {
+  const token = localStorage.getItem("modellyng_token")
+
+  const headers: Record<string, string> = {
+    Accept: "application/pdf, application/octet-stream, */*",
+    ...(options.headers as Record<string, string>),
+  }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("modellyng_token")
+      window.dispatchEvent(new Event("auth:unauthorized"))
+    }
+
+    let errorMessage = `Gagal memuat berkas biner (${response.status}: ${response.statusText})`
+    try {
+      const errorJson = await response.json()
+      if (errorJson && typeof errorJson === "object" && errorJson.detail) {
+        errorMessage =
+          typeof errorJson.detail === "string" ? errorJson.detail : errorMessage
+      }
+    } catch {
+      // Fallback text
+    }
+
+    const error: ApiError = {
+      status: response.status,
+      message: errorMessage,
+    }
+    throw error
+  }
+
+  return response.arrayBuffer()
+}
+
 export const apiClient = {
   get: <T>(endpoint: string, options?: RequestInit) =>
     request<T>(endpoint, { ...options, method: "GET" }),
+  getArrayBuffer: (endpoint: string, options?: RequestInit) =>
+    requestArrayBuffer(endpoint, { ...options, method: "GET" }),
   post: <T>(endpoint: string, data?: unknown, options?: RequestInit) =>
     request<T>(endpoint, {
       ...options,

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Download,
@@ -7,7 +7,6 @@ import {
   FileSpreadsheet,
   FileCode2,
   Loader2,
-  CheckCircle2,
 } from "lucide-react"
 import { downloadProjectExport } from "../api/projectsApi"
 import { toast } from "@/lib/store/useToastStore"

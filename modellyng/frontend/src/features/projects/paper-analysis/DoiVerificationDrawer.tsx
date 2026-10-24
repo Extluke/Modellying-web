@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
   ShieldCheck,
-  ShieldAlert,
   X,
   Loader2,
   Lock,
-  ExternalLink,
   CheckCircle2,
   AlertTriangle,
   Building2,
@@ -45,7 +43,7 @@ export function DoiVerificationDrawer({
   existingVerification,
 }: DoiVerificationDrawerProps) {
   // Query status verifikasi yang tersimpan di server
-  const { data: serverStatus, isLoading: isLoadingStatus } = usePaperSourceVerification(
+  const { data: serverStatus } = usePaperSourceVerification(
     projectId,
     paperId
   )

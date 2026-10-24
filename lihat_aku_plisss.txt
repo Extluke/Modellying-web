@@ -78,7 +78,8 @@ src/features/
 │   │   ├── PaperResultScreen.tsx     # /projects/:id/papers/:paperId (Panel 13 parameter dalam 3 tab: Konteks, Metode, Hasil)
 │   │   ├── DoiVerificationDrawer.tsx # Drawer Cek Keabsahan Sumber (DOI) meluncur dari sebelah kiri layar (Crossref & DataCite)
 │   │   ├── ComponentAiRevisionModal.tsx # Modal interaktif asisten AI pembantu revisi formulasi (draggable & guided loop)
-│   │   ├── PdfViewer.tsx             # Mesin penampil PDF & penyorot teks interaktif
+│   │   ├── pdfMatcher.ts             # Mesin pencocokan kutipan bukti fleksibel multi-tier (Tier 1-4)
+│   │   ├── PdfViewer.tsx             # Mesin penampil PDF privat, zoom, lompat halaman, & cache 10 menit TanStack Query
 │   │   └── EvidencePanel.tsx         # Panel kutipan bukti terhubung ke koordinat PDF
 │   ├── review/                       # Antrean Tinjauan Komponen
 │   │   ├── ReviewQueueScreen.tsx     # /projects/:id/review (Validasi hasil AI)
@@ -86,26 +87,89 @@ src/features/
 │   ├── chat/                         # Dual RAG Chatbot Berbasis Dokumen Proyek
 │   │   └── ProjectChatScreen.tsx     # /projects/:id/chat (Tanya-jawab AI, react-markdown, sitasi ke PDF)
 │   └── matrix/                       # Matriks Komparasi Proyek
-│       └── ProjectMatrixDetailScreen.tsx # /projects/:id/matrix (Tabel komparasi 13 parameter tersinkronisasi)
+│       └── ProjectMatrixDetailScreen.tsx # /projects/:id/matrix (Facade re-export ke MatrixDetailView)
 │
 ├── research/                         # Rumpun Analisis Sintesis Lintas Dokumen
-│   ├── matrix/                       # /matrix (Pusat matriks komparasi 13 parameter lintas dokumen)
-│   │   └── MatrixScreen.tsx
-│   ├── gap-map/                      # /gap-map (Visualisasi peta celah penelitian)
-│   │   └── GapMapScreen.tsx
-│   ├── research-flow/                # /research-flow (Kanvas grafis alur riset 4 tahap)
-│   │   └── ResearchFlowScreen.tsx
-│   ├── knowledge-graph/              # /knowledge-graph (Kanvas 2D graf spasial)
-│   │   └── KnowledgeGraphScreen.tsx
-│   ├── concept-map/                  # /concept-map (Diagram relasi konsep berbasis Mermaid)
-│   │   └── ConceptMapScreen.tsx
+│   ├── matrix/                       # /matrix (Pusat matriks komparasi parameter & sintesis lintas dokumen)
+│   │   ├── MatrixScreen.tsx          # Layar pemilihan proyek & validasi kesiapan matriks (peringatan paper siap < 2)
+│   │   ├── MatrixDetailView.tsx      # Tampilan detail matriks komparasi tersinkron, filter paper, & expandable cell
+│   │   ├── components/
+│   │   │   ├── PaperFilterPopover.tsx     # Seleksi multi-kolom paper
+│   │   │   ├── WritingStructureTable.tsx  # Bagian B status 6 bab penulisan (present, missing, combined)
+│   │   │   ├── ExpandableCellModal.tsx    # Modal perbesaran teks ekstraksi akademik utuh
+│   │   │   ├── ProjectSynthesisCard.tsx   # Kartu sintesis AI global komparatif & copy naskah formal
+│   │   │   └── IntelligenceReportCard.tsx # Kartu laporan intelijen & 5 gaya sitasi (APA, IEEE, dll)
+│   │   └── utils/
+│   │       ├── citationFormatter.ts       # Generator sitasi APA, IEEE, Harvard, Vancouver, Chicago
+│   ├── gap-map/                      # /gap-map (Pusat pemetaan celah penelitian & novelty tesis)
+│   │   ├── GapMapScreen.tsx          # Hub dispatcher: pemilihan proyek & ruang kerja peta celah
+│   │   ├── types/
+│   │   │   └── flowTypes.ts              # Interface node, edges, stage alur, & rekomendasi aksi
+│   │   ├── store/
+│   │   │   └── useGapMapStore.ts         # Zustand store interaksi kanvas, fullscreen, & filter
+│   │   ├── utils/
+│   │   │   └── flowDataBuilder.ts        # Pembangun graf 4 tahap, deteksi frekuensi hijau/merah
+│   │   └── components/
+│   │       ├── GapMapProjectPicker.tsx    # Katalog pemilihan proyek & validasi kesiapan celah (syarat >= 2 paper siap)
+│   │       ├── GapMapProjectCard.tsx      # Kartu proyek dengan indikator kesiapan dan callout amber solutif
+│   │       ├── ProjectGapMapView.tsx      # Ruang kerja peta celah proyek aktif & tab navigasi dual workspace
+│   │       ├── ResearchFlowCanvas.tsx     # Kanvas interaktif React Flow (@xyflow/react) dengan dot background & minimap
+│   │       ├── FlowNodeCard.tsx           # Custom node 4 tahap: hijau (>=2 paper) vs merah (celah langka)
+│   │       ├── CanvasToolbar.tsx          # Toolbar pan, zoom in/out, fit view, fullscreen, & filter keseringan
+│   │       ├── NodeDetailPanel.tsx        # Slide-in panel rincian node, rujukan paper, & bukti kutipan
+│   │       └── FourStageActionCard.tsx    # Rekomendasi tindakan strategis akademik 4 tahap (Topik -> Solusi)
+│   ├── knowledge-graph/              # /knowledge-graph (Kanvas graf spasial 2D & zona saturasi konsep)
+│   │   ├── KnowledgeGraphScreen.tsx  # Hub dispatcher: pemilihan proyek & ruang kerja graf pengetahuan
+│   │   ├── types/
+│   │   │   └── knowledgeGraphTypes.ts# Interface simpul, relasi, zona saturasi, & metrik spasial
+│   │   ├── store/
+│   │   │   └── useKnowledgeGraphStore.ts # Zustand store: filter zona, tipe simpul, drawer & fullscreen
+│   │   ├── utils/
+│   │   │   └── graphDataBuilder.ts   # Pembangun graf 2D spasial, rasio saturasi (Low/Med/High), & edges
+│   │   └── components/
+│   │       ├── KnowledgeGraphProjectPicker.tsx # Katalog seleksi proyek & validasi syarat >= 2 paper siap
+│   │       ├── ProjectKnowledgeGraphView.tsx   # Ruang kerja utama, floating toolbar, & React Flow canvas
+│   │       ├── KnowledgeGraphNodeCard.tsx      # Custom node 3 zona saturasi (Low/Rose, Med/Amber, High/Emerald)
+│   │       ├── ZoneOverlayBackground.tsx       # Latar belakang demarkasi visual 3 zona spasial kanvas
+│   │       └── NodeDetailDrawer.tsx            # Slide-in drawer rincian simpul, bukti kutipan, & salin ringkasan
+│   │   ├── ConceptMapScreen.tsx      # Hub dispatcher seleksi proyek dan ruang kerja Concept & Gap Map
+│   │   ├── types/
+│   │   │   └── conceptMapTypes.ts    # Interface TypeScript: 5-step pairwise, gap candidate, & limitation node
+│   │   ├── store/
+│   │   │   └── useConceptMapStore.ts # Zustand store: tab workspace, pasangan terpilih, & modal validasi
+│   │   ├── utils/
+│   │   │   ├── pairwiseComparisonEngine.ts # Mesin evaluasi berpasangan N*(N-1)/2, stopping rule, & graf limitasi
+│   │   │   └── mermaidSyntaxBuilder.ts     # Generator sintesis diagram alur keputusan Mermaid dinamis
+│   │   └── components/
+│   │       ├── ConceptMapProjectPicker.tsx    # Katalog seleksi proyek & validasi syarat >= 2 paper siap
+│   │       ├── ProjectConceptMapView.tsx      # Ruang kerja terpadu: polling 5 detik, 3 tab workspace, & daftar celah
+│   │       ├── LimitationsFutureWorkCanvas.tsx# Kanvas React Flow: Paper -> Limitation -> Future Work -> Novelty Gap
+│   │       ├── PairwiseComparisonPanel.tsx    # Panel komparasi berpasangan, similarity score, & bukti kutipan
+│   │       ├── FiveStepMermaidFlowchart.tsx   # Renderer diagram alur keputusan Mermaid interaktif (SVG & salin kode)
+│   │       ├── GapCandidateCard.tsx           # Kartu telaah kandidat celah: masalah inti, solusi, & usulan judul tesis
+│   │       └── GapDecisionModal.tsx           # Modal validasi keputusan reviewer (Layak Diteliti / Ditolak) + catatan
 │   ├── synthesis/                    # /synthesis (Perumusan sintesis & tesis riset)
 │   │   └── SynthesisScreen.tsx
 │   └── export/                       # /export (Ekspor hasil ke Word, Excel, CSV, PPTX)
 │       └── ExportScreen.tsx
 │
 ├── user/                             # Utilitas Pengguna & Pengaturan Akun
-│   ├── chat-global/                  # /chat (Asisten AI universal)
+│   ├── chat-global/                  # /chat (Asisten Cerdas Global, tagging @proyek & /paper, cache 24 jam)
+│   │   ├── ChatGlobalScreen.tsx      # Orkestrator utama antarmuka Asisten Cerdas Global
+│   │   ├── types/
+│   │   │   └── chatGlobalTypes.ts    # Interface pesan, konteks tagging, autocomplete, & cache session
+│   │   ├── store/
+│   │   │   └── useGlobalChatStore.ts # Zustand store: context scope chip, modal sitasi, & modal bersihkan riwayat
+│   │   ├── utils/
+│   │   │   ├── chatCacheStorage.ts   # Layanan localStorage dengan TTL 24 jam, auto-prune, & cache draf teks
+│   │   │   └── autocompleteParser.ts # Detektor kursor pemicu @ dan / serta pembersih token query
+│   │   └── components/
+│   │       ├── GlobalChatMessagesList.tsx    # Wadah daftar balon pesan, autoscroll, & empty state inspiratif
+│   │       ├── GlobalChatMessageItem.tsx     # Balon pesan Markdown, badge konteks, sitasi [S#], & salin pesan
+│   │       ├── GlobalChatInputBar.tsx        # Textarea auto-resize, chips konteks @ dan /, & tombol kirim
+│   │       ├── ContextAutocompleteMenu.tsx   # Floating popup autocomplete dengan navigasi keyboard
+│   │       ├── CitationPreviewModal.tsx      # Modal pratinjau bukti naskah kutipan [S#]
+│   │       └── ClearHistoryConfirmModal.tsx  # Dialog konfirmasi pembersihan riwayat lokal dengan toast 5 detik
 │   ├── notifications/                # /notifications (Pusat notifikasi status tugas)
 │   └── settings/                     # /settings (Profil, preferensi sitasi, & tema)
 │
@@ -537,9 +601,17 @@ DETAIL FITUR & INTEGRASI SISTEM
     Pengguna dapat menyesuaikan proporsi lebar antara panel parameter dan panel penampil PDF secara fleksibel dengan menarik pembatas tengah (drag divider).
   * Panel Kutipan Bukti Vertikal Fleksibel (`EvidencePanel.tsx`):
     Menampilkan "Kutipan Bukti Dokumen Asli" dengan tombol "Lompat ke Hal X" yang strategis, tombol tutup (X) yang dapat dibuka kembali kapan saja, serta fitur perbesaran tinggi panel ke atas/bawah layaknya terminal terintegrasi di VS Code.
-  * Mesin Penampil PDF Kanonik (`pdfjs-dist` & `PdfViewer.tsx`):
-    Merender halaman naskah PDF secara native di atas elemen HTML5 `<canvas>` dengan kontrol pembesaran (Zoom In +, Zoom Out -, Reset Skala 100%, dan Toggle Sepenuh Layar/Fokus PDF) yang sepenuhnya interaktif dan operasional.
-    Bebas dari istilah nama model AI yang tidak profesional.
+  * Mesin Penampil PDF Kanonik (`pdfjs-dist`, `PdfViewer.tsx`, & `pdfMatcher.ts`):
+    1. Render Dokumen PDF Privat Terotentikasi: Mengalirkan data biner PDF dari endpoint `/api/v1/projects/{project_id}/papers/{paper_id}/pdf` dengan header otentikasi Bearer JWT dan penanganan otomatis sesi kedaluwarsa (HTTP 401).
+    2. Caching Memori 10 Menit (TanStack Query v5): Menggunakan custom hook `usePaperPdf` dengan query key hierarkis `['projects', userId, 'detail', projectId, 'papers', paperId, 'pdf']`, konfigurasi `staleTime: 600000` (10 menit), `gcTime: 900000` (15 menit), dan `refetchOnWindowFocus: false` sehingga dokumen biner berat tidak diunduh ulang saat berpindah tab.
+    3. Kontrol Perbesaran Presisi (Zoom Engine): Mendukung Zoom In (+15%), Zoom Out (-15%), Reset Skala 115%, dan penyesuaian otomatis ke lebar viewport (*Fit to Width*). Dilengkapi pembatalan tugas render canvas aktif (`RenderTask.cancel()`) untuk mencegah race condition antar-render canvas saat zoom cepat.
+    4. Navigasi Lompat Halaman Dua Arah (Bidirectional Page Jumper & Scroll Spy): Kotak input nomor halaman interaktif dengan validasi rentang (Enter / onBlur), tombol Prev/Next, serta IntersectionObserver yang mendeteksi nomor halaman fisik yang sedang aktif saat pengguna menggulir dokumen.
+    5. Penyorotan Bukti Ilmiah dengan Pencocokan Fleksibel (Multi-Tier Flexible Quote Matcher via `pdfMatcher.ts`):
+       - Tier 1: Pencocokan langsung koordinat kanonik Bounding Box (`bbox`) atau `block_id`.
+       - Tier 2: Pencocokan substring ternormalisasi yang tahan terhadap pemenggalan kata antar-baris (*hyphenation* e.g., `signifi- cant`), spasi ganda, dan variasi tanda petik tipografis.
+       - Tier 3: Multi-Block Span Sequence yang menggabungkan 2-3 blok teks berturutan saat kutipan bukti melintasi batas blok fisik.
+       - Tier 4: Token-Level Jaccard/Fuzzy Overlap yang mendeteksi kemiripan kata (> 55%) pada variasi parafrasa atau noise OCR.
+       - Tampilan Visual: Lapisan overlay di atas canvas beraksen indigo transparan (`bg-primary/25 border-2 border-primary`), animasi denyut lembut (*pulse*), lencana penanda bukti ilmiah, dan pengguliran otomatis presisi langsung ke koordinat vertikal kutipan teks fisik.
 - Asisten AI Pembantu Revisi Formulasi Ilmiah (Guided Looping State Machine & Draggable Floating Modal):
   * Perbedaan Bagian yang Direvisi vs Bukti Kanonik:
     1. Bagian yang Direvisi: `value.text` (formulasi teks deskriptif ilmiah dalam Bahasa Indonesia akademik).
@@ -595,21 +667,67 @@ DETAIL FITUR & INTEGRASI SISTEM
 
 7. TABEL KOMPARASI TERSINKRONISASI (SYNCHRONIZED COMPARATIVE MATRIX)
 --------------------------------------------------------------------------------
-- Komponen Antarmuka Grid (ProjectMatrixDetailScreen.tsx & MatrixScreen.tsx):
+- Layar Pemilihan Proyek Matriks Komparasi (`MatrixScreen.tsx` pada rute `/matrix`):
+  * Bertindak sebagai Hub Pemilihan Proyek terpadu (Comparative Matrix Project Selection Hub)
+    sebelum membuka matriks perbandingan lintas-dokumen.
+  * Ambang Batas Kesiapan Ilmiah (Academic Readiness Threshold):
+    Menghitung jumlah paper siap (`ready_count`) di setiap proyek riset. Matriks komparasi
+    secara ilmiah mewajibkan minimal 2 dokumen paper yang telah berstatus Siap (`ready`).
+  * Proyek Memenuhi Syarat (`ready_count >= 2`):
+    Ditandai dengan lencana hijau emerald ("Memenuhi Syarat") dan tombol aktif solid Indigo
+    "Buka Matriks Komparasi" yang langsung memuat tabel komparasi proyek tersebut.
+  * Kotak Peringatan Paper Siap Kurang Dari 2 (`ready_count < 2`):
+    Menampilkan kotak peringatan kuning/amber yang jelas di dalam kartu:
+    "Peringatan: Matriks komparasi membutuhkan minimal 2 dokumen paper yang telah berstatus
+    Siap (Ready). Saat ini baru memiliki X dari Y paper yang siap."
+    Tombol "Buka Matriks" dinonaktifkan (terkunci), dan disediakan tombol aksi solutif langsung:
+    - Jika paper < 2: Tombol "Unggah Paper Tambahan" langsung menuju `/projects/:id/overview`.
+    - Jika paper >= 2 tapi belum siap: Tombol "Tinjau Komponen Paper" langsung menuju `/projects/:id/review`.
+  * Fitur Penyaringan & Pencarian Katalog:
+    Tersedia tab filter kesiapan ("Semua Proyek", "Siap Komparasi", "Belum Memenuhi Syarat")
+    serta kotak pencarian instan berdasarkan judul atau deskripsi proyek.
+  * Navigasi Kembali ("Pilih Proyek Lain"):
+    Tersedia tombol pintas di bilah header matriks detail untuk kembali ke katalog pemilihan
+    kapan saja tanpa kehilangan konteks.
+- Komponen Antarmuka Grid Detail (`MatrixDetailView.tsx` & facade `ProjectMatrixDetailScreen.tsx`):
   * Mengakses endpoint `GET /api/v1/projects/{project_id}/comparative-matrix` yang menyajikan
-    struktur 2D dari 11 parameter ilmiah lintas seluruh dokumen paper yang telah berstatus Ready.
+    struktur 2D dari 11/13 parameter ilmiah lintas seluruh dokumen paper yang telah berstatus Ready.
   * Sinkronisasi Gulir Horizontal Sempurna (Synchronized Horizontal Scrolling):
     Menggunakan satu wadah tabel dengan kolom parameter tetap di sisi kiri (sticky left column).
     Saat pengguna menggeser tabel ke arah kanan atau kiri, seluruh baris data dari 11 parameter
     berbeda bergerak bersama secara sejajar tanpa jeda (zero lag).
   * Tombol Kendali Navigasi Gulir: Tersedia tombol pintasan "Gulir Kiri" dan "Gulir Kanan" pada
     bilah atas untuk mempermudah penjelajahan paper dalam jumlah banyak.
-  * Penyaringan Cerdas: Filter kategori parameter (Identitas & Rumusan Masalah, Metodologi &
-    Model, Temuan & Evaluasi) serta kotak pencarian instan teks konsep.
-  * Indikator Status & Keyakinan Sel: Menampilkan label status ekstraksi (Ditemukan / Tidak
-    Ditemukan), persentase keyakinan model, dan status tinjauan (Diterima / Diedit).
+  * Filter Kolom Paper Interaktif (`PaperFilterPopover.tsx`):
+    Dropdown/popover seleksi multi-select paper yang memungkinkan pengguna menampilkan atau
+    menyembunyikan kolom paper tertentu dalam tabel komparasi, lengkap dengan tombol "Pilih Semua",
+    "Reset", pencarian cepat judul/penulis, dan counter paper aktif (X dari Y paper).
+  * Sel Teks yang Dapat Diperluas (Expandable Cells & Mode Ringkas/Penuh):
+    Teks sel hasil ekstraksi akademis secara default dipotong rapi (line-clamp-3) dalam "Mode Ringkas"
+    dengan tombol "Lihat Selengkapnya". Pengguna dapat beralih ke "Mode Penuh" secara instan atau
+    membuka modal pembacaan teks utuh (`ExpandableCellModal.tsx`) yang menyajikan teks lengkap,
+    status review, skor keyakinan, dan tombol salin teks.
+  * Bagian B: Susunan Sistematika Penulisan Paper (`WritingStructureTable.tsx`):
+    Tabel sub-seksi komparasi 6 bab penulisan standar akademik (1. Pendahuluan, 2. Tinjauan Pustaka,
+    3. Metodologi, 4. Hasil Penelitian, 5. Pembahasan, 6. Kesimpulan) dengan ikon status:
+    - Hijau / Centang (`present`): Bab ada terpisah secara jelas.
+    - Merah / Silang (`missing`): Bab tidak ditemukan dalam dokumen.
+    - Biru / Tautan (`combined`): Bab digabung dengan bab lain (misal: Hasil & Pembahasan).
+    Setiap sel bab dilengkapi tooltip penjelasan detail deteksi seksi.
+  * Kartu Sintesis AI Global Komparatif (`ProjectSynthesisCard.tsx`):
+    Kartu sintesis cerdas multi-paper yang merangkum 8 aspek komparatif: Persamaan antar paper,
+    Perbedaan pendekatan metodologi, Pola riset yang teridentifikasi, Kesenjangan & peluang riset,
+    3 Ide penelitian lanjutan berperingkat beserta rasional ilmiah, Ringkasan posisi spesifik tiap
+    dokumen dalam peta literatur, dan Naskah narasi akademik formal bersitasi pengarang-tahun.
+    Dilengkapi tombol "Salin Poin" dan "Salin Paragraf Akademik" dengan feedback toast 5 detik.
+  * Kartu Laporan Intelijen & Bibliografi Riset (`IntelligenceReportCard.tsx`):
+    Kartu laporan intelijen komprehensif yang menyajikan metrik statistik riset (total relasi,
+    komponen terverifikasi, rata-rata skor keyakinan AI, dan jumlah klaim butuh evaluasi bukti),
+    generator sitasi 5 format standar internasional dinamis (APA 7th, IEEE, Harvard, Vancouver,
+    dan Chicago Author-Date), preview sitasi dalam teks (in-text citation), tombol salin sitasi,
+    serta tombol "Unduh JSON" (`generateIntelligenceReportJson`).
   * Modal Telaah Bukti PDF: Mengklik kutipan bukti di dalam sel tabel akan membuka penampil
-    PDF modal dengan pembuktian penyorotan teks kanonik secara langsung.
+    PDF modal (`PdfViewer.tsx`) dengan pembuktian penyorotan teks kanonik secara langsung.
   * Fitur Ekspor: Tombol "Ekspor CSV" untuk mengunduh seluruh matriks perbandingan 11 parameter
     ke dalam berkas spreadsheet CSV berformat UTF-8 dengan BOM.
 
@@ -676,6 +794,187 @@ DETAIL FITUR & INTEGRASI SISTEM
      individual maupun tombol "Terima Semua Tinjauan (Bulk Accept)". Dokumen tetap tertahan dalam antrean
      peninjauan (`needs_review`) sampai verifikasi sumber diselesaikan oleh peneliti.
 
+11. FITUR PUSAT PEMETAAN CELAH RISET (RESEARCH GAP MAP HUB & PROJECT PICKER)
+--------------------------------------------------------------------------------
+- Layar Pemilihan Proyek Peta Celah Riset (`GapMapScreen.tsx` pada rute `/gap-map`):
+  * Bertindak sebagai Hub Pemilihan Proyek terpadu (Research Gap Map Project Selection Hub)
+    sebelum membuka kanvas dan matriks celah riset lintas naskah akademik.
+  * Ambang Batas Kesiapan Ilmiah (Academic Readiness Threshold >= 2 Paper Siap):
+    Secara metodologis, pemetaan celah penelitian (research gaps) dan isolasi novelty tesis
+    memerlukan komparasi perbandingan lintas-dokumen minimal 2 dokumen paper yang telah berstatus
+    Siap (`ready`).
+  * Proyek Memenuhi Syarat (`ready_count >= 2`):
+    - Ditandai dengan lencana hijau emerald ("Siap Celah Riset").
+    - Menampilkan bilah kemajuan kesiapan (progress bar) dan tombol solid Indigo "Buka Peta Celah Riset".
+    - Mengklik tombol membuka ruang kerja peta celah proyek aktif (`ProjectGapMapView.tsx`) dengan
+      parameter URL terpusat (`/gap-map?projectId=:id`).
+  * Kotak Peringatan Paper Siap Kurang Dari 2 (`ready_count < 2`):
+    - Ditandai dengan lencana amber ("Belum Siap") dan kotak peringatan kuning/amber yang jelas:
+      "Pemetaan celah penelitian memerlukan minimal 2 paper berstatus Siap untuk menemukan
+      keterbatasan, kontradiksi, dan peluang riset lintas dokumen. Saat ini baru X dari Y paper yang siap."
+    - Tombol "Buka Peta Celah Riset" dinonaktifkan (terkunci dengan ikon gembok).
+    - Disediakan tombol aksi solutif terarah:
+      * Jika total paper < 2: Tombol "Unggah Paper Tambahan" langsung menuju `/projects/:id/overview`.
+      * Jika paper >= 2 namun belum diverifikasi: Tombol "Tinjau Komponen Paper" langsung menuju `/projects/:id/review`.
+  * Dasbor Statistik Agregat & Filter Kategori:
+    - 4 Kartu Metrik Ringkasan: Total Proyek, Siap Celah Riset, Belum Memenuhi Syarat, dan Total Paper Siap.
+    - Tab Filter Kesiapan: "Semua Proyek", "Siap Celah Riset", dan "Belum Memenuhi Syarat".
+    - Kotak Pencarian Instan: Menyaring nama dan deskripsi proyek secara langsung (*real-time*).
+- Ruang Kerja Peta Celah Proyek Terpilih (`ProjectGapMapView.tsx`):
+  * Bilah Header Navigasi Cerdas: Tombol "Pilih Proyek Lain" untuk kembali ke katalog pemilihan,
+    pemilih drop-down proyek cepat, serta tombol "Sintesis Celah Baru dengan AI".
+  * Metrik Celah Riset: Total Simpul 4 Tahap, Fokus Bersama (>= 2 Paper), Celah Riset Langka (Novelty),
+    dan Celah Tervalidasi (Accepted).
+  * Tab Navigasi Workspace Ganda:
+    1. Tab "Kanvas Alur Riset (React Flow)": Kanvas grafis visualisasi alur 4 tahap utama.
+    2. Tab "Daftar Kandidat Celah (List View)": Tabel & kartu telaah validasi celah ("Layak Diteliti" / "Tolak").
+- Kanvas Interaktif Alur Riset 4 Tahap (`ResearchFlowCanvas.tsx` berbasis `@xyflow/react`):
+  * Alur Visual 4 Tahap Terstruktur (dibaca dari kiri ke kanan):
+    - Tahap 1: Topik Riset (Domain investigasi per naskah primer, koordinat X = 50)
+    - Tahap 2: Tema Bersama (Klaster tema bersama lintas-dokumen, koordinat X = 390)
+    - Tahap 3: Masalah Ilmiah (Akar permasalahan & kontradiksi metodologis, koordinat X = 730)
+    - Tahap 4: Solusi & Novelty (Pendekatan metodologi & celah riset tesis, koordinat X = 1070)
+  * Pewarnaan Node Berbasis Frekuensi Ilmiah (`FlowNodeCard.tsx`):
+    - Node Hijau (Emerald `#10B981`): Digunakan oleh minimal 2 dokumen paper (`status: shared`).
+      Menandakan topik/solusi mapan yang sering diteliti, cocok untuk landasan teoretis bab Tinjauan Pustaka.
+    - Node Merah (Rose `#EF4444`): Hanya diteliti oleh 1 paper (`status: gap`).
+      Menandakan celah riset langka dan memiliki potensi kebaruan (novelty) tertinggi untuk diangkat sebagai topik tesis.
+  * Konektor Bezier Halus: Garis kurva dinamis yang menghubungkan simpul lintas tahap secara horizontal,
+    dengan animasi pendaran garis putus-putus pada jalur celah merah.
+  * Bilah Toolbar Kanvas (`CanvasToolbar.tsx`):
+    - Filter Cepat: "Semua Simpul", "Hanya Hijau (>=2 Paper)", dan "Hanya Merah (Celah Langka)".
+    - Kontrol Navigasi: Zoom In, Zoom Out, dan Penyesuaian Sudut Pandang Layar (Fit View).
+    - Mode Layar Penuh (*Fullscreen*): Kanvas membesar memenuhi layar monitor tanpa merusak antarmuka utama.
+  * Panel Samping Rincian Simpul (`NodeDetailPanel.tsx`):
+    - Slide-in drawer yang muncul saat suatu node diklik.
+    - Menampilkan lencana tahap, status frekuensi (Shared vs Gap), deskripsi formulasi ilmiah lengkap,
+      daftar dokumen paper pendukung beserta penulis dan tahun terbit, serta kutipan bukti verbatim (*verbatim quote*)
+      lengkap dengan nomor halaman kanonik.
+    - Tombol aksi: "Jadikan Fokus Novelty Tesis" dan "Salin Ringkasan Simpul" dengan toast feedback standar 5 detik (5000 ms).
+  * Kartu Rekomendasi Aksi Strategis 4 Tahap (`FourStageActionCard.tsx`):
+    - Grid responsif 4 kolom yang memandu tindakan taktis akademis:
+      1. Tahap 1 (Topik): Penyelarasan batasan ruang lingkup penelitian.
+      2. Tahap 2 (Tema): Konsolidasi landasan teoretis pada tema bersama (hijau).
+      3. Tahap 3 (Masalah): Eksplorasi akar kontradiksi masalah kritis.
+      4. Tahap 4 (Solusi): Eksploitasi peluang novelty pada simpul merah (solusi langka) vs validasi pada simpul hijau.
+12. FITUR PETA KONSEPSI RISET & PERBANDINGAN BERPASANGAN 5 TAHAP (CONCEPT MAP & PAIRWISE ENGINE)
+--------------------------------------------------------------------------------
+- Pusat Ruang Kerja Peta Konsepsi & Celah Riset (`ConceptMapScreen.tsx` pada rute `/concept-map` dan `/projects/:projectId/concept-map`):
+  * Pengendali Rute Ganda (Dual Route Dispatcher): Mendukung resolusi ID proyek melalui parameter rute maupun URL search param (`/concept-map?projectId=...`).
+  * Validasi Kesiapan Akademis (>= 2 Paper Siap): Mengelompokkan proyek berdasarkan jumlah naskah ilmiah siap analisis.
+    Bila proyek memiliki kurang dari 2 paper siap, disajikan callout amber solutif dengan tautan langsung ke halaman unggah paper.
+  * Dasbor Statistik Agregat: Metrik Total Pasangan Ilmiah (N * (N - 1) / 2), Kandidat Celah Riset Terdeteksi,
+    Keterbatasan Terpetakan, dan Celah Layak Diteliti (Accepted).
+
+- Mesin Komparasi Berpasangan Terurut 5 Tahap (5-Step Deterministic Stopping Rule):
+  * Menganalisis seluruh permutasi pasangan naskah akademik secara berpasangan dengan 5 tahap uji deterministik berurutan:
+    1. Tahap 1 (Konsep Utama): Apakah kedua naskah meneliti konsep/domain teoretis yang sama? Jika tidak, berhenti sebagai Unrelated.
+    2. Tahap 2 (Variabel Penelitian): Apakah variabel independen/dependen/mediasi identik? Jika tidak, berhenti sebagai Candidate Gap (Variables).
+    3. Tahap 3 (Objek / Dataset): Apakah objek populasi atau domain data setara? Jika tidak, berhenti sebagai Candidate Gap (Population/Dataset).
+    4. Tahap 4 (Metodologi): Apakah metodologi atau algoritma pengolahan setara? Jika tidak, berhenti sebagai Candidate Gap (Methodology).
+    5. Tahap 5 (Cakupan Masalah): Apakah batasan masalah ilmiah identik? Jika tidak, berhenti sebagai Candidate Gap (Problem Scope); bila seluruh aspek identik, berstatus No Gap.
+  * Setiap langkah pengujian dilengkapi kutipan bukti empiris (verbatim evidence quote) dari naskah beserta nomor halaman kanonik.
+
+- Kanvas Visual Rantai Keterbatasan & Peluang Masa Depan (`LimitationsFutureWorkCanvas.tsx`):
+  * Berbasis `@xyflow/react` dengan kanvas interaktif (pan, zoom, minimap, background dots).
+  * Alur rantai kausalitas horizontal terstruktur:
+    Node Paper Sumber (Biru) -> Keterbatasan Naskah/Limitation (Kuning Emas) -> Peluang Riset/Future Work (Indigo) -> Celah Kebaruan/Novelty Gap (Hijau Emerald).
+  * Menghubungkan secara eksplisit poin keterbatasan yang diakui oleh penulis naskah terdahulu langsung ke agenda peluang masa depan yang dapat dieksploitasi untuk tesis.
+
+- Visualisasi Diagram Alur Keputusan Mermaid Dinamis (`FiveStepMermaidFlowchart.tsx`):
+  * Ditenagai oleh pustaka `mermaid` v12.2.0 terisolasi dalam vendor chunk khusus (`vendor-mermaid`).
+  * Menghasilkan representasi diagram alur `graph TD` interaktif dengan simbol wajik (decision diamonds) dan pewarnaan CSS Modellyng Academic.
+  * Fitur salin kode sintesis Mermaid dan sakelar mode "Lihat Kode Mermaid" dengan konfirmasi notifikasi seragam 5000 ms.
+
+- Polling Sinkronisasi Otomatis 5 Detik (`PairwiseComparisonPanel.tsx` & `ProjectConceptMapView.tsx`):
+  * Siklus polling berkala 5 detik terukur dengan indikator penghitung mundur (countdown timer) dan status denyut nadi (pulse indicator).
+  * Memperbarui matriks dan status pasangan paper secara mulus di latar belakang tanpa menginterupsi interaksi pengguna.
+
+- Hub Validasi Keputusan Reviewer Celah Riset (`GapDecisionModal.tsx` & `GapCandidateCard.tsx`):
+  * Menampilkan kartu kandidat celah riset lengkap dengan kategori celah, domain ilmiah, akar masalah (core issue), rekomendasi solusi pengganti, dan usulan judul tesis.
+  * Modal peninjauan interaktif untuk memberikan keputusan validasi: "Layak Diteliti (Accept)" atau "Ditolak / Duplikasi (Reject)".
+  * Kolom catatan ilmiah reviewer untuk justifikasi akademik dengan umpan balik toast seragam tepat 5000 ms.
+13. FITUR ASISTEN CERDAS GLOBAL & AUTOCOMPLETE KONTEKS (GLOBAL CHAT & CONTEXT TAGGING)
+--------------------------------------------------------------------------------
+- Layar Utama Asisten Cerdas Global (`ChatGlobalScreen.tsx` pada rute `/chat`):
+  * Titik temu asisten kecerdasan buatan universal untuk eksplorasi literatur lintas-dokumen,
+    konsultasi metodologi riset, dan investigasi temuan naskah berbasis bukti (*evidence-centered*).
+  * Terhubung secara mulus dengan tombol "Asisten Global" pada bilah navigasi atas (`Header.tsx`).
+
+- Mekanisme Autocomplete Konteks Interaktif (`@proyek` dan `/paper`):
+  * Deteksi Kursor Real-Time (`autocompleteParser.ts`):
+    - Mengetik simbol `@` memunculkan popover mengambang (`ContextAutocompleteMenu.tsx`) yang memuat
+      daftar seluruh proyek riset aktif milik pengguna.
+    - Mengetik simbol `/` memunculkan popover yang memuat daftar naskah paper spesifik (otomatis menyaring
+      paper di dalam proyek bila `@proyek` telah terpilih).
+  * Navigasi Keyboard Penuh:
+    - Pengguna dapat bernavigasi menggunakan tombol Panah Bawah (`Down`), Panah Atas (`Up`),
+      memilih dengan `Enter` atau `Tab`, serta membatalkan/menutup dengan `Escape` atau tombol `X`.
+  * Penyematan Konteks (*Context Chips*):
+    - Saat item dipilih, token pemicu pada teks input otomatis dibersihkan dan disematkan sebagai chip
+      interaktif beraksen visual di atas input bar (`@NamaProyek` berwarna Indigo, `/JudulPaper` berwarna Emerald).
+    - Chip dapat dilepas kapan saja dengan tombol silang `x` tanpa merusak teks pertanyaan yang sedang diketik.
+
+- Kebijakan Caching Lokal 24 Jam & Pemangkasan Otomatis (*Auto-Prune* via `localStorage`):
+  * Sesuai spesifikasi audit fitur Modellyng (Kategori 13), riwayat percakapan asisten global disimpan
+    secara privat di sisi klien pengguna (`modellyng_global_chat_history_${userId}`) dengan batas waktu 24 jam.
+  * Algoritma Pemangkasan Otomatis (*Auto-Prune*):
+    - Setiap kali layar dimuat atau pesan baru ditambahkan, sistem memfilter pesan yang usianya melampaui
+      24 jam (`Date.now() - msg.timestamp > 86400000 ms`). Pesan kedaluwarsa otomatis dibuang untuk menjaga efisiensi memori.
+  * Penyimpanan Draf Pertanyaan (*Draft Auto-Save*):
+    - Teks pertanyaan yang belum terkirim otomatis tersimpan di `localStorage` (`modellyng_global_chat_draft_${userId}`)
+      sehingga ketikan pengguna tidak akan pernah hilang saat beralih tab atau me-refresh peramban.
+  * Tombol Bersihkan Riwayat Manual:
+    - Tombol "Bersihkan Riwayat" pada bilah atas memunculkan dialog konfirmasi (`ClearHistoryConfirmModal.tsx`)
+      dan membersihkan seluruh cache percakapan seketika dengan umpan balik toast seragam 5000 ms.
+
+- Perenderan Respon Kaya Markdown & Sitasi Naskah Interaktif (`GlobalChatMessageItem.tsx`):
+  * Ditenagai oleh `react-markdown` dan `remark-gfm` untuk memformat heading, bullet points, tabel komparasi,
+    blok kutipan, dan cuplikan kode secara estetis sesuai standar tipografi Modellyng.
+  * Tautan Rujukan Sitasi Naskah `[S#]`:
+    - Simbol sitasi (misal: `[S1]`, `[S2]`) diproses menjadi tombol interaktif yang bila diklik akan membuka
+      modal pratinjau bukti naskah (`CitationPreviewModal.tsx`), menampilkan judul paper, nomor halaman kanonik,
+      dan kutipan teks asli (*verbatim quote*) yang dapat disalin ke papan klip.
+  * Tombol Salin Jawaban: Ikon salin yang muncul pada balon pesan asisten memudahkan pengguna menyalin teks formulasi
+    ilmiah ke draf naskah tesis.
+
+- Optimalisasi Kuota Token & Mekanisme Pemulihan Draf (*Error Recovery*):
+  * Pembatasan Riwayat Pengiriman: Hanya mengirim maksimal 6 pesan riwayat terakhir dengan batas maksimal 1500
+    karakter per pesan untuk menghemat window token LLM.
+  * Mekanisme Retry Otomatis 1 Kali: Menangani gangguan koneksi sesaat atau lonjakan beban server.
+  * Pemulihan Draf Saat Gagal Jaringan: Jika koneksi gagal total, sistem otomatis mengembalikan teks pertanyaan
+    ke dalam kolom input agar pengguna tidak kehilangan draf ketikan panjangnya, disertai pesan toast peringatan 5000 ms.
+
+14. FITUR KNOWLEDGE GRAPH SPASIAL 2D & ZONA SATURASI KONSEP (KNOWLEDGE GRAPH CANVAS)
+--------------------------------------------------------------------------------
+- Pusat Ruang Kerja Graf Pengetahuan Spasial 2D (`KnowledgeGraphScreen.tsx` pada rute `/knowledge-graph`):
+  * Pengendali Rute Ganda (Dual Route Dispatcher): Mendukung resolusi ID proyek melalui parameter rute maupun URL search param (`/knowledge-graph?projectId=...`).
+  * Validasi Kesiapan Akademis (>= 2 Paper Siap): Mengelompokkan proyek berdasarkan status kesiapan dokumen paper.
+    Bila proyek memiliki kurang dari 2 paper siap, disajikan callout amber solutif dengan navigasi cepat ke halaman unggah naskah.
+  * Dasbor Metrik Spasial Agregat: Metrik Total Simpul Pengetahuan, Simpul Saturasi Rendah (Novelty <= 20%),
+    Simpul Saturasi Sedang (Transisi 21% - 50%), Simpul Saturasi Tinggi (Mapan > 50%), dan Simpul Celah Riset (Research Gaps).
+
+- Mesin Kalkulasi Saturasi & Pengelompokan Spasial 2D (`graphDataBuilder.ts`):
+  * Menghitung rasio kemunculan konsep ilmiah dari matriks ekstraksi parameter (Problem, Variables, Methodology, Dataset, Limitations) terhadap total paper:
+    1. Zona Rendah / Novelty (<= 20%, Rose `#F43F5E`): Konsep langka yang berpotensi tinggi menjadi novelty dan celah riset baru tesis, ditempatkan di lajur kiri kanvas (koordinat X = 160 - 480).
+    2. Zona Sedang / Transisi (21% - 50%, Amber `#F59E0B`): Konsep dalam tahap perkembangan atau adopsi transisional, ditempatkan di lajur tengah kanvas (koordinat X = 800 - 1120).
+    3. Zona Tinggi / Mapan (> 50%, Emerald `#10B981`): Konsep standar/fondasi teoretis yang telah mapan di literatur, ditempatkan di lajur kanan kanvas (koordinat X = 1440 - 1760).
+  * Distribusi Slot Vertikal Berjarak (Staggered Y-Slot): Mengatur koordinat Y secara berjenjang bertahap untuk mencegah tumpang tindih visual (node overlap).
+  * Relasi Semantik Otomatis Lintas Zona: Memetakan keterhubungan High -> Medium -> Low/Gap dengan garis konektor terarah dan garis putus-putus beranimasi pada celah riset.
+
+- Kanvas Graf Interaktif React Flow (`ProjectKnowledgeGraphView.tsx` & `@xyflow/react`):
+  * Latar Belakang Demarkasi 3 Zona Spasial (`ZoneOverlayBackground.tsx`): Menampilkan 3 pilar kolom vertikal beraksen halus di belakang viewport graf yang memisahkan Zona Novelty, Zona Transisi, dan Zona Mapan.
+  * Kartu Simpul Pengetahuan Kustom (`KnowledgeGraphNodeCard.tsx`): Menampilkan lencana tipe simpul (Konsep, Variabel, Metode, Dataset, Celah Riset), nama formulasi konsep, indikator persentase saturasi, jumlah paper pendukung, dan efek hover glow interaktif.
+  * Bilah Pengontrol Kanvas Mengambang:
+    - Navigasi & Zoom: Zoom In, Zoom Out, dan Pusatkan Tampilan (Fit View).
+    - Reset Posisi Pegas: Mengembalikan seluruh node ke slot zona spasial awal dengan animasi halus dan toast feedback 5 detik (5000 ms).
+    - Mode Layar Penuh (*Fullscreen*): Memperluas kanvas ke seluruh area layar untuk kenyamanan eksplorasi graf berskala besar.
+    - Segmented Tab Filter: Menyaring simpul berdasarkan zona ("Semua", "Rendah / Novelty", "Sedang", "Tinggi") serta dropdown filter jenis simpul.
+
+- Drawer Rincian Simpul Samping (`NodeDetailDrawer.tsx`):
+  * Slide-in drawer dari sisi kanan yang terbuka seketika saat pengguna mengklik salah satu node di kanvas.
+  * Menampilkan formula nama konsep, rumus persentase saturasi ilmiah, deskripsi substantif temuan akademik, serta daftar rujukan paper pendukung lengkap dengan nama penulis, tahun terbit, nomor halaman kanonik, dan kutipan bukti verbatim (*evidence quote*).
+  * Tombol aksi "Salin Ringkasan Konsep & Bukti" yang memformat data ke papan klip dengan toast konfirmasi standar 5000 ms.
 
 
 ================================================================================

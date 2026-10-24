@@ -523,6 +523,7 @@ export default function PaperResultScreen() {
               onToggleExpand={() => setIsPdfExpanded((prev) => !prev)}
               isEvidencePanelOpen={isEvidencePanelOpen}
               onOpenEvidencePanel={() => setIsEvidencePanelOpen(true)}
+              componentLabel={activeComponentLabel}
             />
           )}
 

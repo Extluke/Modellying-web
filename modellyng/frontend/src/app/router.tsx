@@ -253,6 +253,14 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: ROUTES.PROJECTS.CONCEPT_MAP,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ConceptMapScreen />
+          </Suspense>
+        ),
+      },
       // Research Domain
       {
         path: ROUTES.RESEARCH.MATRIX,

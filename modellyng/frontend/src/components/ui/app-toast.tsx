@@ -20,6 +20,11 @@ function ToastCard({ toast }: { toast: ToastItem }) {
       icon: <Info className="size-4 shrink-0 text-primary mt-0.5" />,
       bar: "bg-primary/80",
     },
+    warning: {
+      bg: "bg-amber-950/90 dark:bg-amber-950/95 border-amber-500/40 text-amber-100",
+      icon: <AlertCircle className="size-4 shrink-0 text-amber-400 mt-0.5" />,
+      bar: "bg-amber-400/80",
+    },
   }[toast.type]
 
   return (

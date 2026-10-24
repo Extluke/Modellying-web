@@ -255,6 +255,8 @@ export const projectKeys = {
     [...projectKeys.detail(userId, projectId), "papers", paperId, "components"] as const,
   blocks: (userId: string | undefined, projectId: string, paperId: string) =>
     [...projectKeys.detail(userId, projectId), "papers", paperId, "blocks"] as const,
+  pdf: (userId: string | undefined, projectId: string, paperId: string) =>
+    [...projectKeys.detail(userId, projectId), "papers", paperId, "pdf"] as const,
   reviewQueue: (userId: string | undefined, projectId: string) =>
     [...projectKeys.detail(userId, projectId), "review-queue"] as const,
   chat: (userId: string | undefined, projectId: string) =>
@@ -427,6 +429,27 @@ export function usePaperBlocks(projectId: string | undefined, paperId: string | 
     },
     enabled: Boolean(projectId) && Boolean(paperId) && Boolean(userId),
     staleTime: 1000 * 60,
+  })
+}
+
+export function usePaperPdf(projectId: string | undefined, paperId: string | undefined) {
+  const user = useAuthStore((state) => state.user)
+  const userId = user?.id
+
+  return useQuery({
+    queryKey: projectKeys.pdf(userId, projectId || "", paperId || ""),
+    queryFn: async ({ signal }) => {
+      if (!projectId || !paperId) throw new Error("Parameter proyek dan paper tidak valid.")
+      return apiClient.getArrayBuffer(
+        `/projects/${projectId}/papers/${paperId}/pdf`,
+        { signal }
+      )
+    },
+    enabled: Boolean(projectId) && Boolean(paperId) && Boolean(userId),
+    staleTime: 10 * 60 * 1000, // 10 menit in-memory cache
+    gcTime: 15 * 60 * 1000,    // 15 menit garbage collector retention
+    refetchOnWindowFocus: false, // Menghindari refetch biner berat saat pindah tab browser
+    retry: 2,
   })
 }
 
