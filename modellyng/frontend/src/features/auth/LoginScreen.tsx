@@ -64,23 +64,32 @@ export default function LoginScreen() {
 
     // 2. Submit to backend API
     try {
-      await login({
+      const loggedInUser = await login({
         email,
         password,
         remember_me: rememberMe,
       })
 
-      // Always navigate directly to dashboard after login as required
-      navigate(ROUTES.DASHBOARD, { replace: true })
+      // Always navigate directly to appropriate dashboard
+      if (loggedInUser?.role === "admin") {
+        navigate(ROUTES.ADMIN.DASHBOARD, { replace: true })
+      } else {
+        navigate(ROUTES.DASHBOARD, { replace: true })
+      }
     } catch (err: any) {
       setApiError(err?.message || "Email atau kata sandi salah. Silakan coba lagi.")
     }
   }
 
-  // Quick fill demo credentials for reviewer convenience
-  const handleFillDemo = () => {
-    setEmail("cahayu@modellyng.ac.id")
-    setPassword("Password123")
+  // Quick fill demo credentials for reviewer convenience (Researcher or Admin)
+  const handleFillDemo = (type: "researcher" | "admin" = "researcher") => {
+    if (type === "admin") {
+      setEmail("admin@modellyng.ac.id")
+      setPassword("Password123!")
+    } else {
+      setEmail("cahayu@modellyng.ac.id")
+      setPassword("Password123")
+    }
     setErrors({})
     setApiError(null)
   }
@@ -117,15 +126,50 @@ export default function LoginScreen() {
         )}
 
         {/* Quick Demo Hint */}
-        <div className="mb-5 flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50/70 p-2.5 text-xs text-indigo-950 dark:border-indigo-950 dark:bg-indigo-950/30 dark:text-indigo-200">
-          <span className="text-[11px]">Akun Uji Coba: <strong>cahayu@modellyng.ac.id</strong></span>
-          <button
-            type="button"
-            onClick={handleFillDemo}
-            className="rounded bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
-          >
-            Isi Otomatis
-          </button>
+        <div className="mb-5 rounded-xl border border-indigo-200/90 bg-indigo-50/70 p-3 text-xs text-indigo-950 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-200 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-indigo-900 dark:text-indigo-300">
+              Akun Uji Coba:
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleFillDemo("researcher")}
+              className="flex flex-col items-start rounded-lg border border-indigo-200/80 bg-background/90 p-2 text-left hover:border-primary hover:bg-primary/5 transition-all shadow-xs group"
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-bold text-foreground group-hover:text-primary transition-colors">
+                  Peneliti
+                </span>
+                <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                  Isi Otomatis
+                </span>
+              </div>
+              <span className="text-[10px] text-muted-foreground truncate w-full mt-0.5 font-mono">
+                cahayu@modellyng.ac.id
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleFillDemo("admin")}
+              className="flex flex-col items-start rounded-lg border border-purple-200/80 bg-background/90 p-2 text-left hover:border-purple-600 hover:bg-purple-500/5 transition-all shadow-xs group"
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-bold text-foreground group-hover:text-purple-600 transition-colors">
+                  Administrator
+                </span>
+                <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 dark:bg-purple-950/60 dark:text-purple-300 px-1.5 py-0.5 rounded">
+                  Isi Otomatis
+                </span>
+              </div>
+              <span className="text-[10px] text-muted-foreground truncate w-full mt-0.5 font-mono">
+                admin@modellyng.ac.id
+              </span>
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

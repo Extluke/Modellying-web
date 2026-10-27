@@ -10,6 +10,7 @@ load_dotenv(dotenv_path=env_path)
 
 from .auth.router import auth_router
 from .projects.router import projects_router, papers_router
+from .admin.router import admin_router, public_announcements_router
 
 app = FastAPI(
     title="Modellyng Academic PDF Analysis API",
@@ -45,6 +46,14 @@ app.include_router(projects_router, prefix="/api/v1")
 app.include_router(papers_router)
 app.include_router(papers_router, prefix="/api")
 app.include_router(papers_router, prefix="/api/v1")
+
+app.include_router(admin_router)
+app.include_router(admin_router, prefix="/api")
+app.include_router(admin_router, prefix="/api/v1")
+
+app.include_router(public_announcements_router)
+app.include_router(public_announcements_router, prefix="/api")
+app.include_router(public_announcements_router, prefix="/api/v1")
 
 
 @app.get("/api/health")

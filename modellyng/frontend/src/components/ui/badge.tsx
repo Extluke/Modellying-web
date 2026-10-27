@@ -38,6 +38,8 @@ const badgeVariants = cva(
         // 5. Brand Primary Accent (Indigo #5147E5 on #EEECFF)
         primary:
           "bg-primary-soft text-primary-soft-foreground border border-primary/20",
+        default:
+          "bg-primary text-primary-foreground",
 
         // 6. Neutral / Outline
         outline:
@@ -45,6 +47,8 @@ const badgeVariants = cva(
 
         // 7. Subtle Gray Fill
         muted:
+          "bg-muted text-muted-foreground",
+        secondary:
           "bg-muted text-muted-foreground",
       },
       shape: {

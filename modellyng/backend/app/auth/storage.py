@@ -26,24 +26,25 @@ class PostgresUserStorage:
 
     def _seed_default_users(self):
         defaults = [
-            ("Cahayu UI Specialist", "cahayu@modellyng.ac.id", "Password123"),
-            ("Arby Tech Lead", "arby@modellyng.ac.id", "Password123"),
-            ("Faqih Core Developer", "faqih@modellyng.ac.id", "Password123"),
-            ("Fatih AI Specialist", "fatih@modellyng.ac.id", "Password123"),
-            ("Demo Researcher", "demo@modellyng.ac.id", "Password123"),
+            ("Cahayu UI Specialist", "cahayu@modellyng.ac.id", "Password123", "researcher"),
+            ("Arby Tech Lead", "arby@modellyng.ac.id", "Password123", "researcher"),
+            ("Faqih Core Developer", "faqih@modellyng.ac.id", "Password123", "researcher"),
+            ("Fatih AI Specialist", "fatih@modellyng.ac.id", "Password123", "researcher"),
+            ("Demo Researcher", "demo@modellyng.ac.id", "Password123", "researcher"),
+            ("Super Administrator", "admin@modellyng.ac.id", "Password123", "admin"),
         ]
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                for name, email, pwd in defaults:
+                for name, email, pwd, role in defaults:
                     email_clean = email.strip().lower()
                     cur.execute("SELECT id FROM public.users WHERE lower(email) = %s;", (email_clean,))
                     if not cur.fetchone():
                         pwd_hash = hash_password(pwd)
                         cur.execute("""
                             INSERT INTO public.users (email, password_hash, full_name, role)
-                            VALUES (%s, %s, %s, 'researcher')
-                            ON CONFLICT (email) DO NOTHING;
-                        """, (email_clean, pwd_hash, name))
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role;
+                        """, (email_clean, pwd_hash, name, role))
 
     def create_user(self, full_name: str, email: str, plain_password: str, role: str = "researcher") -> dict:
         email_clean = email.strip().lower()

@@ -18,6 +18,10 @@ Modellying-web/
 ├── modellyng/
 │   ├── backend/                      # Layanan Backend Python FastAPI & Pipeline
 │   │   ├── app/                      # Sumber kode logika bisnis & API
+│   │   │   ├── admin/                # Modul administrasi sistem, metrik dasbor, kelola pengguna & kuota model
+│   │   │   │   ├── dependencies.py   # Security guard RBAC (require_admin)
+│   │   │   │   ├── models.py         # Skema Pydantic respon metrik, user list, role, & kuota model
+│   │   │   │   └── router.py         # RESTful router (/api/v1/admin/*)
 │   │   │   ├── auth/                 # Modul autentikasi, JWT, & hashing Argon2id
 │   │   │   ├── pipeline/             # Ekstraksi PDF PyMuPDF, LLM Gatekeeper, & Verifikasi DOI
 │   │   │   │   ├── source_verification.py # Layanan verifikasi keabsahan sumber paper via Crossref & DataCite
@@ -173,10 +177,14 @@ src/features/
 │   ├── notifications/                # /notifications (Pusat notifikasi status tugas)
 │   └── settings/                     # /settings (Profil, preferensi sitasi, & tema)
 │
-└── admin/                            # Panel Manajemen Sistem
-    ├── dashboard/                    # /admin/dashboard
-    ├── user-management/              # /admin/users (Kelola hak akses pengguna)
-    └── model-quotas/                 # /admin/models (Pemantauan kuota & token AI)
+└── admin/                            # Panel Manajemen Sistem & Tata Kelola (Fatih)
+    ├── api/                          # adminApi.ts (Layanan API Client TanStack Query 6 tugas admin)
+    ├── dashboard/                    # /admin/dashboard (Job 1: Rasio langganan vs gratis, MRR, performa worker)
+    ├── user-management/              # /admin/users (Job 2: Kesulitan login, reset sandi, pelanggaran & laporan bug)
+    ├── subscriptions/                # /admin/subscriptions (Job 3: CMS paket langganan, harga IDR, kuota & fasilitas)
+    ├── cms/                          # /admin/cms (Job 4: CMS berita, promo, diskon, perubahan syarat & jadwal kirim)
+    ├── api-config/                   # /admin/api-config (Job 5: Konfigurasi dinamis API Key AI & switching failover)
+    └── admins/                       # /admin/admins (Job 6: Tata kelola sesama admin, granular permissions & audit log)
 
 
 ================================================================================
@@ -436,25 +444,59 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 | POST   | /api/v1/projects/{id}/chat                                  | Obrolan RAG hibrida RRF & sitasi   |
 | GET    | /api/v1/projects/{id}/chat                                  | Riwayat pesan obrolan RAG proyek   |
 | GET    | /api/v1/projects/{id}/comparative-matrix                    | Matriks komparasi 13 parameter     |
+| GET    | /api/v1/admin/dashboard/metrics                             | Metrik sistem, rasio user berbayar vs free, MRR    |
+| GET    | /api/v1/admin/users                                         | Daftar pengguna, search, filter status & role       |
+| PATCH  | /api/v1/admin/users/{user_id}/status                        | Sanksi pelanggaran (aktif/tangguhkan/nonaktifkan)   |
+| PATCH  | /api/v1/admin/users/{user_id}/role                          | Promosi/demisi role pengguna (researcher/admin)     |
+| DELETE | /api/v1/admin/users/{user_id}                               | Hapus akun pengguna permanen (kaskade)              |
+| POST   | /api/v1/admin/users/{user_id}/reset-password                | Penanganan kesulitan login (Reset kata sandi instan)|
+| GET    | /api/v1/admin/bug-reports                                   | Daftar laporan bug & tiket kendala pengguna         |
+| PATCH  | /api/v1/admin/bug-reports/{bug_id}                          | Resolusi kendala teknis pengguna & catatan admin    |
+| GET    | /api/v1/admin/subscriptions/plans                           | Daftar paket langganan CMS & jumlah subscriber aktif|
+| POST   | /api/v1/admin/subscriptions/plans                           | Buat paket langganan baru (harga IDR, batas paper)  |
+| PUT    | /api/v1/admin/subscriptions/plans/{id}                      | Ubah harga, kuota ekstraksi & fasilitas paket       |
+| DELETE | /api/v1/admin/subscriptions/plans/{id}                      | Hapus / arsipkan paket langganan                    |
+| GET    | /api/v1/admin/cms/announcements                             | Daftar pengumuman, promo diskon & pembaruan sistem  |
+| POST   | /api/v1/admin/cms/announcements                             | Terbitkan berita/promo baru & jadwal kirim          |
+| PUT    | /api/v1/admin/cms/announcements/{id}                        | Ubah konten pengumuman CMS & target audiens         |
+| DELETE | /api/v1/admin/cms/announcements/{id}                        | Hapus pengumuman CMS & notifikasi pengguna          |
+| GET    | /api/v1/announcements/active                                | Endpoint publik aktif untuk banner dasbor & lonceng |
+| GET    | /api/v1/admin/api-config                                    | Konfigurasi dinamis kunci AI provider & masked key  |
+| PUT    | /api/v1/admin/api-config/{provider}                         | Perbarui kunci API & prioritas switching di database|
+| POST   | /api/v1/admin/api-config/{provider}/test                    | Uji latensi ping provider real-time (ms)            |
+| GET    | /api/v1/admin/admins                                        | Daftar seluruh akun administrator platform          |
+| POST   | /api/v1/admin/admins                                        | Tambah akun admin baru & delegasi hak akses         |
+| PATCH  | /api/v1/admin/admins/{id}                                   | Modifikasi hak akses granular sesama administrator  |
+| DELETE | /api/v1/admin/admins/{id}                                   | Hapus akun admin dengan proteksi perlindungan diri  |
+| GET    | /api/v1/admin/audit-logs                                    | Rekam jejak audit aktivitas administratif sistem    |
+| GET    | /api/v1/admin/models/quotas                                 | Monitoring kuota batas laju Gemini & Groq AI        |
 +--------+-------------------------------------------------------------+------------------------------------+
 
 
-3. AKUN UJI COBA SIAP PAKAI (DEMO RESEARCHER ACCOUNTS)
+3. AKUN UJI COBA SIAP PAKAI (DEMO RESEARCHER & ADMIN ACCOUNTS)
 --------------------------------------------------------------------------------
-Backend telah dilengkapi dengan akun peneliti siap pakai yang tersimpan permanen
+Backend telah dilengkapi dengan akun peneliti dan admin siap pakai yang tersimpan permanen
 di basis data:
 
-- Akun Peneliti 1:
-  Email    : cahayu@modellyng.ac.id
+- Akun Administrator Sistem (Akses Penuh Panel Admin):
+  Email     : admin@modellyng.ac.id
   Kata Sandi: Password123
+  Peran     : admin
+
+- Akun Peneliti 1:
+  Email     : cahayu@modellyng.ac.id
+  Kata Sandi: Password123
+  Peran     : researcher
 
 - Akun Peneliti 2:
-  Email    : arby@modellyng.ac.id
+  Email     : arby@modellyng.ac.id
   Kata Sandi: Password123
+  Peran     : researcher
 
 - Akun Peneliti 3:
-  Email    : demo@modellyng.ac.id
+  Email     : demo@modellyng.ac.id
   Kata Sandi: Password123
+  Peran     : researcher
 
 *Fitur Cepat:* Pada layar Login (`http://localhost:3000/login`), tersedia tombol
 "Isi Otomatis" untuk memasukkan kredensial akun demo secara instan.
@@ -975,6 +1017,57 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Slide-in drawer dari sisi kanan yang terbuka seketika saat pengguna mengklik salah satu node di kanvas.
   * Menampilkan formula nama konsep, rumus persentase saturasi ilmiah, deskripsi substantif temuan akademik, serta daftar rujukan paper pendukung lengkap dengan nama penulis, tahun terbit, nomor halaman kanonik, dan kutipan bukti verbatim (*evidence quote*).
   * Tombol aksi "Salin Ringkasan Konsep & Bukti" yang memformat data ke papan klip dengan toast konfirmasi standar 5000 ms.
+
+
+15. FITUR MODUL ADMINISTRASI SISTEM & BISNIS EKSEKUTIF (6 JOB ADMINISTRATOR — FATIH)
+--------------------------------------------------------------------------------
+- Keamanan Berbasis Peran & Penjaga Akses Ketat (RBAC via `require_admin`):
+  * Seluruh endpoint di bawah `/api/v1/admin/*` diproteksi oleh dependency keamanan `require_admin` di `app/admin/dependencies.py`.
+  * Sistem memverifikasi token JWT dan field `role == 'admin'` di basis data. Jika pengguna non-admin mencoba mengakses, sistem mengembalikan respon `403 Forbidden`.
+  * Proteksi Tindakan Diri Sendiri: Administrator aktif dilarang menghapus akunnya sendiri, mendemosi perannya sendiri, atau menonaktifkan status akunnya sendiri.
+
+- JOB 1: Dasbor Admin Eksekutif & Rasio Langganan (`/admin/dashboard` & `GET /api/v1/admin/dashboard/metrics`):
+  * Ringkasan Metrik Bisnis & Finansial: Menghitung total pengguna terdaftar, total pengguna berlangganan aktif (`subscribed_users_count`), total pengguna gratis (`free_users_count`), rasio konversi langganan (`subscribed_ratio_percent`), dan total pendapatan estimasi IDR (`total_revenue_idr`).
+  * Visualizer Split-Bar Proporsi: Bilah progress bar interaktif yang membandingkan persentase akun berbayar (Indigo) vs akun gratis (Slate).
+  * Distribusi Pelanggan per Paket: Menampilkan jumlah dan persentase peneliti pada paket Free Explorer, Pro Scholar, dan Lab & Campus Enterprise.
+  * Distribusi Status Pemrosesan Dokumen: Agregasi real-time status 4 status paper (`ready`, `processing`, `needs_review`, `failed`).
+  * Pemantauan Beban Infrastruktur: Beban antrean worker Celery, status konektivitas broker Redis port 6381, estimasi token AI hari ini, dan log 5 aktivitas sistem terkini.
+  * Dukungan Sinkronisasi Real-Time: Tombol "Segarkan Data" dan interval otomatis 30 detik via TanStack Query.
+
+- JOB 2: Konfigurasi Pengguna, Solusi Login, Pelanggaran & Tiket Bug (`/admin/users`):
+  * Pencarian & Filter Multi-Kriteria: Menyaring pengguna berdasarkan kata kunci nama/email/institusi, filter peran (`researcher`/`admin`), dan status akun (`active`, `suspended`, `deactivated`).
+  * Penanganan Kesulitan Login Pengguna: Fitur "Reset Sandi" instan oleh Administrator yang mengenkripsi kata sandi baru menggunakan hashing standar militer Argon2id di backend tanpa menunggu token email.
+  * Sanksi Pelanggaran Tertentu (Penangguhan Akun): Modal penangguhan akun dengan kolom input alasan pelanggaran (`suspension_reason`), serta tombol aktivasi kembali untuk memulihkan akses pengguna yang sudah ditangguhkan.
+  * Manajemen Tiket Laporan Bug & Kendala: Tab terpadu menampilkan daftar kendala teknis pengguna (laporan ekstraksi, canvas viewer, tabel IEEE dua kolom) lengkap dengan label tingkat keparahan (`critical`, `high`, `medium`, `low`), status tiket (`open`, `investigating`, `resolved`, `closed`), dan modal resolusi dengan catatan perbaikan teknis administrator.
+
+- JOB 3: Konfigurasi Paket Langganan CMS (`/admin/subscriptions` & `/api/v1/admin/subscriptions/plans`):
+  * Manajemen Paket Berbasis CMS: Menampilkan kartu harga interaktif untuk seluruh tingkatan langganan dengan lencana rekomendasi ("Paling Diminati") dan status aktif.
+  * Buat Paket Langganan Baru: Modal CMS untuk menentukan kode paket, nama paket, deskripsi, harga dalam Rupiah (IDR), periode tagihan (Free, Bulanan, Tahunan, Lifetime), batas unggah paper per bulan, batas kueri AI per hari, dan daftar butir fasilitas unggulan (*features checklist*).
+  * Modifikasi Paket & Fleksibilitas Kuota: Mengubah tarif langganan, memperbarui batas kuota dokumen/tanya AI, menambah/menghapus butir fitur, dan mengalihkan status aktif/nonaktif.
+  * Penghapusan Aman (*Safe Archiving*): Jika paket sudah memiliki relasi langganan pengguna aktif, sistem secara otomatis melakukan pengarsipan aman (*soft-deactivation*) demi melindungi integritas jejak audit finansial.
+
+- JOB 4: CMS Berita, Promo Diskon, Perubahan Ketentuan & Jadwal Kirim (`/admin/cms`):
+  * Manajemen Konten Pengumuman Beragam: Mengelola siaran promosi diskon, rilis fitur algoritma ekstraksi v2.0, pembaruan syarat & ketentuan, jadwal pemeliharaan server, dan program kemitraan kampus.
+  * Fitur Jadwal Kirim Terjadwal (*Scheduled Broadcast*): Pengaturan waktu tayang siaran otomatis (`scheduled_at`) menggunakan pemilih tanggal dan jam (*datetime picker*), selain opsi rilis instan (*immediate publish*).
+  * Integrasi Multi-Kanal Pengguna:
+    - Dasbor Peneliti: Banner dinamis di bagian atas `/dashboard` yang menampilkan judul promo, badge teks, dan ringkasan penawaran yang dapat ditutup (*dismissible*).
+    - Lonceng Notifikasi (`/notifications`): Pengumuman yang diterbitkan otomatis mengalir ke daftar notifikasi seluruh peneliti melalui endpoint publik `/api/v1/announcements/active`.
+
+- JOB 5: Konfigurasi Kunci API AI Dinamis & Failover Switching (`/admin/api-config` & `/admin/models`):
+  * Penyimpanan Kunci API Dinamis di Basis Data: Menghilangkan praktik berbahaya *hardcoding* rahasia API di dalam kode atau file repositori; seluruh konfigurasi model tersimpan aman di tabel `public.api_configurations`.
+  * Multi-Provider Switching Architecture: Mengelola model Google Gemini (Core Provider, prioritas #1) dan Groq Cloud (Backup Provider, prioritas #2), batas laju RPM, dan batas token TPM.
+  * Keamanan Visual Masked Key: Kunci API ditampilkan secara tersamar (contoh: `AIzaSy••••••••1234`) demi mencegah pengintipan visual (*shoulder surfing*).
+  * Fitur Uji Koneksi & Latensi Ping Real-Time: Tombol uji koneksi yang mengirimkan permintaan latensi kilat ke penyedia AI dan menampilkan kecepatan respons (milidetik/ms) serta status kesiapan operasional provider.
+
+- JOB 6: Tata Kelola Sesama Administrator, Hak Akses Granular & Audit Log (`/admin/admins`):
+  * Penambahan Akun Administrator Baru: Formulir penambahan anggota tim pengelola dengan penetapan peran (`super_admin`, `support_admin`, `content_admin`, `admin`).
+  * Pendelegasian Hak Akses Terperinci (*Granular Permissions*): Pemberian hak akses modular berbasis kotak centang (*checkboxes*) untuk modul:
+    1. `manage_users`: Hak kelola akun pengguna, reset sandi & sanksi pelanggaran.
+    2. `manage_subscriptions`: Hak konfigurasi paket langganan & penetapan harga CMS.
+    3. `manage_cms`: Hak pembuatan pengumuman, promo diskon & jadwal siaran.
+    4. `manage_api_keys`: Hak pengelolaan API Key penyedia AI & kuota switching.
+    5. `manage_admins`: Hak kelola tim administrator dan perubahan hak akses.
+  * Rekam Jejak Audit Platform Komprehensif (*Admin Audit Trail*): Tab Jejak Audit mencatat setiap tindakan administratif (siapa yang melakukan, aksi apa, entitas target, rincian JSON payload, dan stempel waktu) ke dalam tabel `public.admin_audit_logs`.
 
 
 ================================================================================

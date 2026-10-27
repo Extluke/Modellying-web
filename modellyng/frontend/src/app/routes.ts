@@ -40,6 +40,10 @@ export const ROUTES = {
   ADMIN: {
     DASHBOARD: "/admin/dashboard",
     USERS: "/admin/users",
+    SUBSCRIPTIONS: "/admin/subscriptions",
+    CMS: "/admin/cms",
+    API_CONFIG: "/admin/api-config",
+    ADMINS: "/admin/admins",
     MODELS: "/admin/models",
   },
   STYLEGUIDE: "/styleguide",

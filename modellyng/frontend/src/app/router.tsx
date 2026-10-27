@@ -79,15 +79,27 @@ const SettingsScreen = lazy(
   () => import("@/features/user/settings/SettingsScreen")
 )
 
-// 6. Admin Domain (Future)
+// 6. Admin Domain
 const AdminDashboardScreen = lazy(
   () => import("@/features/admin/dashboard/AdminDashboardScreen")
 )
 const UserManagementScreen = lazy(
   () => import("@/features/admin/user-management/UserManagementScreen")
 )
+const SubscriptionsScreen = lazy(
+  () => import("@/features/admin/subscriptions/SubscriptionsScreen")
+)
+const CmsAnnouncementsScreen = lazy(
+  () => import("@/features/admin/cms/CmsAnnouncementsScreen")
+)
+const ApiConfigScreen = lazy(
+  () => import("@/features/admin/api-config/ApiConfigScreen")
+)
+const AdminManagementScreen = lazy(
+  () => import("@/features/admin/admins/AdminManagementScreen")
+)
 const ModelQuotasScreen = lazy(
-  () => import("@/features/admin/model-quotas/ModelQuotasScreen")
+  () => import("@/features/admin/api-config/ApiConfigScreen")
 )
 const StyleGuideScreen = lazy(
   () => import("@/features/styleguide/StyleGuideScreen")
@@ -343,7 +355,7 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      // Admin Domain (Future)
+      // Admin Domain
       {
         path: ROUTES.ADMIN.DASHBOARD,
         element: (
@@ -357,6 +369,38 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<RouteLoader />}>
             <UserManagementScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.ADMIN.SUBSCRIPTIONS,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <SubscriptionsScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.ADMIN.CMS,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <CmsAnnouncementsScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.ADMIN.API_CONFIG,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ApiConfigScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.ADMIN.ADMINS,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <AdminManagementScreen />
           </Suspense>
         ),
       },
