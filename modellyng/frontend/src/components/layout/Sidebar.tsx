@@ -3,11 +3,8 @@ import {
   LayoutDashboard,
   FolderKanban,
   TableProperties,
-  GitBranch,
   Network,
-  Settings,
   BookOpenCheck,
-  Bell,
   Sparkles,
   Palette,
   ShieldAlert,
@@ -16,6 +13,7 @@ import {
   CreditCard,
   Megaphone,
   ShieldCheck,
+  Bot,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ROUTES } from "@/app/routes"
@@ -25,10 +23,7 @@ const navigationItems = [
   { name: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
   { name: "Proyek Riset", href: ROUTES.PROJECTS.ROOT, icon: FolderKanban },
   { name: "Matriks Komparasi", href: ROUTES.RESEARCH.MATRIX, icon: TableProperties },
-  { name: "Kanvas Alur Riset", href: ROUTES.RESEARCH.FLOW, icon: GitBranch },
   { name: "Graf Pengetahuan", href: ROUTES.RESEARCH.GRAPH, icon: Network },
-  { name: "Notifikasi", href: ROUTES.USER.NOTIFICATIONS, icon: Bell },
-  { name: "Pengaturan Akun", href: ROUTES.USER.SETTINGS, icon: Settings },
   { name: "Design System (UI)", href: ROUTES.STYLEGUIDE, icon: Palette },
 ]
 
@@ -112,6 +107,24 @@ export function Sidebar() {
           </div>
         )}
       </nav>
+
+      {/* Menu Chatbot Khusus Terpisah di Bagian Paling Bawah */}
+      <div className="border-t p-3">
+        <NavLink
+          to={ROUTES.CHATBOT}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-xs font-semibold transition-colors group",
+              isActive
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            )
+          }
+        >
+          <Bot className="size-4 shrink-0 text-primary group-[.bg-primary]:text-primary-foreground" />
+          <span>Chatbot</span>
+        </NavLink>
+      </div>
 
       <div className="border-t p-4">
         <div className="rounded-lg bg-secondary/50 p-3 text-xs">

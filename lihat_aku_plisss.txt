@@ -157,6 +157,9 @@ src/features/
 │   └── export/                       # /export (Ekspor hasil ke Word, Excel, CSV, PPTX)
 │       └── ExportScreen.tsx
 │
+├── chatbot/                          # /chatbot (Tanya AI Dokumen Paper Berbasis Dual RAG & PDF Viewer)
+│   └── ChatbotScreen.tsx             # Halaman mandiri chatbot dokumen paper, seleksi proyek terpadu, sitasi bukti & PDF viewer
+│
 ├── user/                             # Utilitas Pengguna & Pengaturan Akun
 │   ├── chat-global/                  # /chat (Asisten Cerdas Global, tagging @proyek & /paper, cache 24 jam)
 │   │   ├── ChatGlobalScreen.tsx      # Orkestrator utama antarmuka Asisten Cerdas Global
@@ -559,6 +562,11 @@ DETAIL FITUR & INTEGRASI SISTEM
 - Pengikatan Kunci Kueri (Query Key Binding):
   Daftar proyek dan dokumen terikat secara ketat pada ID pengguna aktif (`userId`),
   memastikan data antar akun tidak pernah bercampur.
+- Navigasi Terpadu Bilah Atas (Navbar) & Bilah Samping (Sidebar):
+  * **Notifikasi di Navbar:** Ikon lonceng di Navbar (`Header.tsx`) berfungsi sebagai trigger utama menuju halaman `/notifications`, dilengkapi indikator titik aktivitas.
+  * **Pengaturan Akun di Navbar:** Pil profil/inisial akun di Navbar dapat diklik langsung untuk menuju halaman pengaturan akun (`/settings`), menggantikan menu pengaturan lama di sidebar.
+  * **Pembersihan Menu Sidebar:** Menu 'Kanvas Alur Riset' serta rute terkait telah dibersihkan secara tuntas dari sidebar.
+  * **Menu Chatbot Paling Bawah:** Menu baru berlabel 'Chatbot' diposisikan khusus terpisah di bagian paling bawah sidebar (`/chatbot`), menyajikan fitur tanya-jawab dokumen paper dengan pemilih proyek dinamis, penelusuran sitasi `[S#]`, serta penampil bukti PDF berdampingan (*split-screen viewer*).
 - Navigasi Otomatis Sesi:
   Setelah login berhasil, pengguna selalu diarahkan langsung ke Dasbor Utama (`/dashboard`).
   Akses ke halaman terlindungi otomatis dialihkan ke `/login` jika sesi belum terautentikasi.

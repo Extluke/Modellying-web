@@ -54,9 +54,6 @@ const ProjectChatScreen = lazy(
 // 4. Research Domain (Cross-paper tools)
 const MatrixScreen = lazy(() => import("@/features/research/matrix/MatrixScreen"))
 const GapMapScreen = lazy(() => import("@/features/research/gap-map/GapMapScreen"))
-const ResearchFlowScreen = lazy(
-  () => import("@/features/research/research-flow/ResearchFlowScreen")
-)
 const KnowledgeGraphScreen = lazy(
   () => import("@/features/research/knowledge-graph/KnowledgeGraphScreen")
 )
@@ -67,6 +64,7 @@ const SynthesisScreen = lazy(
   () => import("@/features/research/synthesis/SynthesisScreen")
 )
 const ExportScreen = lazy(() => import("@/features/research/export/ExportScreen"))
+const ChatbotScreen = lazy(() => import("@/features/chatbot/ChatbotScreen"))
 
 // 5. User Domain
 const ChatGlobalScreen = lazy(
@@ -291,10 +289,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: ROUTES.RESEARCH.FLOW,
+        path: ROUTES.CHATBOT,
         element: (
           <Suspense fallback={<RouteLoader />}>
-            <ResearchFlowScreen />
+            <ChatbotScreen />
           </Suspense>
         ),
       },

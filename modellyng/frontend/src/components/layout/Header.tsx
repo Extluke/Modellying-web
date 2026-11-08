@@ -1,12 +1,17 @@
-import { Link, useNavigate } from "react-router-dom"
-import { Bell, Search, Sparkles, LogOut } from "lucide-react"
+import { Link, useNavigate, useLocation } from "react-router-dom"
+import { Bell, Search, Sparkles, LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ROUTES } from "@/app/routes"
 import { useAuthStore } from "@/features/auth/store/authStore"
+import { cn } from "@/lib/utils"
 
 export function Header() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, logout } = useAuthStore()
+
+  const isNotificationsActive = location.pathname === ROUTES.USER.NOTIFICATIONS
+  const isSettingsActive = location.pathname === ROUTES.USER.SETTINGS
 
   const initials = user?.full_name
     ? user.full_name
@@ -42,28 +47,61 @@ export function Header() {
             <span>Asisten Global</span>
           </Link>
         </Button>
-        <Button asChild variant="ghost" size="icon" className="size-8">
-          <Link to={ROUTES.USER.NOTIFICATIONS}>
-            <Bell className="size-4 text-muted-foreground" />
+
+        {/* Tombol Notifikasi di Navbar */}
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "relative size-8 transition-colors",
+            isNotificationsActive
+              ? "bg-primary/10 text-primary border border-primary/25"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+          title="Buka Halaman Notifikasi & Status Pekerjaan"
+        >
+          <Link to={ROUTES.USER.NOTIFICATIONS} aria-label="Notifikasi">
+            <Bell className="size-4" />
+            <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-primary" />
           </Link>
         </Button>
 
-        {/* User Profile Pill & Logout */}
+        {/* User Account / Profile Button (Pindah dari Sidebar ke Navbar) */}
         <div className="flex items-center gap-2 pl-2 border-l border-border">
-          <div
-            title={`${user?.full_name || 'Peneliti'} (${user?.email || ''})`}
-            className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs ring-1 ring-primary/20 cursor-default"
+          <Link
+            to={ROUTES.USER.SETTINGS}
+            title="Klik untuk membuka Pengaturan Akun"
+            className={cn(
+              "flex items-center gap-2 rounded-lg p-1 sm:px-2 sm:py-1 transition-all cursor-pointer group",
+              isSettingsActive
+                ? "bg-primary/10 ring-1 ring-primary/25"
+                : "hover:bg-muted"
+            )}
           >
-            {initials}
-          </div>
-          <div className="hidden md:flex flex-col text-left text-xs">
-            <span className="font-semibold text-foreground truncate max-w-[120px]">
-              {user?.full_name || "Peneliti Modellyng"}
-            </span>
-            <span className="text-[10px] text-muted-foreground capitalize">
-              {user?.role || "researcher"}
-            </span>
-          </div>
+            <div
+              className={cn(
+                "size-8 rounded-full flex items-center justify-center font-bold text-xs ring-1 transition-all shrink-0",
+                isSettingsActive
+                  ? "bg-primary text-primary-foreground ring-primary"
+                  : "bg-primary/10 text-primary ring-primary/20 group-hover:ring-primary/40"
+              )}
+            >
+              {initials}
+            </div>
+            <div className="hidden md:flex flex-col text-left text-xs min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-foreground truncate max-w-[120px] group-hover:text-primary transition-colors">
+                  {user?.full_name || "Peneliti Modellyng"}
+                </span>
+                <Settings className="size-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+              </div>
+              <span className="text-[10px] text-muted-foreground capitalize">
+                {user?.role || "researcher"}
+              </span>
+            </div>
+          </Link>
+
           <Button
             variant="ghost"
             size="icon"

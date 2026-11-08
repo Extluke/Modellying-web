@@ -26,12 +26,12 @@ export const ROUTES = {
   RESEARCH: {
     MATRIX: "/matrix",
     GAP_MAP: "/gap-map",
-    FLOW: "/research-flow",
     GRAPH: "/knowledge-graph",
     CONCEPT_MAP: "/concept-map",
     SYNTHESIS: "/synthesis",
     EXPORT: "/export",
   },
+  CHATBOT: "/chatbot",
   USER: {
     CHAT: "/chat",
     NOTIFICATIONS: "/notifications",
