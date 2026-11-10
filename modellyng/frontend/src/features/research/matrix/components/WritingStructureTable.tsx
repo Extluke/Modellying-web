@@ -1,14 +1,10 @@
-import { useState } from "react"
-import {
-  BookMarked,
-  CheckCircle2,
-  XCircle,
-  Link2,
-  ChevronDown,
-  ChevronUp,
-  Info,
-} from "lucide-react"
-import { MatrixPaper, MatrixCell } from "@/features/projects/api/projectsApi"
+import { CheckCircle2, Link2, XCircle } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+import { Badge, type BadgeProps } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+import type { MatrixCell, MatrixPaper } from "@/features/projects/api/projectsApi"
+import type { SyncedScrollProps } from "../hooks/useSyncedHorizontalScroll"
+import { MatrixTableFrame, PAPER_CELL, STICKY_LABEL_CELL } from "./MatrixTableFrame"
 
 export type ChapterStatus = "present" | "missing" | "combined"
 
@@ -57,11 +53,6 @@ export const STANDARD_CHAPTERS: ChapterDefinition[] = [
     description: "Rangkuman jawaban rumusan masalah, kontribusi, dan saran masa depan.",
   },
 ]
-
-export interface WritingStructureTableProps {
-  papers: MatrixPaper[]
-  matrix: Record<string, Record<string, MatrixCell>>
-}
 
 /**
  * Mendeteksi status bab sistematika penulisan (present, missing, combined)
@@ -128,129 +119,86 @@ export function detectChapterStatus(
   }
 }
 
-export function WritingStructureTable({ papers, matrix }: WritingStructureTableProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+export const CHAPTER_STATUS_META: Record<
+  ChapterStatus,
+  { label: string; variant: NonNullable<BadgeProps["variant"]>; icon: LucideIcon }
+> = {
+  present: { label: "Ada", variant: "ready", icon: CheckCircle2 },
+  missing: { label: "Tidak Ada", variant: "error", icon: XCircle },
+  combined: { label: "Digabung", variant: "paper", icon: Link2 },
+}
 
+interface WritingStructureTableProps {
+  papers: MatrixPaper[]
+  matrix: Record<string, Record<string, MatrixCell>>
+  scrollProps: SyncedScrollProps
+}
+
+export function WritingStructureTable({ papers, matrix, scrollProps }: WritingStructureTableProps) {
   return (
-    <div className="border-t bg-card/40">
-      {/* Section Header Accordion Trigger */}
-      <div
-        onClick={() => setIsExpanded((prev) => !prev)}
-        className="flex items-center justify-between px-4 py-2.5 bg-secondary/30 hover:bg-secondary/50 cursor-pointer border-b transition-colors select-none"
-      >
-        <div className="flex items-center gap-2">
-          <BookMarked className="size-4 text-primary" />
-          <div>
-            <span className="text-xs font-bold text-foreground">
-              Bagian B: Susunan Sistematika Penulisan Paper (Writing Structure Detection)
-            </span>
-            <span className="text-[10px] text-muted-foreground ml-2 hidden sm:inline">
-              Membandingkan keberadaan bab standar akademik: Ada (Centang), Tidak Ada (Silang), Digabung (Tautan).
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Legend Badges */}
-          <div className="hidden md:flex items-center gap-2 text-[10px]">
-            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-              <CheckCircle2 className="size-3" />
-              <span>Ada (Present)</span>
-            </span>
-            <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-medium">
-              <XCircle className="size-3" />
-              <span>Tidak Ada (Missing)</span>
-            </span>
-            <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
-              <Link2 className="size-3" />
-              <span>Digabung (Combined)</span>
-            </span>
-          </div>
-
-          <button
-            type="button"
-            className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-          >
-            {isExpanded ? (
-              <>
-                <span>Tutup Bab</span>
-                <ChevronUp className="size-3.5" />
-              </>
-            ) : (
-              <>
-                <span>Buka Bab</span>
-                <ChevronDown className="size-3.5" />
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Synchronized Chapter Table */}
-      {isExpanded && (
-        <div className="divide-y divide-border/60">
-          {STANDARD_CHAPTERS.map((chap) => (
-            <div key={chap.key} className="flex hover:bg-muted/10 transition-colors">
-              {/* Left Column Sticky Chapter Label */}
-              <div className="sticky left-0 z-10 w-72 min-w-[280px] shrink-0 border-r bg-card p-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground">{chap.labelId}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground italic">
-                    {chap.labelEn}
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1" title={chap.description}>
-                  {chap.description}
-                </p>
-              </div>
-
-              {/* Columns for each Paper */}
-              <div className="flex divide-x">
-                {papers.map((paper) => {
-                  const detection = detectChapterStatus(chap.key, paper.id, matrix)
-
-                  return (
-                    <div
-                      key={paper.id}
-                      className="w-80 min-w-[320px] max-w-sm shrink-0 p-3 flex flex-col justify-center gap-1 hover:bg-primary/5 transition-colors"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        {detection.status === "present" && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                            <CheckCircle2 className="size-3 shrink-0" />
-                            <span>Ada (Present)</span>
-                          </span>
-                        )}
-
-                        {detection.status === "missing" && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                            <XCircle className="size-3 shrink-0" />
-                            <span>Tidak Ada (Missing)</span>
-                          </span>
-                        )}
-
-                        {detection.status === "combined" && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                            <Link2 className="size-3 shrink-0" />
-                            <span>Digabung (Combined)</span>
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-start gap-1 text-[10px] text-muted-foreground mt-0.5">
-                        <Info className="size-2.5 text-muted-foreground/60 shrink-0 mt-0.5" />
-                        <span className="line-clamp-2 leading-relaxed" title={detection.note}>
-                          {detection.note}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+    <MatrixTableFrame paperCount={papers.length} scrollProps={scrollProps}>
+      <thead>
+        <tr>
+          <th scope="col" className={cn(STICKY_LABEL_CELL, "bg-primary-soft")}>
+            <span className="text-xs font-semibold text-foreground">Bagian Struktur</span>
+          </th>
+          {papers.map((paper) => (
+            <th
+              key={paper.id}
+              scope="col"
+              className={cn(PAPER_CELL, "bg-primary-soft font-normal")}
+            >
+              <span
+                title={paper.title}
+                className="line-clamp-2 break-words text-[13px] font-semibold leading-snug text-foreground"
+              >
+                {paper.title}
+              </span>
+            </th>
           ))}
-        </div>
-      )}
-    </div>
+        </tr>
+      </thead>
+
+      <tbody className="[&>tr:last-child>*]:border-b-0">
+        {STANDARD_CHAPTERS.map((chapter) => (
+          <tr key={chapter.key}>
+            <th
+              scope="row"
+              title={chapter.description}
+              className={cn(STICKY_LABEL_CELL, "bg-card font-normal")}
+            >
+              <div className="flex flex-col gap-1">
+                <span className="break-words text-xs font-semibold leading-snug text-foreground">
+                  {chapter.labelId}
+                </span>
+                <span className="break-words text-[11px] leading-snug text-muted-foreground">
+                  {chapter.labelEn}
+                </span>
+              </div>
+            </th>
+
+            {papers.map((paper) => {
+              const detection = detectChapterStatus(chapter.key, paper.id, matrix)
+              const meta = CHAPTER_STATUS_META[detection.status]
+              const Icon = meta.icon
+
+              return (
+                <td key={paper.id} className={cn(PAPER_CELL, "bg-card")}>
+                  <div className="flex flex-col items-start gap-2">
+                    <Badge variant={meta.variant}>
+                      <Icon className="size-3" />
+                      {meta.label}
+                    </Badge>
+                    <p className="break-words text-[11px] leading-relaxed text-muted-foreground">
+                      {detection.note}
+                    </p>
+                  </div>
+                </td>
+              )
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </MatrixTableFrame>
   )
 }

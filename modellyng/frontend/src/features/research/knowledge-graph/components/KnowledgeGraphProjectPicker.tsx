@@ -89,16 +89,6 @@ export function KnowledgeGraphProjectPicker({
                 </p>
               </div>
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              className="gap-1.5 text-xs h-8 cursor-pointer self-start sm:self-auto shrink-0"
-            >
-              <RotateCw className="size-3.5" />
-              <span>Segarkan Data</span>
-            </Button>
           </div>
 
           {/* Quick Metrics Bar */}

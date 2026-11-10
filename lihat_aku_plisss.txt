@@ -91,19 +91,28 @@ src/features/
 │   ├── chat/                         # Dual RAG Chatbot Berbasis Dokumen Proyek
 │   │   └── ProjectChatScreen.tsx     # /projects/:id/chat (Tanya-jawab AI, react-markdown, sitasi ke PDF)
 │   └── matrix/                       # Matriks Komparasi Proyek
-│       └── ProjectMatrixDetailScreen.tsx # /projects/:id/matrix (Facade re-export ke MatrixDetailView)
+│       └── ProjectMatrixDetailScreen.tsx # /projects/:id/matrix (Rute fokus tanpa sidebar/navbar, membungkus MatrixDetailView)
 │
 ├── research/                         # Rumpun Analisis Sintesis Lintas Dokumen
 │   ├── matrix/                       # /matrix (Pusat matriks komparasi parameter & sintesis lintas dokumen)
-│   │   ├── MatrixScreen.tsx          # Layar pemilihan proyek & validasi kesiapan matriks (peringatan paper siap < 2)
-│   │   ├── MatrixDetailView.tsx      # Tampilan detail matriks komparasi tersinkron, filter paper, & expandable cell
+│   │   ├── MatrixScreen.tsx          # Layar pemilihan proyek & validasi kesiapan matriks (paper siap < 2 terkunci)
+│   │   ├── MatrixDetailView.tsx      # Halaman matriks proyek: hero, Bagian A, sintesis, Bagian B, laporan intelijen
+│   │   ├── hooks/
+│   │   │   └── useSyncedHorizontalScroll.ts # Sinkronisasi gulir horizontal Bagian A dan Bagian B
 │   │   ├── components/
-│   │   │   ├── PaperFilterPopover.tsx     # Seleksi multi-kolom paper
+│   │   │   ├── MatrixTableFrame.tsx       # Kerangka tabel bersama (kolom parameter sticky, lebar kolom paper seragam)
+│   │   │   ├── ContentMatrixTable.tsx     # Bagian A: tabel konten penelitian per parameter (dikelompokkan per kategori)
 │   │   │   ├── WritingStructureTable.tsx  # Bagian B status 6 bab penulisan (present, missing, combined)
+│   │   │   ├── PaperFilterPopover.tsx     # Pilih paper yang dibandingkan (minimal 2 paper)
+│   │   │   ├── FilterTabs.tsx             # Kontrol segmented filter (pola yang sama dengan halaman Proyek Riset)
+│   │   │   ├── SearchField.tsx            # Kolom pencarian dengan tombol hapus tunggal
 │   │   │   ├── ExpandableCellModal.tsx    # Modal perbesaran teks ekstraksi akademik utuh
+│   │   │   ├── EvidencePdfModal.tsx       # Modal penampil PDF bukti kutipan (dimuat lazy, memuat pdf.js)
 │   │   │   ├── ProjectSynthesisCard.tsx   # Kartu sintesis AI global komparatif & copy naskah formal
 │   │   │   └── IntelligenceReportCard.tsx # Kartu laporan intelijen & 5 gaya sitasi (APA, IEEE, dll)
 │   │   └── utils/
+│   │       ├── matrixFormatters.ts        # Label grup, status sel, warna skor keyakinan, format teks sel
+│   │       ├── exportMatrixCsv.ts         # Pembangun & pengunduh CSV UTF-8 BOM
 │   │       ├── citationFormatter.ts       # Generator sitasi APA, IEEE, Harvard, Vancouver, Chicago
 │   ├── gap-map/                      # /gap-map (Pusat pemetaan celah penelitian & novelty tesis)
 │   │   ├── GapMapScreen.tsx          # Hub dispatcher: pemilihan proyek & ruang kerja peta celah
@@ -719,51 +728,57 @@ DETAIL FITUR & INTEGRASI SISTEM
 --------------------------------------------------------------------------------
 - Layar Pemilihan Proyek Matriks Komparasi (`MatrixScreen.tsx` pada rute `/matrix`):
   * Bertindak sebagai Hub Pemilihan Proyek terpadu (Comparative Matrix Project Selection Hub)
-    sebelum membuka matriks perbandingan lintas-dokumen.
+    sebelum membuka matriks perbandingan lintas-dokumen. Tampilannya mengikuti halaman Proyek Riset:
+    kontainer `p-6 md:p-8 max-w-7xl`, judul `text-2xl`, kolom pencarian, filter segmented, dan grid kartu 3 kolom.
   * Ambang Batas Kesiapan Ilmiah (Academic Readiness Threshold):
     Menghitung jumlah paper siap (`ready_count`) di setiap proyek riset. Matriks komparasi
     secara ilmiah mewajibkan minimal 2 dokumen paper yang telah berstatus Siap (`ready`).
   * Proyek Memenuhi Syarat (`ready_count >= 2`):
-    Ditandai dengan lencana hijau emerald ("Memenuhi Syarat") dan tombol aktif solid Indigo
-    "Buka Matriks Komparasi" yang langsung memuat tabel komparasi proyek tersebut.
-  * Kotak Peringatan Paper Siap Kurang Dari 2 (`ready_count < 2`):
-    Menampilkan kotak peringatan kuning/amber yang jelas di dalam kartu:
-    "Peringatan: Matriks komparasi membutuhkan minimal 2 dokumen paper yang telah berstatus
-    Siap (Ready). Saat ini baru memiliki X dari Y paper yang siap."
-    Tombol "Buka Matriks" dinonaktifkan (terkunci), dan disediakan tombol aksi solutif langsung:
-    - Jika paper < 2: Tombol "Unggah Paper Tambahan" langsung menuju `/projects/:id/overview`.
-    - Jika paper >= 2 tapi belum siap: Tombol "Tinjau Komponen Paper" langsung menuju `/projects/:id/review`.
+    Seluruh kartu dapat diklik. Ditandai lencana hijau "Siap Matriks" (token `status-green`) dan
+    tautan "Buka Matriks" yang membuka halaman `/projects/:id/matrix`.
+  * Proyek Belum Siap (`ready_count < 2`):
+    Kartu tidak dapat diklik, bergaris oranye (token `status-orange`), berlencana "Belum Siap", dan memuat
+    catatan alasan. Tersedia tautan aksi langsung:
+    - Jika paper < 2: "Unggah Paper" menuju `/projects/:id/overview`.
+    - Jika paper >= 2 tapi belum siap: "Tinjau Paper" menuju `/projects/:id/review`.
+  * Bilah kemajuan kesiapan paper (siap dari total paper) mengikuti versi mobile: indigo saat belum
+    lengkap, hijau saat seluruh paper siap. Daftar diurutkan dari proyek yang terakhir diperbarui.
   * Fitur Penyaringan & Pencarian Katalog:
-    Tersedia tab filter kesiapan ("Semua Proyek", "Siap Komparasi", "Belum Memenuhi Syarat")
-    serta kotak pencarian instan berdasarkan judul atau deskripsi proyek.
-  * Navigasi Kembali ("Pilih Proyek Lain"):
-    Tersedia tombol pintas di bilah header matriks detail untuk kembali ke katalog pemilihan
-    kapan saja tanpa kehilangan konteks.
-- Komponen Antarmuka Grid Detail (`MatrixDetailView.tsx` & facade `ProjectMatrixDetailScreen.tsx`):
+    Tab filter kesiapan ("Semua", "Siap Matriks", "Belum Siap") serta kotak pencarian instan
+    berdasarkan judul atau deskripsi proyek.
+  * Tautan lama `/matrix?projectId=<id>` otomatis dialihkan ke `/projects/<id>/matrix`.
+- Halaman Matriks Proyek (`MatrixDetailView.tsx`, dibungkus `ProjectMatrixDetailScreen.tsx`
+  pada rute `/projects/:projectId/matrix`):
+  * Rute fokus: didaftarkan pada grup rute tanpa AppShell sehingga sidebar dan navbar tidak tampil,
+    sama seperti halaman ikhtisar proyek (`/projects/:id/overview`). Tata letak mengikuti halaman
+    tersebut: tautan "Kembali ke Matriks Komparasi", kartu hero berisi nama proyek, lalu section
+    berjudul `text-lg font-bold` dengan garis pemisah.
   * Mengakses endpoint `GET /api/v1/projects/{project_id}/comparative-matrix` yang menyajikan
-    struktur 2D dari 11/13 parameter ilmiah lintas seluruh dokumen paper yang telah berstatus Ready.
-  * Sinkronisasi Gulir Horizontal Sempurna (Synchronized Horizontal Scrolling):
-    Menggunakan satu wadah tabel dengan kolom parameter tetap di sisi kiri (sticky left column).
-    Saat pengguna menggeser tabel ke arah kanan atau kiri, seluruh baris data dari 11 parameter
-    berbeda bergerak bersama secara sejajar tanpa jeda (zero lag).
-  * Tombol Kendali Navigasi Gulir: Tersedia tombol pintasan "Gulir Kiri" dan "Gulir Kanan" pada
-    bilah atas untuk mempermudah penjelajahan paper dalam jumlah banyak.
-  * Filter Kolom Paper Interaktif (`PaperFilterPopover.tsx`):
-    Dropdown/popover seleksi multi-select paper yang memungkinkan pengguna menampilkan atau
-    menyembunyikan kolom paper tertentu dalam tabel komparasi, lengkap dengan tombol "Pilih Semua",
-    "Reset", pencarian cepat judul/penulis, dan counter paper aktif (X dari Y paper).
-  * Sel Teks yang Dapat Diperluas (Expandable Cells & Mode Ringkas/Penuh):
-    Teks sel hasil ekstraksi akademis secara default dipotong rapi (line-clamp-3) dalam "Mode Ringkas"
-    dengan tombol "Lihat Selengkapnya". Pengguna dapat beralih ke "Mode Penuh" secara instan atau
-    membuka modal pembacaan teks utuh (`ExpandableCellModal.tsx`) yang menyajikan teks lengkap,
-    status review, skor keyakinan, dan tombol salin teks.
+    struktur 2D dari 13 parameter ilmiah lintas seluruh dokumen paper yang telah berstatus Ready.
+  * Urutan konten mengikuti versi mobile: Bagian A (Konten Penelitian), Sintesis AI Global,
+    Bagian B (Struktur Penulisan), lalu Laporan Intelijen & Bibliografi.
+  * Sinkronisasi Gulir Horizontal (`useSyncedHorizontalScroll.ts`):
+    Bagian A dan Bagian B berada pada wadah gulir terpisah dengan geometri kolom identik
+    (`MatrixTableFrame.tsx`): kolom parameter tetap di sisi kiri (sticky left), kolom paper selebar 300 px.
+    Menggulir salah satu tabel menggeser tabel lainnya. Tombol panah kiri/kanan pada header Bagian A
+    menggeser kedua tabel.
+  * Parameter dikelompokkan per kategori (Konteks & Masalah, Metode & Data, Hasil & Gap) dengan baris
+    pemisah. Filter kategori, kolom pencarian parameter, dan tombol Ringkas/Lengkap tersedia di atas tabel.
+  * Pilih Paper (`PaperFilterPopover.tsx`):
+    Popover pemilihan paper yang dibandingkan, dengan tombol "Pilih Semua", pencarian cepat
+    judul/penulis/tahun, dan counter paper aktif. Minimal 2 paper harus tetap terpilih (sama seperti mobile).
+  * Sel Teks yang Dapat Diperluas (Mode Ringkas/Lengkap):
+    Pada Mode Ringkas teks sel dipotong 4 baris dan menampilkan tautan "Selengkapnya" bila lebih dari
+    150 karakter. Tautan itu membuka modal (`ExpandableCellModal.tsx`) berisi teks lengkap, status review,
+    skor keyakinan, bukti kutipan, dan tombol salin teks. Nilai yang tersimpan sebagai objek JSON ditampilkan
+    sebagai teks terbaca (`formatCellText`).
   * Bagian B: Susunan Sistematika Penulisan Paper (`WritingStructureTable.tsx`):
     Tabel sub-seksi komparasi 6 bab penulisan standar akademik (1. Pendahuluan, 2. Tinjauan Pustaka,
     3. Metodologi, 4. Hasil Penelitian, 5. Pembahasan, 6. Kesimpulan) dengan ikon status:
     - Hijau / Centang (`present`): Bab ada terpisah secara jelas.
     - Merah / Silang (`missing`): Bab tidak ditemukan dalam dokumen.
     - Biru / Tautan (`combined`): Bab digabung dengan bab lain (misal: Hasil & Pembahasan).
-    Setiap sel bab dilengkapi tooltip penjelasan detail deteksi seksi.
+    Setiap sel bab menampilkan lencana status beserta catatan singkat hasil deteksi seksi.
   * Kartu Sintesis AI Global Komparatif (`ProjectSynthesisCard.tsx`):
     Kartu sintesis cerdas multi-paper yang merangkum 8 aspek komparatif: Persamaan antar paper,
     Perbedaan pendekatan metodologi, Pola riset yang teridentifikasi, Kesenjangan & peluang riset,
@@ -776,10 +791,11 @@ DETAIL FITUR & INTEGRASI SISTEM
     generator sitasi 5 format standar internasional dinamis (APA 7th, IEEE, Harvard, Vancouver,
     dan Chicago Author-Date), preview sitasi dalam teks (in-text citation), tombol salin sitasi,
     serta tombol "Unduh JSON" (`generateIntelligenceReportJson`).
-  * Modal Telaah Bukti PDF: Mengklik kutipan bukti di dalam sel tabel akan membuka penampil
-    PDF modal (`PdfViewer.tsx`) dengan pembuktian penyorotan teks kanonik secara langsung.
-  * Fitur Ekspor: Tombol "Ekspor CSV" untuk mengunduh seluruh matriks perbandingan 11 parameter
-    ke dalam berkas spreadsheet CSV berformat UTF-8 dengan BOM.
+  * Modal Telaah Bukti PDF (`EvidencePdfModal.tsx`): Mengklik "Hal. N" pada sel tabel membuka penampil
+    PDF modal (`PdfViewer.tsx`) dengan penyorotan teks kanonik. Modal ini dimuat lazy sehingga pdf.js
+    baru diunduh saat bukti dibuka.
+  * Fitur Ekspor: Tombol "Unduh CSV" (`exportMatrixCsv.ts`) mengunduh matriks paper yang sedang
+    ditampilkan ke berkas CSV UTF-8 dengan BOM.
 
 8. SISTEM NOTIFIKASI TOAST TERPADU (UNIVERSAL 5-SECOND TOAST)
 --------------------------------------------------------------------------------

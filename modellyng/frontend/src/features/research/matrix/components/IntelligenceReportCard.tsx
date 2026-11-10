@@ -13,6 +13,7 @@ import {
   BookOpen,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { toast } from "@/lib/store/useToastStore"
 import { ComparativeMatrixResponse } from "@/features/projects/api/projectsApi"
 import {
@@ -95,51 +96,47 @@ export function IntelligenceReportCard({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden transition-all mb-4">
+    <Card className="overflow-hidden">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3 border-b bg-secondary/20">
-        <div
+      <div className="flex flex-col gap-3 border-b border-border p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+        <button
+          type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className="flex items-center gap-2.5 cursor-pointer select-none group"
+          aria-expanded={isOpen}
+          className="group flex min-w-0 items-center gap-3 text-left"
         >
-          <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs group-hover:scale-105 transition-transform">
-            <Award className="size-4" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-button bg-status-green-soft text-status-green">
+            <Award className="size-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-foreground">
-                Kartu Laporan Intelijen & Bibliografi Riset
-              </h3>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                Intelligence Engine
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Generator sitasi multi-format standar (APA, IEEE, Harvard, Vancouver, Chicago), profil bibliografi, dan metrik reliabilitas.
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-primary">
+              Laporan Intelijen &amp; Bibliografi Riset
+            </h3>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Sitasi multi-format (APA, IEEE, Harvard, Vancouver, Chicago), profil bibliografi, dan metrik reliabilitas.
             </p>
           </div>
-        </div>
+        </button>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={handleDownloadJson}
-            className="h-7 text-[11px] gap-1 px-2.5 cursor-pointer shadow-xs bg-background"
             title="Unduh seluruh laporan intelijen dalam format JSON"
           >
-            <Download className="size-3 text-muted-foreground" />
+            <Download />
             <span>Unduh JSON</span>
           </Button>
 
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={() => setIsOpen((prev) => !prev)}
-            className="size-7 cursor-pointer"
             title={isOpen ? "Ciutkan kartu laporan intelijen" : "Perluas kartu laporan intelijen"}
+            aria-label={isOpen ? "Ciutkan kartu laporan intelijen" : "Perluas kartu laporan intelijen"}
           >
-            {isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            {isOpen ? <ChevronUp /> : <ChevronDown />}
           </Button>
         </div>
       </div>
@@ -150,7 +147,7 @@ export function IntelligenceReportCard({
           {/* 1. Intelligence Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 rounded-xl border bg-background space-y-1">
-              <span className="text-[10px] text-muted-foreground font-medium block">
+              <span className="text-[11px] text-muted-foreground font-medium block">
                 Total Relasi Teranalisis
               </span>
               <div className="flex items-center gap-1.5">
@@ -158,46 +155,46 @@ export function IntelligenceReportCard({
                 <span className="text-base font-bold text-foreground font-mono">
                   {metrics.totalRelations}
                 </span>
-                <span className="text-[10px] text-muted-foreground">sel data</span>
+                <span className="text-[11px] text-muted-foreground">sel data</span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl border bg-background space-y-1">
-              <span className="text-[10px] text-muted-foreground font-medium block">
+              <span className="text-[11px] text-muted-foreground font-medium block">
                 Komponen Terverifikasi
               </span>
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="size-4 text-emerald-600" />
+                <CheckCircle2 className="size-4 text-status-green" />
                 <span className="text-base font-bold text-foreground font-mono">
                   {metrics.verifiedCount}
                 </span>
-                <span className="text-[10px] text-emerald-600 font-medium">diterima</span>
+                <span className="text-[11px] text-status-green font-medium">diterima</span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl border bg-background space-y-1">
-              <span className="text-[10px] text-muted-foreground font-medium block">
+              <span className="text-[11px] text-muted-foreground font-medium block">
                 Rata-Rata Confidence
               </span>
               <div className="flex items-center gap-1.5">
-                <Award className="size-4 text-blue-600" />
+                <Award className="size-4 text-status-blue" />
                 <span className="text-base font-bold text-foreground font-mono">
                   {metrics.avgConfidenceScore}%
                 </span>
-                <span className="text-[10px] text-muted-foreground">skor AI</span>
+                <span className="text-[11px] text-muted-foreground">skor AI</span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl border bg-background space-y-1">
-              <span className="text-[10px] text-muted-foreground font-medium block">
+              <span className="text-[11px] text-muted-foreground font-medium block">
                 Klaim Butuh Bukti
               </span>
               <div className="flex items-center gap-1.5">
-                <AlertTriangle className="size-4 text-amber-500" />
+                <AlertTriangle className="size-4 text-status-orange" />
                 <span className="text-base font-bold text-foreground font-mono">
                   {metrics.unsupportedClaimsCount}
                 </span>
-                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                <span className="text-[11px] text-status-orange font-medium">
                   evaluasi
                 </span>
               </div>
@@ -218,7 +215,7 @@ export function IntelligenceReportCard({
                     onClick={() => setActiveStyle(st.key)}
                     className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors shrink-0 cursor-pointer ${
                       activeStyle === st.key
-                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                        ? "bg-primary text-primary-foreground font-bold"
                         : "bg-secondary text-muted-foreground hover:text-foreground"
                     }`}
                     title={st.desc}
@@ -232,13 +229,13 @@ export function IntelligenceReportCard({
                 variant="outline"
                 size="sm"
                 onClick={handleCopyAll}
-                className="h-7 text-[11px] gap-1 px-2.5 shrink-0"
+                className="h-7 text-xs gap-1 px-2.5 shrink-0"
                 title="Salin seluruh daftar pustaka"
               >
                 {copiedAll ? (
                   <>
-                    <Check className="size-3 text-emerald-600" />
-                    <span className="text-emerald-600 font-medium">Semua Tersalin</span>
+                    <Check className="size-3 text-status-green" />
+                    <span className="text-status-green font-medium">Semua Tersalin</span>
                   </>
                 ) : (
                   <>
@@ -257,7 +254,7 @@ export function IntelligenceReportCard({
                   className="rounded-lg border bg-background p-3 space-y-1.5 text-xs hover:border-primary/40 transition-colors"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-muted-foreground flex items-center gap-1.5">
+                    <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5">
                       <FileText className="size-3" />
                       <span className="font-bold text-foreground">Sitasi In-Text:</span>
                       <code className="bg-secondary px-1.5 py-0.5 rounded text-primary">
@@ -269,13 +266,13 @@ export function IntelligenceReportCard({
                       variant="ghost"
                       size="sm"
                       onClick={() => handleCopySingle(citation, idx)}
-                      className="h-6 text-[10px] gap-1 px-2 cursor-pointer text-muted-foreground hover:text-foreground"
+                      className="h-6 text-[11px] gap-1 px-2 cursor-pointer text-muted-foreground hover:text-foreground"
                       title="Salin sitasi paper ini"
                     >
                       {copiedIndex === idx ? (
                         <>
-                          <Check className="size-2.5 text-emerald-600" />
-                          <span className="text-emerald-600">Tersalin</span>
+                          <Check className="size-2.5 text-status-green" />
+                          <span className="text-status-green">Tersalin</span>
                         </>
                       ) : (
                         <>
@@ -295,6 +292,6 @@ export function IntelligenceReportCard({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }

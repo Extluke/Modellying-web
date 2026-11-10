@@ -1,14 +1,18 @@
 import { useState, useRef, useEffect } from "react"
-import { Filter, Check, RotateCcw, CheckSquare, Search, FileText } from "lucide-react"
+import { Check, FileText, Filter, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { MatrixPaper } from "@/features/projects/api/projectsApi"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+import type { MatrixPaper } from "@/features/projects/api/projectsApi"
+
+/** A comparison needs at least two papers (same rule as the mobile app). */
+export const MIN_SELECTED_PAPERS = 2
 
 export interface PaperFilterPopoverProps {
   papers: MatrixPaper[]
   selectedPaperIds: string[]
   onTogglePaper: (paperId: string) => void
   onSelectAll: () => void
-  onReset: () => void
 }
 
 export function PaperFilterPopover({
@@ -16,181 +20,134 @@ export function PaperFilterPopover({
   selectedPaperIds,
   onTogglePaper,
   onSelectAll,
-  onReset,
 }: PaperFilterPopoverProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const popoverRef = useRef<HTMLDivElement | null>(null)
 
-  // Tutup popover jika mengklik di luar area
+  // Close the popover when clicking outside of it
   useEffect(() => {
+    if (!isOpen) return
     function handleClickOutside(event: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside)
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [isOpen])
 
-  const filteredPapers = papers.filter((p) => {
-    if (!searchQuery.trim()) return true
-    const q = searchQuery.toLowerCase()
+  const keyword = searchQuery.trim().toLowerCase()
+  const visiblePapers = papers.filter((paper) => {
+    if (!keyword) return true
     return (
-      p.title.toLowerCase().includes(q) ||
-      (p.authors && p.authors.some((a) => a.toLowerCase().includes(q))) ||
-      (p.year && p.year.toString().includes(q))
+      paper.title.toLowerCase().includes(keyword) ||
+      paper.authors?.some((author) => author.toLowerCase().includes(keyword)) ||
+      paper.year?.toString().includes(keyword)
     )
   })
 
   const isAllSelected = selectedPaperIds.length === papers.length
 
   return (
-    <div className="relative inline-block text-left" ref={popoverRef}>
+    <div className="relative" ref={popoverRef}>
       <Button
         variant="outline"
-        size="sm"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="h-8 gap-1.5 text-xs font-medium cursor-pointer shadow-xs border-border hover:bg-secondary"
-        title="Pilih kolom paper yang ingin ditampilkan pada matriks"
+        aria-expanded={isOpen}
+        className="h-10 gap-2 px-4 text-xs font-medium"
+        title="Pilih paper yang ditampilkan pada matriks"
       >
-        <Filter className="size-3.5 text-primary" />
-        <span>Filter Kolom Paper</span>
-        <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-bold text-primary border border-primary/20 font-mono">
+        <Filter className="text-primary" />
+        <span>Pilih Paper</span>
+        <Badge variant="primary">
           {selectedPaperIds.length}/{papers.length}
-        </span>
+        </Badge>
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-9.5 z-40 w-80 sm:w-96 rounded-xl border bg-card p-3 shadow-xl ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b pb-2 mb-2">
+        <div className="absolute right-0 top-12 z-40 w-80 max-w-[calc(100vw-3rem)] rounded-card border border-border bg-popover p-3 text-popover-foreground shadow-floating animate-in fade-in zoom-in-95 duration-100 sm:w-96">
+          <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
             <div>
-              <h4 className="text-xs font-bold text-foreground">Seleksi Kolom Paper</h4>
-              <p className="text-[10px] text-muted-foreground">
-                Tampilkan atau sembunyikan paper pada tabel komparasi
+              <h3 className="text-sm font-semibold text-foreground">Pilih Paper</h3>
+              <p className="text-xs text-muted-foreground">
+                Pilih paper yang ingin dibandingkan (minimal {MIN_SELECTED_PAPERS}).
               </p>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onSelectAll}
-                disabled={isAllSelected}
-                className="h-7 text-[10px] gap-1 px-2 cursor-pointer"
-                title="Pilih seluruh dokumen paper"
-              >
-                <CheckSquare className="size-3" />
-                <span>Pilih Semua</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onReset}
-                className="h-7 text-[10px] gap-1 px-2 cursor-pointer text-muted-foreground hover:text-foreground"
-                title="Kembalikan ke seluruh paper terpilih"
-              >
-                <RotateCcw className="size-3" />
-                <span>Reset</span>
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSelectAll}
+              disabled={isAllSelected}
+              className="h-8 shrink-0 px-2.5 text-xs"
+            >
+              Pilih Semua
+            </Button>
           </div>
 
-          {/* Quick Search */}
           {papers.length > 4 && (
-            <div className="relative mb-2">
-              <Search className="absolute left-2.5 top-2.5 size-3 text-muted-foreground" />
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Cari judul paper atau penulis..."
+                placeholder="Cari judul, penulis, atau tahun..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 w-full rounded-md border bg-background pl-7.5 pr-2.5 text-[11px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="h-9 w-full rounded-button border border-input bg-card pl-9 pr-3 text-xs text-foreground placeholder:text-placeholder focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           )}
 
-          {/* Paper List */}
-          <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/50">
-            {filteredPapers.length === 0 ? (
-              <p className="py-4 text-center text-xs text-muted-foreground italic">
+          <ul className="mt-3 flex max-h-64 flex-col gap-1 overflow-y-auto">
+            {visiblePapers.length === 0 ? (
+              <li className="py-6 text-center text-xs text-muted-foreground">
                 Tidak ada paper yang cocok dengan pencarian.
-              </p>
+              </li>
             ) : (
-              filteredPapers.map((paper) => {
+              visiblePapers.map((paper) => {
                 const isSelected = selectedPaperIds.includes(paper.id)
-                const isLastSelected = isSelected && selectedPaperIds.length === 1
+                const isLocked = isSelected && selectedPaperIds.length <= MIN_SELECTED_PAPERS
 
                 return (
-                  <label
-                    key={paper.id}
-                    className={`flex items-start gap-2.5 p-2 rounded-lg cursor-pointer transition-colors pt-2 ${
-                      isSelected
-                        ? "bg-primary/5 hover:bg-primary/10"
-                        : "hover:bg-muted/50 opacity-70"
-                    }`}
-                  >
-                    <div className="pt-0.5">
+                  <li key={paper.id}>
+                    <label
+                      className={cn(
+                        "flex items-start gap-3 rounded-button p-2.5 transition-colors",
+                        isLocked ? "cursor-not-allowed" : "cursor-pointer",
+                        isSelected ? "bg-primary-soft" : "hover:bg-muted/60"
+                      )}
+                      title={isLocked ? `Minimal ${MIN_SELECTED_PAPERS} paper harus tetap dipilih` : undefined}
+                    >
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        disabled={isLastSelected}
+                        disabled={isLocked}
                         onChange={() => onTogglePaper(paper.id)}
-                        className="size-3.5 rounded border-muted-foreground/30 text-primary focus:ring-primary cursor-pointer disabled:opacity-40"
+                        className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-input accent-primary disabled:cursor-not-allowed disabled:opacity-60"
                       />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[10px] font-mono text-muted-foreground flex items-center gap-1">
-                          <FileText className="size-2.5" />
-                          <span>{paper.total_pages} Hal</span>
-                          {paper.year && <span>• {paper.year}</span>}
-                        </span>
-                        <span
-                          className={`text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded ${
-                            paper.status === "ready"
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                          }`}
-                        >
-                          {paper.status.replace("_", " ")}
-                        </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 break-words text-xs font-semibold leading-snug text-foreground">
+                          {paper.title}
+                        </p>
+                        <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <FileText className="size-3 shrink-0" />
+                          <span>{paper.total_pages} hal.</span>
+                          {paper.year && <span>&middot; {paper.year}</span>}
+                        </p>
                       </div>
-
-                      <p className="text-xs font-semibold text-foreground line-clamp-1 leading-snug mt-0.5">
-                        {paper.title}
-                      </p>
-
-                      <p className="text-[10px] text-muted-foreground line-clamp-1">
-                        {paper.authors && paper.authors.length > 0
-                          ? paper.authors.join(", ")
-                          : "Penulis tidak terdata"}
-                      </p>
-                    </div>
-
-                    {isSelected && (
-                      <Check className="size-3 text-primary mt-1 shrink-0" />
-                    )}
-                  </label>
+                      {isSelected && <Check className="mt-0.5 size-4 shrink-0 text-primary" />}
+                    </label>
+                  </li>
                 )
               })
             )}
-          </div>
+          </ul>
 
-          {/* Footer note */}
-          <div className="mt-2.5 pt-2 border-t flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>Minimal 1 paper harus aktif.</span>
-            <Button
-              size="sm"
-              variant="default"
-              onClick={() => setIsOpen(false)}
-              className="h-6 text-[10px] px-2.5"
-            >
+          <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+            <span className="text-xs text-muted-foreground">
+              {selectedPaperIds.length} dari {papers.length} paper terpilih
+            </span>
+            <Button size="sm" onClick={() => setIsOpen(false)}>
               Terapkan
             </Button>
           </div>

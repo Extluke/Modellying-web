@@ -1,15 +1,12 @@
 /**
- * ProjectMatrixDetailScreen (Facade Re-export)
- * Menyediakan backwards-compatibility bagi rute dan impor eksisting
- * dengan mendelegasikan langsung ke MatrixDetailView di src/features/research/matrix/.
+ * ProjectMatrixDetailScreen
+ * Route screen for `/projects/:projectId/matrix`. It is rendered as a focused page
+ * (no app sidebar / navbar), like the project workspace, and delegates the matrix
+ * itself to MatrixDetailView in src/features/research/matrix/.
  */
 
-import MatrixDetailView, {
-  MatrixDetailViewProps,
-} from "@/features/research/matrix/MatrixDetailView"
+import MatrixDetailView from "@/features/research/matrix/MatrixDetailView"
 
-export type ProjectMatrixDetailScreenProps = MatrixDetailViewProps
-
-export default function ProjectMatrixDetailScreen(props: ProjectMatrixDetailScreenProps) {
-  return <MatrixDetailView {...props} />
+export default function ProjectMatrixDetailScreen() {
+  return <MatrixDetailView />
 }

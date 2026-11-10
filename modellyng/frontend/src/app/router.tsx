@@ -50,6 +50,9 @@ const ReviewQueueScreen = lazy(
 const ProjectChatScreen = lazy(
   () => import("@/features/projects/chat/ProjectChatScreen")
 )
+const ProjectMatrixDetailScreen = lazy(
+  () => import("@/features/projects/matrix/ProjectMatrixDetailScreen")
+)
 
 // 4. Research Domain (Cross-paper tools)
 const MatrixScreen = lazy(() => import("@/features/research/matrix/MatrixScreen"))
@@ -219,6 +222,14 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: ROUTES.PROJECTS.MATRIX,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ProjectMatrixDetailScreen />
+          </Suspense>
+        ),
+      },
     ],
   },
 
@@ -252,14 +263,6 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<RouteLoader />}>
             <ReviewQueueScreen />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.PROJECTS.MATRIX,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <MatrixScreen />
           </Suspense>
         ),
       },
