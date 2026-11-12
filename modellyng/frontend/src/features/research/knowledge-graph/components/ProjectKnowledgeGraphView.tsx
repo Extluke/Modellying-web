@@ -1,534 +1,399 @@
-import { useMemo, useCallback, useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { Link, generatePath, useParams } from "react-router-dom"
 import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  BackgroundVariant,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  useReactFlow,
-  Node,
-  Edge,
-  NodeMouseHandler,
-  NodeTypes,
-} from "@xyflow/react"
-import "@xyflow/react/dist/style.css"
-
-import {
-  Network,
+  AlertCircle,
   ArrowLeft,
-  Maximize2,
-  Minimize2,
-  RotateCcw,
-  ZoomIn,
-  ZoomOut,
-  Focus,
-  Lightbulb,
-  Flame,
-  CheckCircle2,
-  Clock,
-  Layers,
-  Sparkles,
+  Link2,
+  Loader2,
+  Network,
+  RotateCw,
+  TableProperties,
+  Unlink,
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useProjects, useComparativeMatrix } from "@/features/projects/api/projectsApi"
+import { Card } from "@/components/ui/card"
+import { FilterTabs, type FilterTabOption } from "@/components/ui/filter-tabs"
+import { SearchField } from "@/components/ui/search-field"
+import { ROUTES } from "@/app/routes"
+import { cn } from "@/lib/utils"
 import { toast } from "@/lib/store/useToastStore"
+import { useComparativeMatrix, type EvidenceItem } from "@/features/projects/api/projectsApi"
+import { useSynthesizeGraphNodes } from "../api/knowledgeGraphApi"
 import { useKnowledgeGraphStore } from "../store/useKnowledgeGraphStore"
-import {
-  buildKnowledgeGraphData,
-  BuiltGraphResult,
-} from "../utils/graphDataBuilder"
-import { KnowledgeGraphNodeData, KnowledgeNodeType } from "../types/knowledgeGraphTypes"
-import { KnowledgeGraphNodeCard } from "./KnowledgeGraphNodeCard"
-import { ZoneOverlayBackground } from "./ZoneOverlayBackground"
-import { NodeDetailDrawer } from "./NodeDetailDrawer"
+import type {
+  AiResearchSynthesis,
+  GraphEvidence,
+  GraphNodeKind,
+  GraphZoneKey,
+  KnowledgeGraphNode,
+} from "../types/knowledgeGraphTypes"
+import { buildKnowledgeGraph, summarizeGraph } from "../utils/graphBuilder"
+import { ZONE_ORDER, zoneOf } from "../utils/graphLayout"
+import { KIND_META, KIND_ORDER, ZONE_META } from "../utils/graphMeta"
+import { KnowledgeGraphCanvas } from "./KnowledgeGraphCanvas"
+import { NodeDetailPanel } from "./NodeDetailPanel"
+import { SynthesisResultDialog } from "./SynthesisResultDialog"
 
-export interface ProjectKnowledgeGraphViewProps {
-  projectId: string
-  onBackToProjects: () => void
+// The PDF viewer pulls in pdfjs-dist, so it is only loaded when an evidence quote is opened.
+const EvidencePdfModal = lazy(
+  () => import("@/features/projects/paper-analysis/EvidencePdfModal")
+)
+
+/** Context sent to the AI together with a research gap: the results / methods it grew out of. */
+const MAX_CONTEXT_NODES = 3
+const MAX_DETAIL_CHARS = 1200
+
+interface EvidenceTarget {
+  paperId: string
+  paperTitle: string
+  parameterLabel: string
+  evidence: EvidenceItem
 }
 
-const nodeTypes: NodeTypes = {
-  knowledgeNode: KnowledgeGraphNodeCard,
+interface SynthesisOutcome {
+  gapLabel: string
+  synthesis: AiResearchSynthesis
 }
 
-function InnerKnowledgeGraphCanvas({
-  graphData,
-  projectName,
-  readyCount,
-  onBackToProjects,
-  projectList,
-  projectId,
-}: {
-  graphData: BuiltGraphResult
-  projectName: string
-  readyCount: number
-  onBackToProjects: () => void
-  projectList: Array<{ id: string; name: string; ready_count: number }>
-  projectId: string
-}) {
-  const [, setSearchParams] = useSearchParams()
-  const { fitView, zoomIn, zoomOut } = useReactFlow()
+function toEvidenceItem(evidence: GraphEvidence): EvidenceItem {
+  return {
+    page_index: evidence.pageNumber ?? 1,
+    quote: evidence.quote,
+    block_id: evidence.blockId,
+    bbox: evidence.bbox,
+  }
+}
+
+export function ProjectKnowledgeGraphView() {
+  const { projectId } = useParams<{ projectId: string }>()
+  const { data: matrix, isLoading, isError, isFetching, refetch } = useComparativeMatrix(projectId)
+
   const {
-    selectedNode,
-    setSelectedNode,
-    selectedZoneFilter,
-    selectedTypeFilter,
+    selectedNodeId,
+    setSelectedNodeId,
+    zoneFilter,
+    setZoneFilter,
+    kindFilter,
+    setKindFilter,
+    query,
+    setQuery,
     isFullscreen,
     toggleFullscreen,
+    setFullscreen,
+    reset,
   } = useKnowledgeGraphStore()
 
-  // Saring simpul berdasarkan filter zona saturasi dan filter tipe
-  const filteredNodes: Node[] = useMemo(() => {
-    return graphData.nodes.filter((node) => {
-      const data = node.data as KnowledgeGraphNodeData
-      const matchZone =
-        selectedZoneFilter === "all" ? true : data.saturationZone === selectedZoneFilter
-      const matchType =
-        selectedTypeFilter === "all" ? true : data.nodeType === selectedTypeFilter
-      return matchZone && matchType
-    })
-  }, [graphData.nodes, selectedZoneFilter, selectedTypeFilter])
+  const [evidenceTarget, setEvidenceTarget] = useState<EvidenceTarget | null>(null)
+  const [synthesisOutcome, setSynthesisOutcome] = useState<SynthesisOutcome | null>(null)
+  const synthesize = useSynthesizeGraphNodes(projectId ?? "")
 
-  // Saring edges agar hanya menghubungkan simpul yang terlihat
-  const filteredEdges: Edge[] = useMemo(() => {
-    const visibleIds = new Set(filteredNodes.map((n) => n.id))
-    return graphData.edges.filter(
-      (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target)
-    )
-  }, [graphData.edges, filteredNodes])
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(filteredNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(filteredEdges)
-
-  // Sinkronkan state React Flow saat filter berubah
+  // Every project starts from a clean view, and the view is cleaned up again when leaving the page
   useEffect(() => {
-    setNodes(filteredNodes)
-    setEdges(filteredEdges)
-  }, [filteredNodes, filteredEdges, setNodes, setEdges])
+    reset()
+    return () => reset()
+  }, [projectId, reset])
 
-  // Tandai node terpilih dengan properti selected
   useEffect(() => {
-    setNodes((current) =>
-      current.map((n) => ({
-        ...n,
-        selected: n.id === selectedNode?.id,
-      }))
-    )
-  }, [selectedNode, setNodes])
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || evidenceTarget || synthesisOutcome) return
+      if (isFullscreen) setFullscreen(false)
+      else setSelectedNodeId(null)
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [isFullscreen, evidenceTarget, synthesisOutcome, setFullscreen, setSelectedNodeId])
 
-  const handleNodeClick: NodeMouseHandler = useCallback(
-    (_, node) => {
-      setSelectedNode(node.data as KnowledgeGraphNodeData)
-    },
-    [setSelectedNode]
+  const graph = useMemo(() => (matrix ? buildKnowledgeGraph(matrix) : null), [matrix])
+  const summary = useMemo(() => (graph ? summarizeGraph(graph) : null), [graph])
+
+  const zoneOptions = useMemo<FilterTabOption<"all" | GraphZoneKey>[]>(() => {
+    if (!graph) return []
+    const counts = new Map<GraphZoneKey, number>()
+    graph.nodes.forEach((node) => counts.set(zoneOf(node), (counts.get(zoneOf(node)) ?? 0) + 1))
+    return [
+      { id: "all", label: "Semua", count: graph.nodes.length },
+      ...ZONE_ORDER.filter((zone) => counts.has(zone)).map((zone) => ({
+        id: zone,
+        label: ZONE_META[zone].title,
+        count: counts.get(zone) ?? 0,
+      })),
+    ]
+  }, [graph])
+
+  const selectedNode = useMemo<KnowledgeGraphNode | null>(
+    () => graph?.nodes.find((node) => node.id === selectedNodeId) ?? null,
+    [graph, selectedNodeId]
   )
 
-  const handlePaneClick = useCallback(() => {
-    // Tidak menutup drawer jika pengguna hanya menggeser kanvas
+  const openEvidence = useCallback((evidence: GraphEvidence) => {
+    setEvidenceTarget({
+      paperId: evidence.paperId,
+      paperTitle: evidence.paperTitle,
+      parameterLabel: evidence.section ?? "Bukti kutipan",
+      evidence: toEvidenceItem(evidence),
+    })
   }, [])
 
-  const handleResetSpringLayout = () => {
-    // Kembalikan posisi awal sesuai builder
-    const initialMap = new Map<string, { x: number; y: number }>()
-    graphData.nodes.forEach((n) => initialMap.set(n.id, n.position))
+  const handleSynthesize = useCallback(() => {
+    if (!graph || !selectedNode || selectedNode.kind !== "gap") return
 
-    setNodes((curr) =>
-      curr.map((n) => {
-        const initPos = initialMap.get(n.id)
-        return initPos ? { ...n, position: { ...initPos } } : n
+    // The gap itself plus the result / method it was derived from, so the draft stays grounded
+    const nodeById = new Map(graph.nodes.map((node) => [node.id, node]))
+    const context = graph.edges
+      .filter((edge) => edge.target === selectedNode.id || edge.source === selectedNode.id)
+      .flatMap((edge) => {
+        const other = nodeById.get(edge.target === selectedNode.id ? edge.source : edge.target)
+        return other && (other.kind === "result" || other.kind === "method") ? [other] : []
       })
+      .slice(0, MAX_CONTEXT_NODES)
+
+    synthesize.mutate(
+      {
+        nodes: [selectedNode, ...context].map((node) => ({
+          kind: node.kind,
+          label: node.label,
+          detail: node.detail.slice(0, MAX_DETAIL_CHARS),
+        })),
+      },
+      {
+        onSuccess: (synthesis) => setSynthesisOutcome({ gapLabel: selectedNode.label, synthesis }),
+        onError: (error) =>
+          toast.error(error.message || "Rumusan masalah belum dapat disusun. Silakan coba kembali."),
+      }
     )
-    fitView({ padding: 0.2, duration: 500 })
-    toast.success("Posisi pegas kanvas dan tata letak zona saturasi berhasil diatur ulang.")
+  }, [graph, selectedNode, synthesize])
+
+  const backLink = (
+    <Link
+      to={ROUTES.RESEARCH.GRAPH}
+      className="group inline-flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
+      <span>Kembali ke Graf Pengetahuan</span>
+    </Link>
+  )
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-9 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-xs font-medium text-muted-foreground">Menyusun graf pengetahuan...</span>
+        </div>
+      </div>
+    )
   }
 
-  return (
-    <div
-      className={`relative w-full rounded-2xl border bg-card/60 backdrop-blur-xs overflow-hidden transition-all duration-300 flex flex-col ${
-        isFullscreen
-          ? "fixed inset-0 z-50 h-screen w-screen rounded-none border-none bg-background p-0"
-          : "h-[680px] shadow-sm"
-      }`}
-    >
-      {/* Floating Canvas Top Bar Controls */}
-      <div className="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-        {/* Left Toolbar: Back, Title, Switcher */}
-        <div className="pointer-events-auto flex items-center gap-2 bg-card/90 backdrop-blur-md px-3 py-1.5 rounded-xl border shadow-xs">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBackToProjects}
-            className="h-7 px-2 text-xs gap-1 cursor-pointer text-muted-foreground hover:text-foreground"
-            title="Kembali ke Katalog Pemilihan Proyek Knowledge Graph"
-          >
-            <ArrowLeft className="size-3.5" />
-            <span className="hidden sm:inline">Pilih Proyek Lain</span>
+  if (isError || !graph || !summary || !projectId) {
+    return (
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6 md:p-8">
+        {backLink}
+        <Card className="flex flex-col items-center gap-3 border-destructive/20 bg-destructive/5 p-8 text-center">
+          <AlertCircle className="size-10 text-destructive" />
+          <h1 className="text-base font-semibold text-foreground">Graf Pengetahuan Gagal Dimuat</h1>
+          <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
+            Proyek tidak ditemukan atau data ekstraksi belum dapat diambil. Periksa koneksi lalu coba lagi.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-1 gap-2">
+            <RotateCw />
+            <span>Coba Muat Ulang</span>
           </Button>
+        </Card>
+      </div>
+    )
+  }
 
-          <div className="h-4 w-px bg-border" />
+  const entityCount = summary.nodeCount - summary.paperCount
 
-          <div className="flex items-center gap-1.5">
-            <Network className="size-3.5 text-primary shrink-0" />
-            <span className="text-xs font-bold text-foreground max-w-[180px] truncate" title={projectName}>
-              {projectName}
-            </span>
-            <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-mono">
-              {readyCount} Paper
-            </span>
+  if (entityCount === 0) {
+    return (
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6 md:p-8">
+        {backLink}
+        <div className="flex flex-col items-center gap-4 rounded-card border-2 border-dashed border-border/80 bg-card/50 p-12 text-center">
+          <div className="flex size-14 items-center justify-center rounded-card bg-primary-soft text-primary">
+            <Network className="size-7" />
+          </div>
+          <div className="max-w-md space-y-1">
+            <h1 className="text-base font-semibold text-foreground">Graf Masih Kosong</h1>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Belum ada hasil ekstraksi yang dapat dipetakan pada proyek {graph.projectTitle}. Pastikan paper sudah
+              selesai diproses dan ditinjau, lalu buka kembali halaman ini.
+            </p>
+          </div>
+          <Button asChild className="mt-2">
+            <Link to={generatePath(ROUTES.PROJECTS.OVERVIEW, { projectId })}>Kelola Paper Proyek</Link>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const isConnected = summary.componentCount === 1
+
+  return (
+    <div className="mx-auto flex max-w-screen-2xl flex-col gap-4 p-4 md:p-6">
+      <div className="flex items-center justify-between">{backLink}</div>
+
+      {/* Hero header */}
+      <Card className="p-5 md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex min-w-0 flex-col gap-2.5">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-card bg-primary-soft text-primary">
+                <Network className="size-5" />
+              </div>
+              <h1 className="break-words text-2xl font-bold tracking-tight text-foreground">{graph.projectTitle}</h1>
+            </div>
+            <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              Graf Pengetahuan. Peta konsep, metode, hasil, dan celah riset yang terhubung ke paper sumbernya, dikelompokkan
+              menurut zona saturasi. Klik simpul untuk melihat uraian dan bukti kutipannya.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Badge variant="paper">{summary.paperCount} Paper</Badge>
+              <Badge variant="primary">{summary.nodeCount} Simpul</Badge>
+              <Badge variant="primary">{summary.edgeCount} Relasi</Badge>
+              <Badge variant="review">{summary.gapCount} Celah Riset</Badge>
+              {isConnected ? (
+                <Badge variant="ready">
+                  <Link2 className="size-3" />
+                  Terhubung utuh
+                </Badge>
+              ) : (
+                <Badge variant="outline" title="Beberapa paper belum memiliki topik yang sama, sehingga grafnya terpisah.">
+                  <Unlink className="size-3" />
+                  {summary.componentCount} kelompok terpisah
+                </Badge>
+              )}
+              {graph.pendingPaperCount > 0 && (
+                <Badge
+                  variant="outline"
+                  title="Paper yang masih diproses atau gagal dianalisis belum ditampilkan pada graf."
+                >
+                  {graph.pendingPaperCount} paper belum dianalisis
+                </Badge>
+              )}
+            </div>
           </div>
 
-          {projectList.length > 1 && (
-            <select
-              value={projectId}
-              onChange={(e) => setSearchParams({ projectId: e.target.value })}
-              className="h-7 rounded-lg border bg-background px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring ml-1"
-            >
-              {projectList.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        {/* Right Toolbar: Zoom, Reset, Fullscreen */}
-        <div className="pointer-events-auto flex items-center gap-1.5 bg-card/90 backdrop-blur-md px-2.5 py-1.5 rounded-xl border shadow-xs">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => zoomIn({ duration: 300 })}
-            className="h-7 w-7 p-0 cursor-pointer"
-            title="Perbesar Kanvas"
-          >
-            <ZoomIn className="size-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => zoomOut({ duration: 300 })}
-            className="h-7 w-7 p-0 cursor-pointer"
-            title="Perkecil Kanvas"
-          >
-            <ZoomOut className="size-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => fitView({ padding: 0.2, duration: 400 })}
-            className="h-7 w-7 p-0 cursor-pointer"
-            title="Pusatkan Tampilan (Fit View)"
-          >
-            <Focus className="size-3.5" />
-          </Button>
-          <div className="h-4 w-px bg-border" />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleResetSpringLayout}
-            className="h-7 px-2 text-[11px] gap-1 cursor-pointer"
-            title="Reset Posisi Pegas ke Slot Zona Saturasi"
-          >
-            <RotateCcw className="size-3" />
-            <span className="hidden md:inline">Reset Posisi Pegas</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={toggleFullscreen}
-            className="h-7 w-7 p-0 cursor-pointer"
-            title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
-          >
-            {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* React Flow Viewport with Spatial Saturation Zones */}
-      <div className="flex-1 w-full h-full relative">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeClick={handleNodeClick}
-          onPaneClick={handlePaneClick}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.2}
-          maxZoom={1.8}
-          defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
-          className="bg-muted/10"
-        >
-          {/* Spatial 3-Zone Demarcation Background */}
-          <ZoneOverlayBackground />
-          <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color="#94A3B8" />
-
-          <MiniMap
-            nodeColor={(n) => {
-              const data = n.data as KnowledgeGraphNodeData
-              if (data?.saturationZone === "high") return "#10B981"
-              if (data?.saturationZone === "medium") return "#F59E0B"
-              return "#F43F5E"
-            }}
-            className="!bottom-4 !left-4 !rounded-xl !border !bg-card/90 !shadow-sm !overflow-hidden"
-            zoomable
-            pannable
-          />
-        </ReactFlow>
-      </div>
-
-      {/* Slide-in Node Detail Drawer */}
-      <NodeDetailDrawer />
-    </div>
-  )
-}
-
-export function ProjectKnowledgeGraphView({
-  projectId,
-  onBackToProjects,
-}: ProjectKnowledgeGraphViewProps) {
-  const { data: projectList = [] } = useProjects({ status: "active" })
-  const { data: matrixData, isLoading, isError } = useComparativeMatrix(projectId)
-
-  const {
-    selectedZoneFilter,
-    setSelectedZoneFilter,
-    selectedTypeFilter,
-    setSelectedTypeFilter,
-  } = useKnowledgeGraphStore()
-
-  const currentProject = projectList.find((p) => p.id === projectId)
-  const projectName = currentProject?.name || matrixData?.project_name || "Proyek Riset"
-  const readyCount = currentProject?.ready_count || matrixData?.papers?.length || 0
-
-  // Pembangun dataset graf dari matriks ekstraksi dokumen
-  const graphData = useMemo(() => {
-    return buildKnowledgeGraphData(matrixData)
-  }, [matrixData])
-
-  return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background overflow-y-auto">
-      {/* Top Header Bar */}
-      <div className="border-b bg-card px-4 sm:px-8 py-3.5 shrink-0 shadow-2xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={onBackToProjects}
-              className="h-8 text-xs gap-1.5 cursor-pointer"
-              title="Kembali ke Katalog Pemilihan Proyek"
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="h-10 gap-2 px-4 text-xs font-medium"
+              title="Muat ulang data ekstraksi"
             >
-              <ArrowLeft className="size-3.5" />
-              <span>Katalog Proyek</span>
+              {isFetching ? <Loader2 className="animate-spin" /> : <RotateCw className="text-primary" />}
+              <span>Segarkan</span>
             </Button>
-
-            <div className="h-4 w-px bg-border hidden sm:block" />
-
-            <div className="flex items-center gap-2">
-              <Network className="size-4 text-primary" />
-              <h1 className="text-sm font-bold text-foreground truncate max-w-sm" title={projectName}>
-                {projectName}
-              </h1>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-mono">
-                {readyCount} Paper Siap
-              </span>
-            </div>
+            <Button asChild variant="outline" className="h-10 gap-2 px-4 text-xs font-medium">
+              <Link to={generatePath(ROUTES.PROJECTS.MATRIX, { projectId })}>
+                <TableProperties className="text-primary" />
+                <span>Matriks Komparasi</span>
+              </Link>
+            </Button>
           </div>
+        </div>
+      </Card>
 
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5 text-[11px] bg-secondary px-2.5 py-1 rounded-lg">
-              <Sparkles className="size-3 text-primary" />
-              <span>Kanvas Graf Spasial 2D (React Flow Engine)</span>
-            </span>
-          </div>
+      {/* Search and filters */}
+      <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
+        <SearchField
+          className="flex-1"
+          value={query}
+          onChange={setQuery}
+          placeholder="Cari simpul berdasarkan judul atau uraian..."
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterTabs options={zoneOptions} value={zoneFilter} onChange={setZoneFilter} />
+          <select
+            value={kindFilter}
+            onChange={(event) => setKindFilter(event.target.value as "all" | GraphNodeKind)}
+            aria-label="Filter jenis simpul"
+            className="h-10 rounded-button border border-input bg-card px-3 text-xs font-medium text-foreground shadow-card focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+          >
+            <option value="all">Semua jenis simpul</option>
+            {KIND_ORDER.map((kind) => (
+              <option key={kind} value={kind}>
+                {KIND_META[kind].label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-8 py-6 space-y-6">
-        {/* Saturation Metrics Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {/* Total Nodes */}
-          <div className="p-3.5 rounded-xl border bg-card space-y-1 shadow-2xs">
-            <span className="text-[10px] text-muted-foreground font-medium block">
-              Total Simpul Pengetahuan
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Layers className="size-4 text-primary" />
-              <span className="text-lg font-bold text-foreground font-mono">
-                {graphData.metrics.totalNodes}
-              </span>
-              <span className="text-[10px] text-muted-foreground">konsep</span>
-            </div>
-          </div>
+      {/* Canvas */}
+      <div className="flex flex-col gap-3">
+        <KnowledgeGraphCanvas
+          graph={graph}
+          filters={{ zone: zoneFilter, kind: kindFilter, query }}
+          selectedNodeId={selectedNode?.id ?? null}
+          onSelectNode={setSelectedNodeId}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          className={isFullscreen ? undefined : "h-[calc(100vh-4rem)] min-h-[560px]"}
+          overlay={
+            selectedNode && (
+              <NodeDetailPanel
+                graph={graph}
+                node={selectedNode}
+                onClose={() => setSelectedNodeId(null)}
+                onSelectNode={setSelectedNodeId}
+                onOpenEvidence={openEvidence}
+                onSynthesize={handleSynthesize}
+                isSynthesizing={synthesize.isPending}
+              />
+            )
+          }
+        />
 
-          {/* Low Saturation (Novelty) */}
-          <div className="p-3.5 rounded-xl border bg-rose-500/5 border-rose-500/20 space-y-1 shadow-2xs">
-            <span className="text-[10px] text-rose-700 dark:text-rose-400 font-semibold block">
-              Saturasi Rendah (&le; 20%)
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Flame className="size-4 text-rose-600" />
-              <span className="text-lg font-bold text-rose-600 font-mono">
-                {graphData.metrics.lowCount}
-              </span>
-              <span className="text-[10px] text-rose-600 font-medium">Novelty Tesis</span>
-            </div>
-          </div>
-
-          {/* Medium Saturation (Transition) */}
-          <div className="p-3.5 rounded-xl border bg-amber-500/5 border-amber-500/20 space-y-1 shadow-2xs">
-            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold block">
-              Saturasi Sedang (21% - 50%)
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Clock className="size-4 text-amber-600" />
-              <span className="text-lg font-bold text-amber-600 font-mono">
-                {graphData.metrics.mediumCount}
-              </span>
-              <span className="text-[10px] text-amber-600 font-medium">Transisi</span>
-            </div>
-          </div>
-
-          {/* High Saturation (Established) */}
-          <div className="p-3.5 rounded-xl border bg-emerald-500/5 border-emerald-500/20 space-y-1 shadow-2xs">
-            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold block">
-              Saturasi Tinggi (&gt; 50%)
-            </span>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="size-4 text-emerald-600" />
-              <span className="text-lg font-bold text-emerald-600 font-mono">
-                {graphData.metrics.highCount}
-              </span>
-              <span className="text-[10px] text-emerald-600 font-medium">Fondasi Mapan</span>
-            </div>
-          </div>
-
-          {/* Research Gaps */}
-          <div className="p-3.5 rounded-xl border bg-card space-y-1 shadow-2xs col-span-2 sm:col-span-1">
-            <span className="text-[10px] text-muted-foreground font-medium block">
-              Simpul Celah Riset
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Lightbulb className="size-4 text-purple-600" />
-              <span className="text-lg font-bold text-purple-600 font-mono">
-                {graphData.metrics.gapCount}
-              </span>
-              <span className="text-[10px] text-muted-foreground">potensi celah</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters Bar: Zone Segmentation & Type Filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-          {/* Segmented Tab Zona Saturasi */}
-          <div className="flex items-center gap-1.5 overflow-x-auto text-xs py-0.5">
-            <span className="text-[11px] text-muted-foreground font-semibold mr-1 shrink-0">
-              Zona Saturasi:
-            </span>
-            <button
-              onClick={() => setSelectedZoneFilter("all")}
-              className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer ${
-                selectedZoneFilter === "all"
-                  ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Semua ({graphData.metrics.totalNodes})
-            </button>
-            <button
-              onClick={() => setSelectedZoneFilter("low")}
-              className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1 ${
-                selectedZoneFilter === "low"
-                  ? "bg-rose-600 text-white shadow-xs font-bold"
-                  : "bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20"
-              }`}
-            >
-              <span className="size-1.5 rounded-full bg-rose-500" />
-              <span>Rendah / Novelty ({graphData.metrics.lowCount})</span>
-            </button>
-            <button
-              onClick={() => setSelectedZoneFilter("medium")}
-              className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1 ${
-                selectedZoneFilter === "medium"
-                  ? "bg-amber-600 text-white shadow-xs font-bold"
-                  : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
-              }`}
-            >
-              <span className="size-1.5 rounded-full bg-amber-500" />
-              <span>Sedang ({graphData.metrics.mediumCount})</span>
-            </button>
-            <button
-              onClick={() => setSelectedZoneFilter("high")}
-              className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1 ${
-                selectedZoneFilter === "high"
-                  ? "bg-emerald-600 text-white shadow-xs font-bold"
-                  : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20"
-              }`}
-            >
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              <span>Tinggi / Mapan ({graphData.metrics.highCount})</span>
-            </button>
-          </div>
-
-          {/* Type Select Filter */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[11px] text-muted-foreground font-semibold">Tipe:</span>
-            <select
-              value={selectedTypeFilter}
-              onChange={(e) =>
-                setSelectedTypeFilter(e.target.value as "all" | KnowledgeNodeType)
-              }
-              className="h-8 rounded-lg border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="all">Semua Tipe Simpul</option>
-              <option value="concept">Konsep Inti</option>
-              <option value="variable">Variabel Peneliti</option>
-              <option value="method">Metodologi / Algoritma</option>
-              <option value="dataset">Dataset & Korpus</option>
-              <option value="research_gap">Celah Riset (Gap)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Loading / Error States */}
-        {isLoading && (
-          <div className="h-[400px] flex items-center justify-center rounded-2xl border bg-card/50">
-            <div className="text-center space-y-2">
-              <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs text-muted-foreground">
-                Memuat data matriks ekstraksi dan membangun graf pengetahuan...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {isError && (
-          <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 text-destructive text-xs">
-            Gagal memuat matriks komparatif proyek. Menampilkan data representatif graf pengetahuan.
-          </div>
-        )}
-
-        {/* Main Canvas View */}
-        {!isLoading && (
-          <ReactFlowProvider>
-            <InnerKnowledgeGraphCanvas
-              graphData={graphData}
-              projectName={projectName}
-              readyCount={readyCount}
-              onBackToProjects={onBackToProjects}
-              projectList={projectList}
-              projectId={projectId}
-            />
-          </ReactFlowProvider>
+        {!isFullscreen && (
+          <ul className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground" aria-label="Legenda graf">
+            {KIND_ORDER.map((kind) => {
+              const meta = KIND_META[kind]
+              const Icon = meta.icon
+              return (
+                <li key={kind} className="inline-flex items-center gap-1.5">
+                  <span className={cn("flex size-5 items-center justify-center rounded-full bg-gradient-to-br text-white", meta.gradient)}>
+                    <Icon className="size-3" />
+                  </span>
+                  {meta.label}
+                </li>
+              )
+            })}
+            <li className="inline-flex items-center gap-1.5">
+              <span className="w-6 border-t-2 border-primary/60" aria-hidden />
+              Relasi langsung
+            </li>
+            <li className="inline-flex items-center gap-1.5">
+              <span className="w-6 border-t-2 border-dashed border-primary/60" aria-hidden />
+              Serupa antar paper
+            </li>
+          </ul>
         )}
       </div>
+
+      {evidenceTarget && (
+        <Suspense fallback={null}>
+          <EvidencePdfModal
+            projectId={projectId}
+            paperId={evidenceTarget.paperId}
+            paperTitle={evidenceTarget.paperTitle}
+            parameterLabel={evidenceTarget.parameterLabel}
+            evidence={evidenceTarget.evidence}
+            onClose={() => setEvidenceTarget(null)}
+          />
+        </Suspense>
+      )}
+
+      {synthesisOutcome && (
+        <SynthesisResultDialog
+          synthesis={synthesisOutcome.synthesis}
+          gapLabel={synthesisOutcome.gapLabel}
+          onClose={() => setSynthesisOutcome(null)}
+        />
+      )}
     </div>
   )
 }

@@ -53,6 +53,9 @@ const ProjectChatScreen = lazy(
 const ProjectMatrixDetailScreen = lazy(
   () => import("@/features/projects/matrix/ProjectMatrixDetailScreen")
 )
+const ProjectKnowledgeGraphScreen = lazy(
+  () => import("@/features/projects/knowledge-graph/ProjectKnowledgeGraphScreen")
+)
 
 // 4. Research Domain (Cross-paper tools)
 const MatrixScreen = lazy(() => import("@/features/research/matrix/MatrixScreen"))
@@ -227,6 +230,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<RouteLoader />}>
             <ProjectMatrixDetailScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.PROJECTS.KNOWLEDGE_GRAPH,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <ProjectKnowledgeGraphScreen />
           </Suspense>
         ),
       },

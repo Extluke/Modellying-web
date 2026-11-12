@@ -81,11 +81,11 @@ export function KnowledgeGraphProjectPicker({
                   </h1>
                   <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
                     <Sparkles className="size-3" />
-                    <span>3 Zona Saturasi</span>
+                    <span>4 Zona Saturasi</span>
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Pilih proyek riset untuk menjelajahi peta konsep ilmiah dalam 3 zona saturasi spasial: Rendah (Novelty), Sedang (Transisi), dan Tinggi (Mapan).
+                  Pilih proyek riset untuk menjelajahi peta konsep ilmiah dalam 4 zona saturasi: Celah Riset, Rendah (Novelty), Sedang (Transisi), dan Tinggi (Mapan).
                 </p>
               </div>
             </div>
@@ -332,7 +332,7 @@ export function KnowledgeGraphProjectPicker({
 
                       <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/30 text-muted-foreground">
                         <Compass className="size-3 text-primary" />
-                        <span>3 Zona Saturasi</span>
+                        <span>4 Zona Saturasi</span>
                       </div>
                     </div>
 

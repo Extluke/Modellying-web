@@ -17,16 +17,16 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { FilterTabs, type FilterTabOption } from "@/components/ui/filter-tabs"
+import { SearchField } from "@/components/ui/search-field"
 import { ROUTES } from "@/app/routes"
 import { useComparativeMatrix, type MatrixParameter } from "@/features/projects/api/projectsApi"
 import { ContentMatrixTable } from "./components/ContentMatrixTable"
 import type { CellDetailRequest, EvidenceRequest } from "./components/ContentMatrixTable"
 import { ExpandableCellModal } from "./components/ExpandableCellModal"
-import { FilterTabs, type FilterTabOption } from "./components/FilterTabs"
 import { IntelligenceReportCard } from "./components/IntelligenceReportCard"
 import { MIN_SELECTED_PAPERS, PaperFilterPopover } from "./components/PaperFilterPopover"
 import { ProjectSynthesisCard } from "./components/ProjectSynthesisCard"
-import { SearchField } from "./components/SearchField"
 import { WritingStructureTable } from "./components/WritingStructureTable"
 import { useSyncedHorizontalScroll } from "./hooks/useSyncedHorizontalScroll"
 import { downloadMatrixCsv } from "./utils/exportMatrixCsv"
@@ -34,7 +34,9 @@ import { formatGroupName } from "./utils/matrixFormatters"
 import { generateProjectSynthesis } from "./utils/synthesisEngine"
 
 // The PDF viewer pulls in pdfjs-dist, so it is only loaded when an evidence quote is opened.
-const EvidencePdfModal = lazy(() => import("./components/EvidencePdfModal"))
+const EvidencePdfModal = lazy(
+  () => import("@/features/projects/paper-analysis/EvidencePdfModal")
+)
 
 type ViewMode = "compact" | "full"
 

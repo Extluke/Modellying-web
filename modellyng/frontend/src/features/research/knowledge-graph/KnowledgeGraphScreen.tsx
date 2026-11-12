@@ -1,33 +1,32 @@
-import { useParams, useSearchParams } from "react-router-dom"
+import { Navigate, generatePath, useNavigate, useSearchParams } from "react-router-dom"
+import { ROUTES } from "@/app/routes"
 import { KnowledgeGraphProjectPicker } from "./components/KnowledgeGraphProjectPicker"
-import { ProjectKnowledgeGraphView } from "./components/ProjectKnowledgeGraphView"
 
 /**
- * KnowledgeGraphScreen (Research Knowledge Graph Hub & Dispatcher)
- * Jika projectId belum dipilih, menampilkan katalog pemilihan proyek (KnowledgeGraphProjectPicker).
- * Jika projectId dipilih, menampilkan ruang kerja kanvas graf spasial 2D & zona saturasi konsep (ProjectKnowledgeGraphView).
+ * KnowledgeGraphScreen (project selection)
+ * Lists the projects that can be mapped. The graph itself lives on its own focused route
+ * (`ROUTES.PROJECTS.KNOWLEDGE_GRAPH`), without the app sidebar and navbar, like the project workspace.
  */
 export default function KnowledgeGraphScreen() {
-  const { projectId: routeProjectId } = useParams<{ projectId?: string }>()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
-  // Resolusi Project ID: route param > query param
-  const activeProjectId = routeProjectId || searchParams.get("projectId")
-
-  // Jika suatu proyek telah dipilih, tampilkan ruang kerja graf pengetahuan spasial 2D
-  if (activeProjectId) {
+  // Backwards compatibility with the former `/knowledge-graph?projectId=...` links
+  const legacyProjectId = searchParams.get("projectId")
+  if (legacyProjectId) {
     return (
-      <ProjectKnowledgeGraphView
-        projectId={activeProjectId}
-        onBackToProjects={() => setSearchParams({})}
+      <Navigate
+        to={generatePath(ROUTES.PROJECTS.KNOWLEDGE_GRAPH, { projectId: legacyProjectId })}
+        replace
       />
     )
   }
 
-  // Jika belum ada proyek yang dipilih, tampilkan katalog pemilihan proyek & kesiapan paper
   return (
     <KnowledgeGraphProjectPicker
-      onSelectProject={(id) => setSearchParams({ projectId: id })}
+      onSelectProject={(projectId) =>
+        navigate(generatePath(ROUTES.PROJECTS.KNOWLEDGE_GRAPH, { projectId }))
+      }
     />
   )
 }

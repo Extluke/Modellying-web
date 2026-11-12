@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 
 class ProjectCreateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=150, description="Judul atau topik proyek riset")
@@ -122,3 +122,29 @@ class ComponentAiReviseRequest(BaseModel):
 class ComponentAiReviseResponse(BaseModel):
     revised_text: str
     explanation: Optional[str] = None
+
+# ------------------------------------------------------------------------------
+# Knowledge Graph: AI synthesis of a research gap into a thesis problem statement
+# ------------------------------------------------------------------------------
+GraphNodeKind = Literal["paper", "research_area", "concept", "method", "object", "result", "gap"]
+
+class GraphSynthesisNode(BaseModel):
+    """One knowledge graph node (the research gap plus its supporting context) sent for synthesis."""
+    kind: GraphNodeKind
+    label: str = Field(..., min_length=1, max_length=300)
+    detail: str = Field(default="", max_length=2000)
+
+class GraphSynthesisRequest(BaseModel):
+    nodes: List[GraphSynthesisNode] = Field(
+        ...,
+        min_length=1,
+        max_length=8,
+        description="Celah riset terpilih beserta simpul konteksnya (hasil atau metode asal celah).",
+    )
+
+class GraphSynthesisResponse(BaseModel):
+    """Draft thesis problem statement. Field names match the mobile app (`AiResearchSynthesis`)."""
+    usulan_judul: List[str] = Field(description="Tiga usulan judul penelitian tesis yang spesifik")
+    rumusan_masalah: List[str] = Field(description="Dua sampai tiga pertanyaan penelitian yang menjawab celah terpilih")
+    pernyataan_novelty: str = Field(description="Satu paragraf yang menjelaskan letak kebaruan penelitian")
+    alasan_pemilihan: str = Field(description="Penjelasan singkat mengapa usulan ini relevan")

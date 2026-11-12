@@ -1,158 +1,60 @@
-import React, { useMemo } from "react"
-import { Handle, Position, NodeProps } from "@xyflow/react"
-import {
-  Lightbulb,
-  Layers,
-  Cpu,
-  FileText,
-  Sparkles,
-  Flame,
-  FileCheck2,
-} from "lucide-react"
-import { KnowledgeGraphNodeData } from "../types/knowledgeGraphTypes"
-import { useKnowledgeGraphStore } from "../store/useKnowledgeGraphStore"
+import { memo } from "react"
+import { Handle, Position, type NodeProps } from "@xyflow/react"
+import { cn } from "@/lib/utils"
+import type { KnowledgeFlowNode } from "../types/flowTypes"
+import { NODE_WIDTH } from "../utils/graphLayout"
+import { GAP_TYPOLOGY_LABEL, KIND_META } from "../utils/graphMeta"
 
-export const KnowledgeGraphNodeCard = React.memo(function KnowledgeGraphNodeCard({
+/**
+ * Graph node card. Same look as the mobile app: gradient card, round icon badge,
+ * upper-case kind label and a two-line title. The footer adds how many papers mention the node.
+ */
+export const KnowledgeGraphNodeCard = memo(function KnowledgeGraphNodeCard({
   data,
   selected,
-}: NodeProps & { data: KnowledgeGraphNodeData }) {
-  const node = data
-  const { setSelectedNode, selectedZoneFilter, selectedTypeFilter } =
-    useKnowledgeGraphStore()
+}: NodeProps<KnowledgeFlowNode>) {
+  const { node, totalPapers, dimmed } = data
+  const meta = KIND_META[node.kind]
+  const Icon = meta.icon
 
-  // Periksa apakah simpul sedang redup karena filter zona / tipe
-  const isDimmed = useMemo(() => {
-    if (selectedZoneFilter !== "all" && node.saturationZone !== selectedZoneFilter) {
-      return true
-    }
-    if (selectedTypeFilter !== "all" && node.nodeType !== selectedTypeFilter) {
-      return true
-    }
-    return false
-  }, [selectedZoneFilter, selectedTypeFilter, node.saturationZone, node.nodeType])
-
-  // Konfigurasi visual berdasarkan zona saturasi
-  const zoneConfig = useMemo(() => {
-    switch (node.saturationZone) {
-      case "low":
-        return {
-          badgeText: "Saturasi Rendah (Novelty)",
-          badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
-          cardBorder: "border-rose-500/50 hover:border-rose-500 bg-rose-500/[0.03]",
-          dotColor: "bg-rose-500",
-          glowShadow: "shadow-rose-500/10",
-        }
-      case "medium":
-        return {
-          badgeText: "Saturasi Sedang (Transisi)",
-          badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
-          cardBorder: "border-amber-500/50 hover:border-amber-500 bg-amber-500/[0.03]",
-          dotColor: "bg-amber-500",
-          glowShadow: "shadow-amber-500/10",
-        }
-      case "high":
-        return {
-          badgeText: "Saturasi Tinggi (Mapan)",
-          badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-          cardBorder: "border-emerald-500/50 hover:border-emerald-500 bg-emerald-500/[0.03]",
-          dotColor: "bg-emerald-500",
-          glowShadow: "shadow-emerald-500/10",
-        }
-    }
-  }, [node.saturationZone])
-
-  // Ikon & label berdasarkan jenis simpul
-  const typeConfig = useMemo(() => {
-    switch (node.nodeType) {
-      case "concept":
-        return { icon: Lightbulb, label: "Konsep Ilmiah" }
-      case "variable":
-        return { icon: Layers, label: "Variabel Riset" }
-      case "method":
-        return { icon: Cpu, label: "Metodologi" }
-      case "dataset":
-        return { icon: FileText, label: "Dataset / Objek" }
-      case "research_gap":
-        return { icon: Flame, label: "Celah Riset (Gap)" }
-      default:
-        return { icon: Sparkles, label: "Konsep" }
-    }
-  }, [node.nodeType])
-
-  const Icon = typeConfig.icon
-  const isGap = node.nodeType === "research_gap"
+  const footer =
+    node.kind === "paper"
+      ? node.detail
+      : node.kind === "gap" && node.gapTypology
+        ? `${GAP_TYPOLOGY_LABEL[node.gapTypology]} \u00b7 ${node.paperIds.length}/${totalPapers} paper`
+        : `${node.paperIds.length}/${totalPapers} paper`
 
   return (
     <div
-      onClick={() => setSelectedNode(node)}
-      className={`w-72 rounded-2xl border bg-card p-4 shadow-sm transition-all duration-200 cursor-pointer text-left select-none ${
-        zoneConfig.cardBorder
-      } ${zoneConfig.glowShadow} ${
-        selected ? "ring-2 ring-primary border-primary shadow-md" : ""
-      } ${isDimmed ? "opacity-30 grayscale-[50%]" : "opacity-100"} ${
-        isGap ? "ring-1 ring-rose-500/30" : ""
-      }`}
+      style={{ width: NODE_WIDTH }}
+      title={node.label}
+      className={cn(
+        "cursor-pointer select-none rounded-2xl border border-white/25 bg-gradient-to-br px-4 py-3 text-white shadow-lg transition-[opacity,box-shadow,filter] duration-150",
+        meta.gradient,
+        meta.glow,
+        selected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+        dimmed && "opacity-25 saturate-50"
+      )}
     >
-      {/* Handles untuk Relasi Kurva */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!size-2.5 !bg-primary !border-2 !border-background"
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!size-2.5 !bg-primary !border-2 !border-background"
-      />
+      {/* Edges are drawn floating (see FloatingEdge); the handles only register the node for React Flow */}
+      <Handle type="target" position={Position.Left} isConnectable={false} className="!pointer-events-none !opacity-0" />
+      <Handle type="source" position={Position.Right} isConnectable={false} className="!pointer-events-none !opacity-0" />
 
-      {/* Header: Ikon Tipe & Lencana Zona Saturasi */}
-      <div className="flex items-start justify-between gap-2 mb-2.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <div
-            className={`p-1.5 rounded-lg shrink-0 ${
-              isGap
-                ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 animate-pulse"
-                : "bg-primary/10 text-primary"
-            }`}
-          >
-            <Icon className="size-3.5" />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-            {typeConfig.label}
-          </span>
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/20">
+          <Icon className="size-5" />
         </div>
-
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border shrink-0 ${zoneConfig.badgeClass}`}
-        >
-          <span className={`size-1.5 rounded-full ${zoneConfig.dotColor}`} />
-          <span>{node.saturationPercentage}%</span>
-        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-white/80">
+            {meta.label}
+          </p>
+          <p className="mt-1 line-clamp-2 break-words text-sm font-bold leading-tight">{node.label}</p>
+        </div>
       </div>
 
-      {/* Title / Concept Label */}
-      <h4 className="text-xs font-bold text-foreground leading-snug line-clamp-2 mb-1.5">
-        {node.label}
-      </h4>
-
-      {/* Description */}
-      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2 mb-3">
-        {node.description}
+      <p className="mt-2.5 truncate border-t border-white/20 pt-2 text-[11px] font-medium text-white/80">
+        {footer}
       </p>
-
-      {/* Footer Strip: Paper Count & Action Hint */}
-      <div className="flex items-center justify-between pt-2 border-t border-border/60 text-[10px] text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <FileCheck2 className="size-3 text-primary" />
-          <span>
-            {node.frequencyCount} dari {node.totalPapers} Paper
-          </span>
-        </div>
-
-        <span className="text-primary font-semibold hover:underline">
-          Lihat Bukti &rarr;
-        </span>
-      </div>
     </div>
   )
 })

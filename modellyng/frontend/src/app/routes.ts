@@ -22,6 +22,7 @@ export const ROUTES = {
     CHAT: "/projects/:projectId/chat",
     MATRIX: "/projects/:projectId/matrix",
     CONCEPT_MAP: "/projects/:projectId/concept-map",
+    KNOWLEDGE_GRAPH: "/projects/:projectId/knowledge-graph",
   },
   RESEARCH: {
     MATRIX: "/matrix",

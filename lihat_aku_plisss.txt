@@ -42,7 +42,7 @@ Modellying-web/
 │   └── frontend/                     # Aplikasi Web SPA (React 19 + TypeScript + Vite)
 │       ├── public/                   # Aset publik statis
 │       ├── src/                      # Sumber kode frontend (arsitektur fitur)
-│       │   ├── components/           # Komponen UI global (Shadcn UI & Radix)
+│       │   ├── components/           # Komponen UI global (Shadcn UI & Radix, termasuk ui/filter-tabs & ui/search-field)
 │       │   ├── features/             # Modul halaman & logika fitur aplikasi
 │       │   ├── hooks/                # Custom React hooks
 │       │   ├── lib/                  # Utilitas, helper, & API client
@@ -90,8 +90,10 @@ src/features/
 │   │   └── ComponentRevisionModal.tsx# Modal perbaikan data ekstraksi
 │   ├── chat/                         # Dual RAG Chatbot Berbasis Dokumen Proyek
 │   │   └── ProjectChatScreen.tsx     # /projects/:id/chat (Tanya-jawab AI, react-markdown, sitasi ke PDF)
-│   └── matrix/                       # Matriks Komparasi Proyek
+│   ├── matrix/                       # Matriks Komparasi Proyek
 │       └── ProjectMatrixDetailScreen.tsx # /projects/:id/matrix (Rute fokus tanpa sidebar/navbar, membungkus MatrixDetailView)
+│   └── knowledge-graph/              # Graf Pengetahuan Proyek
+│       └── ProjectKnowledgeGraphScreen.tsx # /projects/:id/knowledge-graph (Rute fokus tanpa sidebar/navbar, membungkus ProjectKnowledgeGraphView)
 │
 ├── research/                         # Rumpun Analisis Sintesis Lintas Dokumen
 │   ├── matrix/                       # /matrix (Pusat matriks komparasi parameter & sintesis lintas dokumen)
@@ -104,10 +106,7 @@ src/features/
 │   │   │   ├── ContentMatrixTable.tsx     # Bagian A: tabel konten penelitian per parameter (dikelompokkan per kategori)
 │   │   │   ├── WritingStructureTable.tsx  # Bagian B status 6 bab penulisan (present, missing, combined)
 │   │   │   ├── PaperFilterPopover.tsx     # Pilih paper yang dibandingkan (minimal 2 paper)
-│   │   │   ├── FilterTabs.tsx             # Kontrol segmented filter (pola yang sama dengan halaman Proyek Riset)
-│   │   │   ├── SearchField.tsx            # Kolom pencarian dengan tombol hapus tunggal
 │   │   │   ├── ExpandableCellModal.tsx    # Modal perbesaran teks ekstraksi akademik utuh
-│   │   │   ├── EvidencePdfModal.tsx       # Modal penampil PDF bukti kutipan (dimuat lazy, memuat pdf.js)
 │   │   │   ├── ProjectSynthesisCard.tsx   # Kartu sintesis AI global komparatif & copy naskah formal
 │   │   │   └── IntelligenceReportCard.tsx # Kartu laporan intelijen & 5 gaya sitasi (APA, IEEE, dll)
 │   │   └── utils/
@@ -131,20 +130,31 @@ src/features/
 │   │       ├── CanvasToolbar.tsx          # Toolbar pan, zoom in/out, fit view, fullscreen, & filter keseringan
 │   │       ├── NodeDetailPanel.tsx        # Slide-in panel rincian node, rujukan paper, & bukti kutipan
 │   │       └── FourStageActionCard.tsx    # Rekomendasi tindakan strategis akademik 4 tahap (Topik -> Solusi)
-│   ├── knowledge-graph/              # /knowledge-graph (Kanvas graf spasial 2D & zona saturasi konsep)
-│   │   ├── KnowledgeGraphScreen.tsx  # Hub dispatcher: pemilihan proyek & ruang kerja graf pengetahuan
+│   ├── knowledge-graph/              # /knowledge-graph (Kanvas graf pengetahuan: konsep, metode, hasil, & celah riset per zona saturasi)
+│   │   ├── KnowledgeGraphScreen.tsx  # Hub pemilihan proyek; membuka rute fokus /projects/:id/knowledge-graph
+│   │   ├── api/
+│   │   │   └── knowledgeGraphApi.ts  # Mutation TanStack Query untuk sintesis rumusan masalah AI
 │   │   ├── types/
-│   │   │   └── knowledgeGraphTypes.ts# Interface simpul, relasi, zona saturasi, & metrik spasial
+│   │   │   ├── knowledgeGraphTypes.ts# Interface simpul, relasi, zona saturasi, ringkasan graf, & hasil sintesis
+│   │   │   └── flowTypes.ts          # Tipe node/edge React Flow (kartu simpul, latar zona, garis melayang)
 │   │   ├── store/
-│   │   │   └── useKnowledgeGraphStore.ts # Zustand store: filter zona, tipe simpul, drawer & fullscreen
+│   │   │   └── useKnowledgeGraphStore.ts # Zustand store: simpul terpilih, filter zona/jenis/pencarian, & layar penuh
 │   │   ├── utils/
-│   │   │   └── graphDataBuilder.ts   # Pembangun graf 2D spasial, rasio saturasi (Low/Med/High), & edges
+│   │   │   ├── graphBuilder.ts       # Pembangun graf dari matriks komparatif: simpul, relasi, saturasi, & penyambung antar paper
+│   │   │   ├── graphLayout.ts        # Tata letak zona bertingkat (Celah Riset | Rendah | Sedang | Tinggi | Sumber Paper)
+│   │   │   ├── graphText.ts          # Judul simpul ringkas, token kata kunci, & tipologi celah
+│   │   │   ├── graphMeta.ts          # Label, ikon, & warna jenis simpul dan zona
+│   │   │   └── flowModel.ts          # Konversi ke node/edge React Flow & perhitungan fokus (filter, pencarian, sorotan)
 │   │   └── components/
 │   │       ├── KnowledgeGraphProjectPicker.tsx # Katalog seleksi proyek & validasi syarat >= 2 paper siap
-│   │       ├── ProjectKnowledgeGraphView.tsx   # Ruang kerja utama, floating toolbar, & React Flow canvas
-│   │       ├── KnowledgeGraphNodeCard.tsx      # Custom node 3 zona saturasi (Low/Rose, Med/Amber, High/Emerald)
-│   │       ├── ZoneOverlayBackground.tsx       # Latar belakang demarkasi visual 3 zona spasial kanvas
-│   │       └── NodeDetailDrawer.tsx            # Slide-in drawer rincian simpul, bukti kutipan, & salin ringkasan
+│   │       ├── ProjectKnowledgeGraphView.tsx   # Ruang kerja: kartu judul, pencarian, filter, kanvas, & legenda
+│   │       ├── KnowledgeGraphCanvas.tsx        # Kanvas React Flow, toolbar, mini-map, & penggeseran ke simpul terpilih
+│   │       ├── KnowledgeGraphNodeCard.tsx      # Kartu simpul bergradasi per jenis
+│   │       ├── FloatingEdge.tsx                # Garis melayang dari tepi kartu dengan gradasi warna jenis simpul
+│   │       ├── ZoneBackdropNode.tsx            # Latar zona saturasi yang ikut bergeser dan memperbesar bersama graf
+│   │       ├── ZoneChip.tsx                    # Label zona saturasi
+│   │       ├── NodeDetailPanel.tsx             # Panel rincian simpul, bukti kutipan, simpul terhubung, & aksi AI
+│   │       └── SynthesisResultDialog.tsx       # Dialog hasil sintesis rumusan masalah (AI)
 │   │   ├── ConceptMapScreen.tsx      # Hub dispatcher seleksi proyek dan ruang kerja Concept & Gap Map
 │   │   ├── types/
 │   │   │   └── conceptMapTypes.ts    # Interface TypeScript: 5-step pairwise, gap candidate, & limitation node
@@ -456,6 +466,7 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 | POST   | /api/v1/projects/{id}/chat                                  | Obrolan RAG hibrida RRF & sitasi   |
 | GET    | /api/v1/projects/{id}/chat                                  | Riwayat pesan obrolan RAG proyek   |
 | GET    | /api/v1/projects/{id}/comparative-matrix                    | Matriks komparasi 13 parameter     |
+| POST   | /api/v1/projects/{id}/knowledge-graph/synthesize            | Draf rumusan masalah AI dari celah graf |
 | GET    | /api/v1/admin/dashboard/metrics                             | Metrik sistem, rasio user berbayar vs free, MRR    |
 | GET    | /api/v1/admin/users                                         | Daftar pengguna, search, filter status & role       |
 | PATCH  | /api/v1/admin/users/{user_id}/status                        | Sanksi pelanggaran (aktif/tangguhkan/nonaktifkan)   |
@@ -791,7 +802,7 @@ DETAIL FITUR & INTEGRASI SISTEM
     generator sitasi 5 format standar internasional dinamis (APA 7th, IEEE, Harvard, Vancouver,
     dan Chicago Author-Date), preview sitasi dalam teks (in-text citation), tombol salin sitasi,
     serta tombol "Unduh JSON" (`generateIntelligenceReportJson`).
-  * Modal Telaah Bukti PDF (`EvidencePdfModal.tsx`): Mengklik "Hal. N" pada sel tabel membuka penampil
+  * Modal Telaah Bukti PDF (`projects/paper-analysis/EvidencePdfModal.tsx`, dipakai bersama graf pengetahuan): Mengklik "Hal. N" pada sel tabel membuka penampil
     PDF modal (`PdfViewer.tsx`) dengan penyorotan teks kanonik. Modal ini dimuat lazy sehingga pdf.js
     baru diunduh saat bukti dibuka.
   * Fitur Ekspor: Tombol "Unduh CSV" (`exportMatrixCsv.ts`) mengunduh matriks paper yang sedang
@@ -1011,36 +1022,50 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Pemulihan Draf Saat Gagal Jaringan: Jika koneksi gagal total, sistem otomatis mengembalikan teks pertanyaan
     ke dalam kolom input agar pengguna tidak kehilangan draf ketikan panjangnya, disertai pesan toast peringatan 5000 ms.
 
-14. FITUR KNOWLEDGE GRAPH SPASIAL 2D & ZONA SATURASI KONSEP (KNOWLEDGE GRAPH CANVAS)
+14. FITUR GRAF PENGETAHUAN (KNOWLEDGE GRAPH) & ZONA SATURASI
 --------------------------------------------------------------------------------
-- Pusat Ruang Kerja Graf Pengetahuan Spasial 2D (`KnowledgeGraphScreen.tsx` pada rute `/knowledge-graph`):
-  * Pengendali Rute Ganda (Dual Route Dispatcher): Mendukung resolusi ID proyek melalui parameter rute maupun URL search param (`/knowledge-graph?projectId=...`).
-  * Validasi Kesiapan Akademis (>= 2 Paper Siap): Mengelompokkan proyek berdasarkan status kesiapan dokumen paper.
-    Bila proyek memiliki kurang dari 2 paper siap, disajikan callout amber solutif dengan navigasi cepat ke halaman unggah naskah.
-  * Dasbor Metrik Spasial Agregat: Metrik Total Simpul Pengetahuan, Simpul Saturasi Rendah (Novelty <= 20%),
-    Simpul Saturasi Sedang (Transisi 21% - 50%), Simpul Saturasi Tinggi (Mapan > 50%), dan Simpul Celah Riset (Research Gaps).
+- Pusat Pemilihan Proyek (`KnowledgeGraphScreen.tsx` pada rute `/knowledge-graph`):
+  * Katalog proyek dengan syarat >= 2 paper siap. Proyek yang belum siap menampilkan callout amber dan tautan unggah paper.
+  * Tombol "Buka Graf Pengetahuan" membuka rute fokus `/projects/:projectId/knowledge-graph`
+    (`ProjectKnowledgeGraphScreen.tsx`, tanpa sidebar dan navbar). Tautan lama `/knowledge-graph?projectId=<id>` dialihkan otomatis.
 
-- Mesin Kalkulasi Saturasi & Pengelompokan Spasial 2D (`graphDataBuilder.ts`):
-  * Menghitung rasio kemunculan konsep ilmiah dari matriks ekstraksi parameter (Problem, Variables, Methodology, Dataset, Limitations) terhadap total paper:
-    1. Zona Rendah / Novelty (<= 20%, Rose `#F43F5E`): Konsep langka yang berpotensi tinggi menjadi novelty dan celah riset baru tesis, ditempatkan di lajur kiri kanvas (koordinat X = 160 - 480).
-    2. Zona Sedang / Transisi (21% - 50%, Amber `#F59E0B`): Konsep dalam tahap perkembangan atau adopsi transisional, ditempatkan di lajur tengah kanvas (koordinat X = 800 - 1120).
-    3. Zona Tinggi / Mapan (> 50%, Emerald `#10B981`): Konsep standar/fondasi teoretis yang telah mapan di literatur, ditempatkan di lajur kanan kanvas (koordinat X = 1440 - 1760).
-  * Distribusi Slot Vertikal Berjarak (Staggered Y-Slot): Mengatur koordinat Y secara berjenjang bertahap untuk mencegah tumpang tindih visual (node overlap).
-  * Relasi Semantik Otomatis Lintas Zona: Memetakan keterhubungan High -> Medium -> Low/Gap dengan garis konektor terarah dan garis putus-putus beranimasi pada celah riset.
+- Pembangun Graf (`utils/graphBuilder.ts`), mengikuti model data aplikasi mobile:
+  * Sumber data: `GET /api/v1/projects/{id}/comparative-matrix`. Hanya paper berstatus Siap atau Perlu Tinjauan yang ditampilkan.
+  * Jenis simpul: Paper, Bidang Riset (rumusan masalah), Konsep (variabel & konsep), Dataset/Objek, Metode, Hasil, dan Celah Riset
+    (keterbatasan & peluang riset mendatang). Judul simpul adalah potongan teks asli sel ekstraksi tanpa kalimat pembuka baku
+    (`graphText.ts`); uraian lengkap dan bukti kutipan tetap tersedia pada panel rincian.
+  * Relasi: paper -> bidang riset/konsep ("meneliti"), paper -> dataset/metode ("menggunakan"), metode -> hasil ("menghasilkan"),
+    hasil -> celah ("mengungkap"). Gagasan identik dari beberapa paper digabung menjadi satu simpul bersama.
+  * Keterhubungan antar paper: simpul sejenis dengan kata kunci bersama dihubungkan garis putus-putus "Serupa antar paper".
+    Bila graf masih terpisah, kelompok digabung lewat pasangan simpul paling mirip (minimal 2 kata kunci bersama).
+    Lencana pada kartu judul menampilkan "Terhubung utuh" atau jumlah kelompok terpisah.
+  * Saturasi = porsi paper yang membahas simpul: <= 20% Rendah, <= 50% Sedang, selebihnya Tinggi. Celah Riset selalu zona
+    "Celah Riset"; paper berada pada zona "Sumber Paper".
 
-- Kanvas Graf Interaktif React Flow (`ProjectKnowledgeGraphView.tsx` & `@xyflow/react`):
-  * Latar Belakang Demarkasi 3 Zona Spasial (`ZoneOverlayBackground.tsx`): Menampilkan 3 pilar kolom vertikal beraksen halus di belakang viewport graf yang memisahkan Zona Novelty, Zona Transisi, dan Zona Mapan.
-  * Kartu Simpul Pengetahuan Kustom (`KnowledgeGraphNodeCard.tsx`): Menampilkan lencana tipe simpul (Konsep, Variabel, Metode, Dataset, Celah Riset), nama formulasi konsep, indikator persentase saturasi, jumlah paper pendukung, dan efek hover glow interaktif.
-  * Bilah Pengontrol Kanvas Mengambang:
-    - Navigasi & Zoom: Zoom In, Zoom Out, dan Pusatkan Tampilan (Fit View).
-    - Reset Posisi Pegas: Mengembalikan seluruh node ke slot zona spasial awal dengan animasi halus dan toast feedback 5 detik (5000 ms).
-    - Mode Layar Penuh (*Fullscreen*): Memperluas kanvas ke seluruh area layar untuk kenyamanan eksplorasi graf berskala besar.
-    - Segmented Tab Filter: Menyaring simpul berdasarkan zona ("Semua", "Rendah / Novelty", "Sedang", "Tinggi") serta dropdown filter jenis simpul.
+- Tata Letak Zona (`utils/graphLayout.ts`): zona berurutan dari kiri ke kanan: Celah Riset | Saturasi Rendah | Sedang | Tinggi |
+  Sumber Paper. Simpul dalam zona disusun dalam kolom dan diurutkan menurut rata-rata posisi tetangganya untuk memperpendek garis.
 
-- Drawer Rincian Simpul Samping (`NodeDetailDrawer.tsx`):
-  * Slide-in drawer dari sisi kanan yang terbuka seketika saat pengguna mengklik salah satu node di kanvas.
-  * Menampilkan formula nama konsep, rumus persentase saturasi ilmiah, deskripsi substantif temuan akademik, serta daftar rujukan paper pendukung lengkap dengan nama penulis, tahun terbit, nomor halaman kanonik, dan kutipan bukti verbatim (*evidence quote*).
-  * Tombol aksi "Salin Ringkasan Konsep & Bukti" yang memformat data ke papan klip dengan toast konfirmasi standar 5000 ms.
+- Kanvas (`KnowledgeGraphCanvas.tsx`, React Flow dimuat lazy bersama rute):
+  * Kartu simpul bergradasi per jenis (`KnowledgeGraphNodeCard.tsx`) dan garis melayang yang keluar dari tepi kartu (`FloatingEdge.tsx`).
+  * Toolbar di kiri atas: perbesar, perkecil, tampilkan seluruh graf, atur ulang tata letak, dan layar penuh (Esc untuk keluar).
+  * Menyorot simpul (arahkan kursor atau pilih) menonjolkan simpul dan tetangganya; sisanya diredupkan. Mini-map dan legenda tersedia.
+  * Pencarian teks, filter zona, dan filter jenis simpul meredupkan simpul yang tidak sesuai.
+  * Saat simpul dipilih, kanvas bergeser secukupnya agar simpul dan tetangganya tidak tertutup panel rincian.
+
+- Panel Rincian (`NodeDetailPanel.tsx`): jenis dan uraian simpul, zona, cakupan paper, tipologi celah, skor keyakinan, paper pelapor,
+  bukti kutipan (tombol "Lihat di PDF"), daftar simpul terhubung, dan tombol "Salin Ringkasan".
+  * "Lihat di PDF" membuka `projects/paper-analysis/EvidencePdfModal.tsx` (dimuat lazy, memuat pdf.js). Penampil mengambil blok
+    kanonik paper, memverifikasi blok yang dicatat terhadap teks kutipan, mencari halaman yang benar bila catatan keliru,
+    lalu menggulir dan menyorot kutipan.
+
+- Sintesis Rumusan Masalah (AI): pada simpul Celah Riset, tombol "Buat Rumusan Masalah (AI)" mengirim celah beserta hasil/metode
+  asalnya ke `POST /api/v1/projects/{id}/knowledge-graph/synthesize` (`graph_synthesis_service.py`, ModelRegistry Gemini -> Groq).
+  Hasilnya (3 usulan judul, 2-3 pertanyaan penelitian, pernyataan novelty, alasan pemilihan) tampil pada
+  `SynthesisResultDialog.tsx` sebagai draf yang wajib ditinjau pengguna. Bila semua model gagal, pengguna menerima pesan galat
+  (HTTP 503) dan tidak ada teks pengganti yang dikarang.
+
+- Keterbatasan saat ini: simpul diturunkan dari teks sel ekstraksi, bukan dari ekstraksi entitas khusus seperti pada aplikasi mobile,
+  sehingga pada proyek kecil sebagian besar simpul hanya dilaporkan oleh satu paper dan berada pada satu zona saturasi.
 
 
 15. FITUR MODUL ADMINISTRASI SISTEM & BISNIS EKSEKUTIF (6 JOB ADMINISTRATOR — FATIH)
@@ -1147,5 +1172,26 @@ tipe data TypeScript pada frontend dengan menjalankan perintah:
   * Sistem menggunakan PyMuPDF font-size span heuristic seketika pada tahap upload, dan
     disempurnakan oleh model LLM pada Stage 5 Celery untuk memastikan judul ilmiah asli
     100% akurat diambil langsung dari isi dokumen akademik.
+
+6. GRAF PENGETAHUAN TAMPIL SEBAGAI BEBERAPA KELOMPOK TERPISAH
+--------------------------------------------------------------------------------
+- Gejala: lencana pada kartu judul graf menampilkan "N kelompok terpisah", bukan "Terhubung utuh".
+- Penyebab: graf dibangun dari matriks komparatif. Dua paper hanya dihubungkan bila ada simpul
+  yang sama (identik) atau simpul sejenis dengan kata kunci bersama (garis putus-putus "Serupa antar paper").
+  Paper yang topiknya tidak beririsan sama sekali tetap terpisah, karena relasi tidak dikarang.
+- Langkah pemeriksaan:
+  1. Buka simpul pada kelompok yang terpisah dan baca uraian serta bukti kutipannya.
+  2. Pastikan paper tersebut memang membahas topik yang sama dengan paper lain dalam proyek.
+  3. Bila topiknya berbeda, pisahkan paper ke proyek riset tersendiri.
+- Lencana "N paper belum dianalisis" berarti ada paper berstatus memproses atau gagal. Paper tersebut
+  baru tampil pada graf setelah statusnya Siap atau Perlu Tinjauan (tombol "Segarkan" memuat ulang data).
+
+7. KUTIPAN BUKTI TIDAK MENYOROT TEKS PADA PDF
+--------------------------------------------------------------------------------
+- Hasil ekstraksi kadang mencatat halaman atau blok yang keliru untuk sebuah kutipan (misalnya blok yang
+  hanya berisi satu kata). Penampil PDF memverifikasi blok tersebut terhadap teks kutipan, lalu mencari
+  kutipan pada seluruh halaman dokumen (`relocateEvidence` pada `pdfMatcher.ts`).
+- Bila kutipan tidak ditemukan pada halaman mana pun, penampil hanya membuka halaman yang tercatat tanpa
+  sorotan. Perbaikan data dilakukan dengan memproses ulang paper dari ikhtisar proyek.
 
 ================================================================================

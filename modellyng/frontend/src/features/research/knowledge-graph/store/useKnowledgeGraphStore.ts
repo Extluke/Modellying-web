@@ -1,63 +1,43 @@
 import { create } from "zustand"
-import {
-  KnowledgeGraphNodeData,
-  KnowledgeNodeType,
-  SaturationZone,
-} from "../types/knowledgeGraphTypes"
+import type { GraphNodeKind, GraphZoneKey } from "../types/knowledgeGraphTypes"
 
-interface KnowledgeGraphState {
-  // Simpul terpilih untuk rincian naskah dan bukti
-  selectedNode: KnowledgeGraphNodeData | null
-  setSelectedNode: (node: KnowledgeGraphNodeData | null) => void
+interface KnowledgeGraphUiState {
+  /** Node whose detail panel is open. */
+  selectedNodeId: string | null
+  setSelectedNodeId: (id: string | null) => void
 
-  // Filter Zona Saturasi ("all" | "low" | "medium" | "high")
-  selectedZoneFilter: "all" | SaturationZone
-  setSelectedZoneFilter: (zone: "all" | SaturationZone) => void
+  zoneFilter: "all" | GraphZoneKey
+  setZoneFilter: (zone: "all" | GraphZoneKey) => void
 
-  // Filter Jenis Simpul ("all" | "concept" | "variable" | "method" | "dataset" | "research_gap")
-  selectedTypeFilter: "all" | KnowledgeNodeType
-  setSelectedTypeFilter: (type: "all" | KnowledgeNodeType) => void
+  kindFilter: "all" | GraphNodeKind
+  setKindFilter: (kind: "all" | GraphNodeKind) => void
 
-  // Mode Layar Penuh (Fullscreen Canvas)
+  query: string
+  setQuery: (query: string) => void
+
   isFullscreen: boolean
-  setIsFullscreen: (fullscreen: boolean) => void
   toggleFullscreen: () => void
+  setFullscreen: (fullscreen: boolean) => void
 
-  // Drawer Rincian Simpul Samping
-  isDrawerOpen: boolean
-  setIsDrawerOpen: (open: boolean) => void
-
-  // Reset Store ke Pengaturan Awal
-  resetStore: () => void
+  /** Back to the default view. Called when another project is opened. */
+  reset: () => void
 }
 
-export const useKnowledgeGraphStore = create<KnowledgeGraphState>((set) => ({
-  selectedNode: null,
-  setSelectedNode: (node) =>
-    set({
-      selectedNode: node,
-      isDrawerOpen: Boolean(node),
-    }),
-
-  selectedZoneFilter: "all",
-  setSelectedZoneFilter: (zone) => set({ selectedZoneFilter: zone }),
-
-  selectedTypeFilter: "all",
-  setSelectedTypeFilter: (type) => set({ selectedTypeFilter: type }),
-
+const initialState = {
+  selectedNodeId: null,
+  zoneFilter: "all" as const,
+  kindFilter: "all" as const,
+  query: "",
   isFullscreen: false,
-  setIsFullscreen: (fullscreen) => set({ isFullscreen: fullscreen }),
+}
+
+export const useKnowledgeGraphStore = create<KnowledgeGraphUiState>((set) => ({
+  ...initialState,
+  setSelectedNodeId: (id) => set({ selectedNodeId: id }),
+  setZoneFilter: (zone) => set({ zoneFilter: zone }),
+  setKindFilter: (kind) => set({ kindFilter: kind }),
+  setQuery: (query) => set({ query }),
   toggleFullscreen: () => set((state) => ({ isFullscreen: !state.isFullscreen })),
-
-  isDrawerOpen: false,
-  setIsDrawerOpen: (open) => set({ isDrawerOpen: open }),
-
-  resetStore: () =>
-    set({
-      selectedNode: null,
-      selectedZoneFilter: "all",
-      selectedTypeFilter: "all",
-      isFullscreen: false,
-      isDrawerOpen: false,
-    }),
+  setFullscreen: (fullscreen) => set({ isFullscreen: fullscreen }),
+  reset: () => set(initialState),
 }))

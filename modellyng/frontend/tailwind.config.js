@@ -78,6 +78,14 @@ export default {
           edge: "hsl(var(--canvas-edge))",
           gap: "hsl(var(--canvas-gap-fire))",
         },
+
+        // Knowledge Graph node kinds (method / dataset-object)
+        graph: {
+          method: "hsl(var(--graph-method))",
+          "method-dark": "hsl(var(--graph-method-dark))",
+          object: "hsl(var(--graph-object))",
+          "object-dark": "hsl(var(--graph-object-dark))",
+        },
       },
 
       borderRadius: {

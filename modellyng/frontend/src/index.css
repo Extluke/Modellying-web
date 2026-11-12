@@ -50,6 +50,12 @@
     --canvas-edge: 217 12% 79%;           /* #C3C8D0 - Garis penghubung bezier */
     --canvas-gap-fire: 24 88% 48%;        /* #EA580C - Celah riset bernilai novelty */
 
+    /* Graf Pengetahuan: jenis simpul tanpa padanan di palet status (mengikuti warna ungu & teal versi mobile) */
+    --graph-method: 262 60% 55%;          /* Metode / Variabel */
+    --graph-method-dark: 262 55% 40%;
+    --graph-object: 188 72% 36%;          /* Dataset / Objek */
+    --graph-object-dark: 188 70% 26%;
+
     /* 5. Radius Tokens (Border Radius) */
     --radius-card: 16px;                  /* 1rem - Kartu & Panel utama */
     --radius-button: 12px;                /* 0.75rem - Tombol & Input Field */

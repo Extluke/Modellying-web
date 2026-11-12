@@ -1,8 +1,12 @@
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { BookOpen, Quote, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { EvidenceItem } from "@/features/projects/api/projectsApi"
-import { PdfViewer } from "@/features/projects/paper-analysis/PdfViewer"
+import { usePaperBlocks, type EvidenceItem, type TextBlock } from "@/features/projects/api/projectsApi"
+import { PdfViewer } from "./PdfViewer"
+import { relocateEvidence } from "./pdfMatcher"
+
+/** Module-level so the viewer does not see a "new" array (and scroll again) on every render. */
+const NO_BLOCKS: TextBlock[] = []
 
 export interface EvidencePdfModalProps {
   projectId: string
@@ -13,13 +17,13 @@ export interface EvidencePdfModalProps {
   onClose: () => void
 }
 
-/** Full-screen PDF viewer that highlights the canonical evidence quote of a matrix cell. */
+/** Modal PDF viewer that highlights a canonical evidence quote (used by the matrix and the knowledge graph). */
 export default function EvidencePdfModal({
   projectId,
   paperId,
   paperTitle,
   parameterLabel,
-  evidence,
+  evidence: recordedEvidence,
   onClose,
 }: EvidencePdfModalProps) {
   useEffect(() => {
@@ -29,6 +33,13 @@ export default function EvidencePdfModal({
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [onClose])
+
+  // Extracted evidence only carries `block_id` and the page. The block coordinates come from the paper's
+  // canonical blocks, which lets the viewer outline the exact passage that was quoted.
+  const { data: blocks = NO_BLOCKS } = usePaperBlocks(projectId, paperId)
+
+  // The recorded page can be wrong; once the blocks are known the quote is looked up in the whole document
+  const evidence = useMemo(() => relocateEvidence(recordedEvidence, blocks), [recordedEvidence, blocks])
 
   return (
     <div
@@ -84,18 +95,7 @@ export default function EvidencePdfModal({
             paperId={paperId}
             targetPage={evidence.page_index}
             activeEvidence={evidence}
-            blocks={
-              evidence.bbox
-                ? [
-                    {
-                      block_id: evidence.block_id || "canonical-block",
-                      page_number: evidence.page_index,
-                      bbox: evidence.bbox,
-                      text: evidence.quote,
-                    },
-                  ]
-                : []
-            }
+            blocks={blocks}
           />
         </div>
       </div>

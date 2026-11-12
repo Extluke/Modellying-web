@@ -66,6 +66,23 @@ function calculateTokenOverlap(normQuote: string, normBlock: string): number {
 }
 
 /**
+ * True when the text of a block plausibly holds the quote. A block id taken from the extraction can point
+ * at the wrong block (for example one that only contains a single letter), so a block that is referenced
+ * by id is verified against the quote before it is trusted.
+ */
+function blockMatchesQuote(block: TextBlock, quote: string | undefined): boolean {
+  const normQuote = normalizeText(quote ?? "")
+  if (!normQuote) return true // nothing to compare with, so the id is all there is
+  const normBlock = normalizeText(block.text)
+  if (!normBlock) return false
+  return (
+    normBlock.includes(normQuote) ||
+    (normBlock.length > 25 && normQuote.includes(normBlock)) ||
+    calculateTokenOverlap(normQuote, normBlock) >= 0.55
+  )
+}
+
+/**
  * Algoritma Multi-Tier Pencocokan Bukti terhadap Blok Teks Dokumen.
  */
 export function findMatchingBlocks(
@@ -93,10 +110,10 @@ export function findMatchingBlocks(
     ]
   }
 
-  // TIER 1b: Jika block_id cocok secara langsung
+  // TIER 1b: Jika block_id cocok secara langsung dan teks blok memang memuat kutipan
   if (evidence.block_id) {
     const directBlock = pageBlocks.find((b) => b.block_id === evidence.block_id)
-    if (directBlock) {
+    if (directBlock && blockMatchesQuote(directBlock, evidence.quote)) {
       return [
         {
           block_id: directBlock.block_id,
@@ -197,6 +214,63 @@ export function findMatchingBlocks(
   }
 
   return []
+}
+
+/** Number of characters of a long quote that are searched for when the whole quote cannot be found. */
+const OPENING_CHARS = 60
+const MIN_OPENING_CHARS = 30
+
+/** First words of the quote as normalized text, or null when the quote is too short to use that way. */
+function quoteOpening(quote: string): string | null {
+  const normalized = normalizeText(quote)
+  if (normalized.length < MIN_OPENING_CHARS) return null
+  const cut = normalized.slice(0, OPENING_CHARS)
+  const lastSpace = cut.lastIndexOf(" ")
+  const opening = lastSpace >= MIN_OPENING_CHARS ? cut.slice(0, lastSpace) : cut
+  return opening.length >= MIN_OPENING_CHARS ? opening : null
+}
+
+/**
+ * The extraction sometimes records the wrong page or block for a quote (for example a block that only holds
+ * one word). When the quote cannot be matched where it is recorded, look for it in the whole document,
+ * nearest page first, and return the evidence pointing at the block that holds it. Only exact text counts:
+ * the whole quote (inside one block or across two), or the opening words of a long quote that continues in
+ * the next blocks. Without such a place the evidence is returned unchanged.
+ */
+export function relocateEvidence(evidence: EvidenceItem, blocks: TextBlock[]): EvidenceItem {
+  if (blocks.length === 0 || !evidence.quote?.trim()) return evidence
+  if (findMatchingBlocks(evidence, blocks, evidence.page_index).length > 0) return evidence
+
+  const pointTo = (target: { block_id: string; page_number: number; bbox: [number, number, number, number] }) => ({
+    ...evidence,
+    page_index: target.page_number,
+    block_id: target.block_id,
+    bbox: target.bbox,
+    page_label: undefined,
+  })
+
+  const otherPages = Array.from(new Set(blocks.map((b) => b.page_number)))
+    .filter((page) => page !== evidence.page_index)
+    .sort((a, b) => Math.abs(a - evidence.page_index) - Math.abs(b - evidence.page_index))
+
+  // 1. The whole quote. Token overlap is left out on purpose: it is too loose to pick a page out of a document.
+  for (const page of otherPages) {
+    const hit = findMatchingBlocks({ quote: evidence.quote, page_index: page }, blocks, page).find(
+      (match) => match.matchType === "normalized_inclusion" || match.matchType === "span_sequence"
+    )
+    if (hit) return pointTo(hit)
+  }
+
+  // 2. The opening words of a long quote
+  const opening = quoteOpening(evidence.quote)
+  if (opening) {
+    for (const page of [evidence.page_index, ...otherPages]) {
+      const block = blocks.find((b) => b.page_number === page && normalizeText(b.text).includes(opening))
+      if (block) return pointTo(block)
+    }
+  }
+
+  return evidence
 }
 
 /**

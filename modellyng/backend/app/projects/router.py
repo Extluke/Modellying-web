@@ -29,6 +29,8 @@ from .models import (
     CitationItem,
     ComponentAiReviseRequest,
     ComponentAiReviseResponse,
+    GraphSynthesisRequest,
+    GraphSynthesisResponse,
 )
 from app.pipeline.storage import STORAGE_ROOT, get_paper_file_path
 from app.pipeline.pdf_parser import inspect_pdf_metadata, PDFParseError, extract_canonical_blocks_and_coverage
@@ -40,6 +42,7 @@ from .export_service import (
     generate_xlsx_export,
     generate_pdf_export,
 )
+from .graph_synthesis_service import GraphSynthesisError, synthesize_graph_nodes
 from .hybrid_search import perform_hybrid_search
 from .rag_service import generate_rag_response
 from .revision_service import generate_component_ai_revision
@@ -1426,3 +1429,49 @@ def get_comparative_matrix(
                 ],
                 "matrix": matrix_cells,
             }
+
+
+# ==============================================================================
+# KNOWLEDGE GRAPH ENDPOINTS
+# ==============================================================================
+
+@projects_router.post(
+    "/{project_id}/knowledge-graph/synthesize",
+    response_model=GraphSynthesisResponse,
+)
+def synthesize_knowledge_graph_gap(
+    project_id: str,
+    req: GraphSynthesisRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Drafts thesis titles, research questions and a novelty statement for a research gap selected
+    on the knowledge graph. The gap and its context (results / methods it came from) are sent by the
+    client because the graph is derived from the comparative matrix and is not stored.
+    """
+    user_id = current_user["id"]
+
+    try:
+        uuid.UUID(project_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyek riset tidak ditemukan.")
+
+    if not any(node.kind == "gap" for node in req.nodes):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pilih satu celah riset terlebih dahulu untuk disusun menjadi rumusan masalah.",
+        )
+
+    # 1. Verify project ownership (the connection is released before the slow AI call)
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT name FROM public.projects WHERE id = %s AND user_id = %s;", (project_id, user_id))
+            project_row = cur.fetchone()
+            if not project_row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyek riset tidak ditemukan.")
+
+    # 2. Generate the draft
+    try:
+        return synthesize_graph_nodes(project_name=project_row["name"], nodes=req.nodes)
+    except GraphSynthesisError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))

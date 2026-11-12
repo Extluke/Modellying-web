@@ -321,9 +321,11 @@ export function PdfViewer({
     }
   }, [targetPage])
 
-  // Precise coordinate scroll when active evidence changes
+  // Precise coordinate scroll when active evidence changes. It waits until the page sizes are known:
+  // a freshly opened document lays its pages out late, and scrolling earlier would stay on page 1.
+  const isEvidencePageLaidOut = Boolean(pageDimensions[activeEvidence?.page_index || 1])
   useEffect(() => {
-    if (!activeEvidence) return
+    if (!activeEvidence || !isEvidencePageLaidOut) return
 
     const evPage = activeEvidence.page_index || 1
     setCurrentPage(evPage)
@@ -331,15 +333,20 @@ export function PdfViewer({
 
     const matchedBlocks = findMatchingBlocks(activeEvidence, blocks, evPage)
     const targetEl = pageContainerRefs.current.get(evPage)
+    const container = containerRef.current
 
-    if (targetEl && containerRef.current) {
+    if (targetEl && container) {
       isJumpingProgrammatically.current = true
 
       if (matchedBlocks.length > 0) {
         const topCoord = matchedBlocks[0].bbox[1] * scale
-        const targetScrollTop = targetEl.offsetTop + topCoord - 120
-        containerRef.current.scrollTo({
-          top: Math.max(0, targetScrollTop),
+        // Measured against the scroll container itself, so it does not depend on which ancestor is positioned
+        const pageTop =
+          targetEl.getBoundingClientRect().top -
+          container.getBoundingClientRect().top +
+          container.scrollTop
+        container.scrollTo({
+          top: Math.max(0, pageTop + topCoord - 120),
           behavior: "smooth",
         })
       } else {
@@ -350,7 +357,7 @@ export function PdfViewer({
         isJumpingProgrammatically.current = false
       }, 700)
     }
-  }, [activeEvidence, scale, blocks])
+  }, [activeEvidence, scale, blocks, isEvidencePageLaidOut])
 
   // 7. Page Input Form Handler
   const handlePageInputSubmit = () => {
