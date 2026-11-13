@@ -63,13 +63,13 @@ const GRAPH_SOURCES: GraphSource[] = [
 /** Two items of the same kind with at least this token overlap are the same node. */
 const MERGE_SIMILARITY = 0.7
 /** Looser overlap that only creates a `relates_to` link between different papers. */
-const RELATE_MIN_SIMILARITY = 0.2
-const RELATE_MIN_SHARED_TOKENS = 3
-const MAX_RELATED_LINKS_PER_NODE = 2
+const RELATE_MIN_SIMILARITY = 0.15
+const RELATE_MIN_SHARED_TOKENS = 2
+const MAX_RELATED_LINKS_PER_NODE = 3
 /** Ranks "a short term contained in a longer one" (Transformer / Vision Transformer) above weak overlaps. */
 const CONTAINMENT_BONUS = 0.3
-/** Joining separate groups of papers still requires at least this many shared words. */
-const BRIDGE_MIN_SHARED_TOKENS = 2
+/** Joining separate groups of papers requires at least 1 significant shared word. */
+const BRIDGE_MIN_SHARED_TOKENS = 1
 
 const SATURATION_LOW_MAX = 0.2
 const SATURATION_MEDIUM_MAX = 0.5
@@ -291,7 +291,35 @@ export function buildKnowledgeGraph(matrix: ComparativeMatrixResponse): Knowledg
     linkRelated(best.a, best.b, best.shared)
   }
 
-  // 4. Saturation, layout, zones
+  // 5. Fallback bridge: ensure all papers within the same research project stay connected
+  const finalGroupMap = connectedGroups(Array.from(nodes.keys()), Array.from(edges.values()))
+  const distinctGroups = Array.from(new Set(finalGroupMap.values()))
+  if (distinctGroups.length > 1) {
+    for (let g = 0; g < distinctGroups.length - 1; g++) {
+      const rootA = distinctGroups[g]
+      const rootB = distinctGroups[g + 1]
+      const nodesInA = Array.from(nodes.values()).filter((n) => finalGroupMap.get(n.id) === rootA)
+      const nodesInB = Array.from(nodes.values()).filter((n) => finalGroupMap.get(n.id) === rootB)
+
+      const anchorA =
+        nodesInA.find((n) => n.kind === "research_area") ??
+        nodesInA.find((n) => n.kind === "concept") ??
+        nodesInA.find((n) => n.kind === "paper") ??
+        nodesInA[0]
+
+      const anchorB =
+        nodesInB.find((n) => n.kind === "research_area") ??
+        nodesInB.find((n) => n.kind === "concept") ??
+        nodesInB.find((n) => n.kind === "paper") ??
+        nodesInB[0]
+
+      if (anchorA && anchorB) {
+        addEdge(anchorA.id, anchorB.id, "relates_to", "Topik riset dalam proyek yang sama")
+      }
+    }
+  }
+
+  // 6. Saturation, layout, zones
   const totalPapers = papers.length
   const graphEdges = Array.from(edges.values())
   const layoutInput = Array.from(nodes.values(), (node) => ({

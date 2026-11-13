@@ -1,28 +1,57 @@
 import { useState, useMemo } from "react"
+import type { KeyboardEvent } from "react"
 import { Link } from "react-router-dom"
+import type { LucideIcon } from "lucide-react"
 import {
-  Network,
-  Search,
-  CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  UploadCloud,
-  FolderKanban,
+  CheckCircle2,
+  CheckSquare,
   FileText,
+  Network,
+  Plus,
   RotateCw,
-  Sparkles,
+  Search,
+  UploadCloud,
   X,
-  Compass,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
+import { ROUTES } from "@/app/routes"
 import { useProjects, Project } from "@/features/projects/api/projectsApi"
 
 type ReadinessFilter = "all" | "ready" | "not_ready"
+
+/** Minimum number of papers with status "ready" required to open a knowledge graph. */
+const MIN_READY_PAPERS = 2
+
+function isGraphReady(project: Project): boolean {
+  return (project.ready_count || 0) >= MIN_READY_PAPERS
+}
+
+function formatDate(isoString: string): string {
+  try {
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(isoString))
+  } catch {
+    return "Baru saja"
+  }
+}
 
 interface KnowledgeGraphProjectPickerProps {
   onSelectProject: (projectId: string) => void
 }
 
+/**
+ * KnowledgeGraphProjectPicker: lets the user pick a project to explore its knowledge graph.
+ * Aligned with the global design system and the comparative matrix layout.
+ */
 export function KnowledgeGraphProjectPicker({
   onSelectProject,
 }: KnowledgeGraphProjectPickerProps) {
@@ -33,353 +62,362 @@ export function KnowledgeGraphProjectPicker({
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [filterTab, setFilterTab] = useState<ReadinessFilter>("all")
 
-  // Metrik kesiapan proyek
   const readyProjectsCount = useMemo(
-    () => projects.filter((p) => (p.ready_count || 0) >= 2).length,
+    () => projects.filter(isGraphReady).length,
     [projects]
   )
   const notReadyProjectsCount = projects.length - readyProjectsCount
-  const totalReadyPapers = useMemo(
-    () => projects.reduce((acc, p) => acc + (p.ready_count || 0), 0),
-    [projects]
-  )
 
-  // Filter proyek berdasarkan teks pencarian dan tab kesiapan
+  const keyword = searchQuery.trim().toLowerCase()
+  const hasActiveFilter = keyword.length > 0 || filterTab !== "all"
+
+  // Filter by keyword and readiness, newest update first (same ordering as the mobile app)
   const filteredProjects = useMemo(() => {
-    return projects.filter((project) => {
-      const matchesSearch =
-        project.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        (project.description &&
-          project.description.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+    return projects
+      .filter((project) => {
+        const matchesSearch =
+          !keyword ||
+          project.name.toLowerCase().includes(keyword) ||
+          (project.description?.toLowerCase().includes(keyword) ?? false)
 
-      if (!matchesSearch) return false
+        if (!matchesSearch) return false
+        if (filterTab === "ready") return isGraphReady(project)
+        if (filterTab === "not_ready") return !isGraphReady(project)
+        return true
+      })
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  }, [projects, keyword, filterTab])
 
-      if (filterTab === "ready") {
-        return (project.ready_count || 0) >= 2
-      }
-      if (filterTab === "not_ready") {
-        return (project.ready_count || 0) < 2
-      }
-      return true
-    })
-  }, [projects, searchQuery, filterTab])
+  const filterTabs: { id: ReadinessFilter; label: string; count: number; icon?: LucideIcon }[] = [
+    { id: "all", label: "Semua", count: projects.length },
+    { id: "ready", label: "Siap Graf", count: readyProjectsCount, icon: CheckCircle2 },
+    { id: "not_ready", label: "Belum Siap", count: notReadyProjectsCount, icon: AlertTriangle },
+  ]
+
+  const resetFilters = () => {
+    setSearchQuery("")
+    setFilterTab("all")
+  }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background overflow-y-auto">
-      {/* Header Banner */}
-      <div className="border-b bg-card/60 backdrop-blur-md px-4 sm:px-8 py-6 shrink-0">
-        <div className="max-w-6xl mx-auto space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="size-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 shadow-2xs">
-                <Network className="size-6" />
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight text-foreground">
-                    Graf Pengetahuan &amp; Saturasi Konsep 2D (Knowledge Graph)
-                  </h1>
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                    <Sparkles className="size-3" />
-                    <span>4 Zona Saturasi</span>
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Pilih proyek riset untuk menjelajahi peta konsep ilmiah dalam 4 zona saturasi: Celah Riset, Rendah (Novelty), Sedang (Transisi), dan Tinggi (Mapan).
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                Total Proyek
-              </span>
-              <span className="text-lg font-bold text-foreground">
-                {projects.length}
-              </span>
-            </div>
-
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">
-                Siap Graf (&ge; 2 Paper)
-              </span>
-              <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                {readyProjectsCount}
-              </span>
-            </div>
-
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 block">
-                Perlu Tambah Paper (&lt; 2)
-              </span>
-              <span className="text-lg font-bold text-amber-600 dark:text-amber-400">
-                {notReadyProjectsCount}
-              </span>
-            </div>
-
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
-                Total Paper Terverifikasi
-              </span>
-              <span className="text-lg font-bold text-primary">
-                {totalReadyPapers}
-              </span>
-            </div>
-          </div>
+    <div className="flex flex-col gap-6 p-6 md:p-8 max-w-7xl mx-auto">
+      {/* Header section */}
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Graf Pengetahuan</h1>
+          {projects.length > 0 && (
+            <Badge variant="primary">
+              {readyProjectsCount} dari {projects.length} Siap Graf
+            </Badge>
+          )}
         </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Pilih proyek riset untuk menjelajahi peta konsep ilmiah, metode, hasil, dan celah riset lintas paper.
+          Graf membutuhkan minimal {MIN_READY_PAPERS} paper berstatus Siap (Ready).
+        </p>
       </div>
 
-      {/* Main Workspace Area */}
-      <div className="max-w-6xl mx-auto w-full px-4 sm:px-8 py-6 space-y-6 flex-1">
-        {/* Controls Bar: Search & Filter Tabs */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Cari berdasarkan nama proyek atau deskripsi..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-9 pl-9 pr-8 text-xs rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-2xs"
-            />
-            {searchQuery && (
+      {/* Search and Filter Bar */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            type="text"
+            autoComplete="off"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari berdasarkan judul proyek atau kata kunci riset..."
+            className="h-10 pl-9 pr-9 text-xs"
+          />
+          {searchQuery.trim().length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              title="Hapus pencarian"
+              className="absolute right-3 top-1/2 -translate-y-1/2 size-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Readiness filter (segmented control, matching Matrix and Projects screens) */}
+        <div className="flex h-10 items-center overflow-x-auto rounded-button border border-input bg-card p-1 shadow-card">
+          {filterTabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = filterTab === tab.id
+            return (
               <button
+                key={tab.id}
                 type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={() => setFilterTab(tab.id)}
+                className={cn(
+                  "flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 text-xs font-medium transition-all",
+                  isActive
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <X className="size-3.5" />
+                {Icon && <Icon className="size-3.5" />}
+                <span>
+                  {tab.label} ({tab.count})
+                </span>
               </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((n) => (
+            <Card key={n} className="p-5 animate-pulse flex flex-col gap-4">
+              <div className="flex justify-between items-start">
+                <div className="size-10 rounded-button bg-muted" />
+                <div className="h-4 w-16 bg-muted rounded" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="h-5 w-3/4 bg-muted rounded" />
+                <div className="h-4 w-full bg-muted rounded" />
+              </div>
+              <div className="h-1.5 w-full bg-muted rounded-full" />
+              <div className="pt-3 border-t border-border/60 flex justify-between">
+                <div className="h-4 w-20 bg-muted rounded" />
+                <div className="h-4 w-24 bg-muted rounded" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Error State */}
+      {isError && (
+        <div className="flex flex-col items-center gap-2 rounded-card border border-destructive/20 bg-destructive/5 p-6 text-center">
+          <AlertTriangle className="size-8 text-destructive" />
+          <h3 className="font-semibold text-sm text-foreground">Gagal Memuat Proyek</h3>
+          <p className="text-xs text-muted-foreground">
+            Terjadi kendala saat mengambil daftar proyek riset. Periksa koneksi lalu coba lagi.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2 gap-1.5">
+            <RotateCw />
+            <span>Coba Muat Ulang</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !isError && filteredProjects.length === 0 && (
+        <div className="flex flex-col items-center gap-4 rounded-card border-2 border-dashed border-border/80 bg-card/50 p-12 text-center">
+          <div className="flex size-14 items-center justify-center rounded-card bg-primary-soft text-primary">
+            {projects.length === 0 ? (
+              <Network className="size-7" />
+            ) : (
+              <Search className="size-7" />
             )}
           </div>
+          <div className="max-w-md space-y-1">
+            <h3 className="text-base font-semibold text-foreground">
+              {projects.length === 0 ? "Belum Ada Proyek Riset" : "Tidak Ada Proyek yang Cocok"}
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {projects.length === 0
+                ? `Buat proyek riset pertama Anda dan unggah minimal ${MIN_READY_PAPERS} paper untuk mulai memetakan graf pengetahuan.`
+                : keyword
+                ? `Pencarian kata kunci "${searchQuery.trim()}" tidak menemukan proyek yang sesuai dengan filter yang dipilih.`
+                : "Tidak ada proyek yang sesuai dengan filter yang dipilih."}
+            </p>
+          </div>
+          {projects.length === 0 ? (
+            <Button asChild className="mt-2 gap-2">
+              <Link to={ROUTES.PROJECTS.NEW}>
+                <Plus />
+                <span>Buat Proyek Pertama Anda</span>
+              </Link>
+            </Button>
+          ) : (
+            hasActiveFilter && (
+              <Button variant="outline" onClick={resetFilters} className="mt-2">
+                Reset Filter & Pencarian
+              </Button>
+            )
+          )}
+        </div>
+      )}
 
-          {/* Readiness Segmented Filter Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-xl border border-border/60 self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setFilterTab("all")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                filterTab === "all"
-                  ? "bg-card text-foreground shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Semua ({projects.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTab("ready")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterTab === "ready"
-                  ? "bg-card text-emerald-600 dark:text-emerald-400 shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <CheckCircle2 className="size-3 text-emerald-500" />
-              <span>Siap ({readyProjectsCount})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTab("not_ready")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterTab === "not_ready"
-                  ? "bg-card text-amber-600 dark:text-amber-400 shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <AlertTriangle className="size-3 text-amber-500" />
-              <span>Belum Siap ({notReadyProjectsCount})</span>
-            </button>
+      {/* Project Catalog Grid */}
+      {!isLoading && !isError && filteredProjects.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredProjects.map((project) => (
+            <ProjectKnowledgeGraphCard
+              key={project.id}
+              project={project}
+              onSelect={() => onSelectProject(project.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface ProjectKnowledgeGraphCardProps {
+  project: Project
+  onSelect: () => void
+}
+
+function ProjectKnowledgeGraphCard({
+  project,
+  onSelect,
+}: ProjectKnowledgeGraphCardProps) {
+  const isReady = isGraphReady(project)
+  const isComplete = isReady && project.ready_count === project.paper_count
+  const hasEnoughPapers = project.paper_count >= MIN_READY_PAPERS
+
+  const progressPercent =
+    project.paper_count > 0 ? Math.round((project.ready_count / project.paper_count) * 100) : 0
+
+  const lockedMessage = hasEnoughPapers
+    ? `Dibutuhkan minimal ${MIN_READY_PAPERS} paper berstatus Siap. Tinjau paper yang masih menunggu review.`
+    : `Dibutuhkan minimal ${MIN_READY_PAPERS} paper berstatus Siap. Saat ini baru ${project.paper_count} paper terunggah.`
+
+  const lockedAction = hasEnoughPapers
+    ? {
+        to: `/projects/${project.id}/review`,
+        label: "Tinjau Paper",
+        Icon: CheckSquare,
+      }
+    : {
+        to: `/projects/${project.id}/overview`,
+        label: "Unggah Paper",
+        Icon: UploadCloud,
+      }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      onSelect()
+    }
+  }
+
+  const interactiveProps = isReady
+    ? {
+        role: "button",
+        tabIndex: 0,
+        onClick: onSelect,
+        onKeyDown: handleKeyDown,
+        "aria-label": `Buka graf pengetahuan proyek ${project.name}`,
+      }
+    : undefined
+
+  return (
+    <Card
+      hoverable={isReady}
+      {...interactiveProps}
+      className={cn(
+        "group flex flex-col justify-between gap-4 p-5",
+        isReady
+          ? "hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          : "border-status-orange/30 transition-colors hover:border-status-orange/60"
+      )}
+    >
+      <div className="flex flex-col gap-3.5">
+        {/* Top row: icon and readiness badge */}
+        <div className="flex items-start justify-between gap-2">
+          <div
+            className={cn(
+              "flex size-10 items-center justify-center rounded-button",
+              isReady ? "bg-primary-soft text-primary" : "bg-status-orange-soft text-status-orange"
+            )}
+          >
+            <Network className="size-5" />
+          </div>
+          {isReady ? (
+            <Badge variant="ready">
+              <CheckCircle2 className="size-3" />
+              Siap Graf
+            </Badge>
+          ) : (
+            <Badge variant="review">
+              <AlertTriangle className="size-3" />
+              Belum Siap
+            </Badge>
+          )}
+        </div>
+
+        {/* Title and description */}
+        <div className="flex flex-col gap-1.5">
+          <h3
+            title={project.name}
+            className={cn(
+              "line-clamp-1 text-base font-semibold text-foreground transition-colors",
+              isReady && "group-hover:text-primary"
+            )}
+          >
+            {project.name}
+          </h3>
+          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {project.description || "Tidak ada deskripsi riset."}
+          </p>
+        </div>
+
+        {/* Paper readiness progress */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Kesiapan paper</span>
+            <span className="font-semibold text-foreground">
+              {project.ready_count} dari {project.paper_count} siap
+            </span>
+          </div>
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressPercent}
+            aria-label="Kesiapan paper"
+            className="h-1.5 w-full overflow-hidden rounded-full bg-primary-soft"
+          >
+            <div
+              style={{ width: `${progressPercent}%` }}
+              className={cn(
+                "h-full rounded-full transition-all duration-300",
+                isComplete ? "bg-status-green" : "bg-primary"
+              )}
+            />
           </div>
         </div>
 
-        {/* Loading State */}
-        {isLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="h-44 rounded-2xl border border-border bg-card/50 animate-pulse p-5 space-y-3"
-              >
-                <div className="h-4 bg-muted rounded w-3/4" />
-                <div className="h-3 bg-muted rounded w-1/2" />
-                <div className="h-10 bg-muted/50 rounded-xl mt-4" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Error State */}
-        {!isLoading && isError && (
-          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center space-y-3">
-            <AlertTriangle className="size-8 text-destructive mx-auto" />
-            <h3 className="text-sm font-bold text-foreground">
-              Gagal Memuat Daftar Proyek
-            </h3>
-            <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              Terjadi kendala saat menghubungkan ke database proyek. Pastikan sesi login aktif dan coba segarkan halaman.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              className="gap-1.5 text-xs"
-            >
-              <RotateCw className="size-3.5" />
-              <span>Coba Lagi</span>
-            </Button>
-          </div>
-        )}
-
-        {/* Empty Search Results */}
-        {!isLoading && !isError && filteredProjects.length === 0 && (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center space-y-4 shadow-2xs">
-            <FolderKanban className="size-10 text-muted-foreground mx-auto opacity-60" />
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-foreground">
-                Tidak Ada Proyek yang Ditemukan
-              </h3>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                {searchQuery
-                  ? `Tidak ada hasil pencarian untuk kata kunci "${searchQuery}". Coba gunakan kata kunci lain.`
-                  : filterTab === "ready"
-                  ? "Belum ada proyek yang memiliki minimal 2 paper siap analisis."
-                  : "Belum ada proyek aktif di akun Anda."}
-              </p>
-            </div>
-            {searchQuery && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSearchQuery("")}
-                className="text-xs"
-              >
-                Hapus Pencarian
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Project Cards Grid */}
-        {!isLoading && !isError && filteredProjects.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProjects.map((project: Project) => {
-              const isReady = (project.ready_count || 0) >= 2
-              const readyPapers = project.ready_count || 0
-              const totalPapers = project.paper_count || 0
-
-              return (
-                <div
-                  key={project.id}
-                  className={`rounded-2xl border p-5 shadow-2xs flex flex-col justify-between transition-all duration-200 hover:shadow-xs group ${
-                    isReady
-                      ? "bg-card border-border hover:border-primary/40"
-                      : "bg-muted/15 border-border/70 hover:border-amber-500/30"
-                  }`}
-                >
-                  <div className="space-y-3">
-                    {/* Header Row: Title & Status Badge */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1 min-w-0">
-                        <h3 className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">
-                          {project.name}
-                        </h3>
-                        {project.description ? (
-                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                            {project.description}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground italic">
-                            Tanpa deskripsi tambahan
-                          </p>
-                        )}
-                      </div>
-
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                          isReady
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
-                            : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                        }`}
-                      >
-                        {isReady ? (
-                          <>
-                            <CheckCircle2 className="size-3 text-emerald-500" />
-                            <span>Siap Graf</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle className="size-3 text-amber-500" />
-                            <span>Perlu Paper</span>
-                          </>
-                        )}
-                      </span>
-                    </div>
-
-                    {/* Stats pills */}
-                    <div className="flex items-center gap-2 pt-1 text-xs">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/30 text-muted-foreground">
-                        <FileText className="size-3 text-primary" />
-                        <span className="font-semibold text-foreground">
-                          {readyPapers}
-                        </span>
-                        <span>/ {totalPapers} Siap</span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/30 text-muted-foreground">
-                        <Compass className="size-3 text-primary" />
-                        <span>4 Zona Saturasi</span>
-                      </div>
-                    </div>
-
-                    {/* Warning if not ready */}
-                    {!isReady && (
-                      <div className="p-2.5 rounded-xl border border-amber-500/20 bg-amber-500/10 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2">
-                        <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                        <p className="leading-snug">
-                          Dibutuhkan minimal 2 paper siap analisis untuk pemetaan graf pengetahuan lintas naskah.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action Button */}
-                  <div className="pt-4 border-t border-border/60 mt-3">
-                    {isReady ? (
-                      <Button
-                        size="sm"
-                        onClick={() => onSelectProject(project.id)}
-                        className="w-full text-xs h-8.5 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-2xs"
-                      >
-                        <Network className="size-3.5" />
-                        <span>Buka Graf Pengetahuan</span>
-                        <ArrowRight className="size-3 ml-auto opacity-70" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        className="w-full text-xs h-8.5 gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
-                      >
-                        <Link to={`/projects/${project.id}`}>
-                          <UploadCloud className="size-3.5 text-amber-500" />
-                          <span>Kelola &amp; Unggah Paper</span>
-                          <ArrowRight className="size-3 ml-auto opacity-70" />
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+        {!isReady && (
+          <p className="flex items-start gap-2 rounded-button bg-status-orange-soft p-2.5 text-xs leading-relaxed text-muted-foreground">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-status-orange" />
+            <span>{lockedMessage}</span>
+          </p>
         )}
       </div>
-    </div>
+
+      {/* Card footer: paper total and primary action */}
+      <div className="flex items-center justify-between border-t border-border/60 pt-3 text-xs">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <FileText className="size-3.5 text-primary" />
+          <span className="font-medium text-foreground">{project.paper_count} Paper</span>
+          <span className="text-[11px]">· {formatDate(project.updated_at)}</span>
+        </div>
+
+        {isReady ? (
+          <span className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-primary transition-colors group-hover:bg-primary/10">
+            <span>Buka Graf Pengetahuan</span>
+            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        ) : (
+          <Link
+            to={lockedAction.to}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+          >
+            <lockedAction.Icon className="size-3.5" />
+            <span>{lockedAction.label}</span>
+          </Link>
+        )}
+      </div>
+    </Card>
   )
 }

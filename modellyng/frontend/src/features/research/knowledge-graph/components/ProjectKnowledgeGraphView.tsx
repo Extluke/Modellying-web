@@ -4,7 +4,6 @@ import {
   AlertCircle,
   ArrowLeft,
   Link2,
-  Loader2,
   Network,
   RotateCw,
   TableProperties,
@@ -67,7 +66,7 @@ function toEvidenceItem(evidence: GraphEvidence): EvidenceItem {
 
 export function ProjectKnowledgeGraphView() {
   const { projectId } = useParams<{ projectId: string }>()
-  const { data: matrix, isLoading, isError, isFetching, refetch } = useComparativeMatrix(projectId)
+  const { data: matrix, isLoading, isError, refetch } = useComparativeMatrix(projectId)
 
   const {
     selectedNodeId,
@@ -277,16 +276,6 @@ export function ProjectKnowledgeGraphView() {
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="h-10 gap-2 px-4 text-xs font-medium"
-              title="Muat ulang data ekstraksi"
-            >
-              {isFetching ? <Loader2 className="animate-spin" /> : <RotateCw className="text-primary" />}
-              <span>Segarkan</span>
-            </Button>
             <Button asChild variant="outline" className="h-10 gap-2 px-4 text-xs font-medium">
               <Link to={generatePath(ROUTES.PROJECTS.MATRIX, { projectId })}>
                 <TableProperties className="text-primary" />
