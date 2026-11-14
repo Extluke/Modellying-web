@@ -70,7 +70,6 @@ const SynthesisScreen = lazy(
   () => import("@/features/research/synthesis/SynthesisScreen")
 )
 const ExportScreen = lazy(() => import("@/features/research/export/ExportScreen"))
-const ChatbotScreen = lazy(() => import("@/features/chatbot/ChatbotScreen"))
 
 // 5. User Domain
 const ChatGlobalScreen = lazy(
@@ -82,6 +81,7 @@ const NotificationsScreen = lazy(
 const SettingsScreen = lazy(
   () => import("@/features/user/settings/SettingsScreen")
 )
+const PricingScreen = lazy(() => import("@/features/user/pricing/PricingScreen"))
 
 // 6. Admin Domain
 const AdminDashboardScreen = lazy(
@@ -241,6 +241,14 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: ROUTES.USER.PRICING,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <PricingScreen />
+          </Suspense>
+        ),
+      },
     ],
   },
 
@@ -299,14 +307,6 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<RouteLoader />}>
             <GapMapScreen />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.CHATBOT,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <ChatbotScreen />
           </Suspense>
         ),
       },

@@ -13,7 +13,6 @@ import {
   CreditCard,
   Megaphone,
   ShieldCheck,
-  Bot,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ROUTES } from "@/app/routes"
@@ -24,6 +23,7 @@ const navigationItems = [
   { name: "Proyek Riset", href: ROUTES.PROJECTS.ROOT, icon: FolderKanban },
   { name: "Matriks Komparasi", href: ROUTES.RESEARCH.MATRIX, icon: TableProperties },
   { name: "Graf Pengetahuan", href: ROUTES.RESEARCH.GRAPH, icon: Network },
+  { name: "Asisten Global", href: ROUTES.USER.CHAT, icon: Sparkles },
   { name: "Design System (UI)", href: ROUTES.STYLEGUIDE, icon: Palette },
 ]
 
@@ -107,36 +107,6 @@ export function Sidebar() {
           </div>
         )}
       </nav>
-
-      {/* Menu Chatbot Khusus Terpisah di Bagian Paling Bawah */}
-      <div className="border-t p-3">
-        <NavLink
-          to={ROUTES.CHATBOT}
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-xs font-semibold transition-colors group",
-              isActive
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            )
-          }
-        >
-          <Bot className="size-4 shrink-0 text-primary group-[.bg-primary]:text-primary-foreground" />
-          <span>Chatbot</span>
-        </NavLink>
-      </div>
-
-      <div className="border-t p-4">
-        <div className="rounded-lg bg-secondary/50 p-3 text-xs">
-          <div className="flex items-center gap-1.5 font-semibold text-foreground">
-            <Sparkles className="size-3.5 text-primary" />
-            <span>Evidence-Centered</span>
-          </div>
-          <p className="text-muted-foreground text-[11px] mt-1">
-            100% kutipan tertaut langsung ke teks asli pada PDF.
-          </p>
-        </div>
-      </div>
     </aside>
   )
 }

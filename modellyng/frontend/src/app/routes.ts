@@ -32,11 +32,11 @@ export const ROUTES = {
     SYNTHESIS: "/synthesis",
     EXPORT: "/export",
   },
-  CHATBOT: "/chatbot",
   USER: {
     CHAT: "/chat",
     NOTIFICATIONS: "/notifications",
     SETTINGS: "/settings",
+    PRICING: "/settings/pricing",
   },
   ADMIN: {
     DASHBOARD: "/admin/dashboard",

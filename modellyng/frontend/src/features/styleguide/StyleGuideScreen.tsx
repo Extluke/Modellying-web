@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
@@ -25,10 +26,26 @@ import {
   MousePointerClick,
   SquareCheck,
   Send,
+  CreditCard,
 } from "lucide-react"
+import { PricingSection } from "./components/PricingSection"
+import { UpgradeLimitSection } from "./components/UpgradeLimitSection"
+
+type StyleGuideTab = "pricing" | "colors" | "typography" | "buttons" | "badges" | "cards" | "inputs"
 
 export default function StyleGuideScreen() {
-  const [activeTab, setActiveTab] = useState<"colors" | "typography" | "buttons" | "badges" | "cards" | "inputs">("colors")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get("tab") as StyleGuideTab | null
+  const [activeTab, setActiveTab] = useState<StyleGuideTab>(
+    tabParam && ["pricing", "colors", "typography", "buttons", "badges", "cards", "inputs"].includes(tabParam)
+      ? tabParam
+      : "pricing"
+  )
+
+  const handleTabChange = (tabId: StyleGuideTab) => {
+    setActiveTab(tabId)
+    setSearchParams({ tab: tabId })
+  }
 
   return (
     <div className="p-6 md:p-10 space-y-8 max-w-6xl mx-auto">
@@ -47,6 +64,7 @@ export default function StyleGuideScreen() {
         {/* Tab Navigation */}
         <div className="flex flex-wrap gap-2 pt-4">
           {[
+            { id: "pricing", label: "Pricing Akun (Free & Student Pro)", icon: CreditCard },
             { id: "colors", label: "Palet Warna", icon: Palette },
             { id: "typography", label: "Skala Tipografi", icon: Type },
             { id: "buttons", label: "Tombol (Button)", icon: MousePointerClick },
@@ -61,16 +79,33 @@ export default function StyleGuideScreen() {
                 key={tab.id}
                 variant={isActive ? "primary" : "outline"}
                 size="sm"
-                onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className="gap-1.5"
+                onClick={() => handleTabChange(tab.id as StyleGuideTab)}
+                className={`gap-1.5 transition-all ${
+                  tab.id === "pricing" && !isActive
+                    ? "border-primary/40 text-primary hover:bg-primary/5"
+                    : ""
+                }`}
               >
                 <Icon className="size-3.5" />
                 <span>{tab.label}</span>
+                {tab.id === "pricing" && (
+                  <span className="rounded-full bg-primary/20 text-primary text-[9px] font-bold px-1.5 py-0.2">
+                    Baru
+                  </span>
+                )}
               </Button>
             )
           })}
         </div>
       </div>
+
+      {/* 0. PRICING AKUN (FREE & STUDENT PRO) + TEMPLATE UPGRADE & LIMIT PROMPTS */}
+      {activeTab === "pricing" && (
+        <div className="space-y-16">
+          <PricingSection />
+          <UpgradeLimitSection />
+        </div>
+      )}
 
       {/* 1. COLORS */}
       {activeTab === "colors" && (

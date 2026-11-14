@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { Bell, Search, Sparkles, LogOut, Settings } from "lucide-react"
+import { Bell, Search, LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ROUTES } from "@/app/routes"
 import { useAuthStore } from "@/features/auth/store/authStore"
@@ -41,13 +41,6 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button asChild variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 text-xs">
-          <Link to={ROUTES.USER.CHAT}>
-            <Sparkles className="size-3.5 text-primary" />
-            <span>Asisten Global</span>
-          </Link>
-        </Button>
-
         {/* Tombol Notifikasi di Navbar */}
         <Button
           asChild
