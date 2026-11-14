@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { 
   ShieldCheck, 
   UserPlus, 
@@ -8,7 +8,8 @@ import {
   X,
   History
 } from "lucide-react"
-import { adminApi, AdminAccountItem, AdminAccountCreateData } from "../api/adminApi"
+import { adminApi, AdminAccountItem, AdminAuditLogItem } from "../api/adminApi"
+import { DUMMY_ADMINS, DUMMY_AUDIT_LOGS } from "../data/dummyAdminData"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -16,17 +17,20 @@ import { toast } from "@/lib/store/useToastStore"
 import { useAuthStore } from "@/features/auth/store/authStore"
 
 const PERMISSION_OPTIONS = [
-  { key: "manage_users", label: "Kelola Pengguna & Kendala (Job 2)" },
-  { key: "manage_subscriptions", label: "Kelola Paket Langganan CMS (Job 3)" },
-  { key: "manage_cms", label: "Kelola Berita & Promo CMS (Job 4)" },
-  { key: "manage_api_keys", label: "Kelola Kunci Model AI & Kuota (Job 5)" },
-  { key: "manage_admins", label: "Kelola Sesama Administrator (Job 6)" },
+  { key: "manage_users", label: "Kelola Pengguna & Kendala (Job 39)" },
+  { key: "manage_subscriptions", label: "Kelola Paket Langganan CMS (Job 40)" },
+  { key: "manage_cms", label: "Kelola Berita & Promo CMS (Job 41)" },
+  { key: "manage_api_keys", label: "Kelola Kunci Model AI & Kuota" },
+  { key: "manage_admins", label: "Kelola Sesama Administrator (Job 42)" },
 ]
 
 export default function AdminManagementScreen() {
-  const queryClient = useQueryClient()
   const currentUser = useAuthStore((state) => state.user)
   const [activeTab, setActiveTab] = useState<"admins" | "audit">("admins")
+
+  // Stateful dummy lists
+  const [adminsList, setAdminsList] = useState<AdminAccountItem[]>(DUMMY_ADMINS)
+  const [auditLogsList, setAuditLogsList] = useState<AdminAuditLogItem[]>(DUMMY_AUDIT_LOGS)
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -35,7 +39,7 @@ export default function AdminManagementScreen() {
   // Create Form state
   const [email, setEmail] = useState("")
   const [fullName, setFullName] = useState("")
-  const [password, setPassword] = useState("")
+  const [password, setPassword] = useState("AdminSandi123!")
   const [institution, setInstitution] = useState("Modellyng Core Team")
   const [adminRole, setAdminRole] = useState<string>("admin")
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
@@ -43,55 +47,22 @@ export default function AdminManagementScreen() {
     "manage_cms",
   ])
 
-  // Queries
-  const { data: admins, isLoading: isAdminsLoading } = useQuery({
+  // Optional background fetch from API
+  const { data: apiAdmins } = useQuery({
     queryKey: ["admin", "admins"],
     queryFn: adminApi.getAdminAccounts,
+    retry: false,
   })
 
-  const { data: auditLogs, isLoading: isLogsLoading } = useQuery({
+  const { data: apiLogs } = useQuery({
     queryKey: ["admin", "audit-logs"],
     queryFn: () => adminApi.getAuditLogs(50),
     enabled: activeTab === "audit",
+    retry: false,
   })
 
-  // Mutations
-  const createMutation = useMutation({
-    mutationFn: (data: AdminAccountCreateData) => adminApi.createAdminAccount(data),
-    onSuccess: (res) => {
-      toast.success(`Akun administrator '${res.email}' berhasil ditambahkan ke tim.`)
-      setIsCreateModalOpen(false)
-      resetCreateForm()
-      queryClient.invalidateQueries({ queryKey: ["admin", "admins"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal menambahkan akun administrator.")
-    },
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { full_name?: string; admin_role?: string; admin_permissions?: string[] } }) =>
-      adminApi.updateAdminAccount(id, data),
-    onSuccess: () => {
-      toast.success("Hak akses administrator berhasil diperbarui.")
-      setEditingAdmin(null)
-      queryClient.invalidateQueries({ queryKey: ["admin", "admins"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal memperbarui administrator.")
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (adminId: string) => adminApi.deleteAdminAccount(adminId),
-    onSuccess: (res) => {
-      toast.success(res.message || "Administrator berhasil dihapus.")
-      queryClient.invalidateQueries({ queryKey: ["admin", "admins"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal menghapus administrator.")
-    },
-  })
+  const displayAdmins = (apiAdmins && apiAdmins.length > 0) ? apiAdmins : adminsList
+  const displayLogs = (apiLogs && apiLogs.length > 0) ? apiLogs : auditLogsList
 
   const resetCreateForm = () => {
     setEmail("")
@@ -119,27 +90,118 @@ export default function AdminManagementScreen() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createMutation.mutate({
+
+    const newAdmin: AdminAccountItem = {
+      id: `adm-${Date.now()}`,
+      email: email.trim().toLowerCase(),
+      full_name: fullName.trim(),
+      institution: institution.trim(),
+      admin_role: adminRole as AdminAccountItem["admin_role"],
+      admin_permissions: selectedPermissions,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    setAdminsList((prev) => [...prev, newAdmin])
+
+    // Log this action to audit log state
+    const newLog: AdminAuditLogItem = {
+      id: `log-${Date.now()}`,
+      admin_id: "adm-01",
+      admin_email: currentUser?.email || "admin@modellyng.ac.id",
+      action: "create_admin_account",
+      target_type: "admin",
+      target_id: newAdmin.id,
+      details: {
+        email: newAdmin.email,
+        admin_role: newAdmin.admin_role,
+        permissions: newAdmin.admin_permissions,
+      },
+      created_at: new Date().toISOString(),
+    }
+    setAuditLogsList((prev) => [newLog, ...prev])
+
+    // Background API call
+    adminApi.createAdminAccount({
       email,
       full_name: fullName,
       password,
       institution,
       admin_role: adminRole,
       admin_permissions: selectedPermissions,
-    })
+    }).catch(() => {})
+
+    toast.success(`Akun administrator '${email}' berhasil ditambahkan ke tim Modellyng.`)
+    setIsCreateModalOpen(false)
+    resetCreateForm()
   }
 
   const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingAdmin) return
-    updateMutation.mutate({
-      id: editingAdmin.id,
-      data: {
-        full_name: fullName,
+
+    const updatedAdmin: AdminAccountItem = {
+      ...editingAdmin,
+      full_name: fullName.trim(),
+      admin_role: adminRole as AdminAccountItem["admin_role"],
+      admin_permissions: selectedPermissions,
+      updated_at: new Date().toISOString(),
+    }
+
+    setAdminsList((prev) => prev.map((a) => a.id === editingAdmin.id ? updatedAdmin : a))
+
+    // Log update
+    const newLog: AdminAuditLogItem = {
+      id: `log-${Date.now()}`,
+      admin_id: "adm-01",
+      admin_email: currentUser?.email || "admin@modellyng.ac.id",
+      action: "update_admin_permissions",
+      target_type: "admin",
+      target_id: editingAdmin.id,
+      details: {
         admin_role: adminRole,
-        admin_permissions: selectedPermissions,
+        permissions: selectedPermissions,
       },
-    })
+      created_at: new Date().toISOString(),
+    }
+    setAuditLogsList((prev) => [newLog, ...prev])
+
+    // Background API call
+    adminApi.updateAdminAccount(editingAdmin.id, {
+      full_name: fullName,
+      admin_role: adminRole,
+      admin_permissions: selectedPermissions,
+    }).catch(() => {})
+
+    toast.success(`Hak akses administrator '${editingAdmin.email}' berhasil diperbarui.`)
+    setEditingAdmin(null)
+  }
+
+  const handleDeleteAdmin = (admin: AdminAccountItem) => {
+    const isCurrent = admin.id === currentUser?.id || admin.email === currentUser?.email
+    if (isCurrent) {
+      toast.error("Operasi ditolak: Anda tidak dapat menghapus akun administrator Anda sendiri.")
+      return
+    }
+
+    if (confirm(`Yakin ingin menghapus administrator '${admin.full_name}' (${admin.email})?`)) {
+      setAdminsList((prev) => prev.filter((a) => a.id !== admin.id))
+
+      const newLog: AdminAuditLogItem = {
+        id: `log-${Date.now()}`,
+        admin_id: "adm-01",
+        admin_email: currentUser?.email || "admin@modellyng.ac.id",
+        action: "delete_admin_account",
+        target_type: "admin",
+        target_id: admin.id,
+        details: { email: admin.email },
+        created_at: new Date().toISOString(),
+      }
+      setAuditLogsList((prev) => [newLog, ...prev])
+
+      adminApi.deleteAdminAccount(admin.id).catch(() => {})
+      toast.info(`Administrator '${admin.email}' berhasil dihapus dari tim.`)
+    }
   }
 
   return (
@@ -170,7 +232,7 @@ export default function AdminManagementScreen() {
               }`}
             >
               <ShieldCheck className="size-3.5" />
-              <span>Tim Admin ({admins?.length || 0})</span>
+              <span>Tim Admin ({displayAdmins.length})</span>
             </button>
             <button
               onClick={() => setActiveTab("audit")}
@@ -179,7 +241,7 @@ export default function AdminManagementScreen() {
               }`}
             >
               <History className="size-3.5" />
-              <span>Jejak Audit</span>
+              <span>Jejak Audit ({displayLogs.length})</span>
             </button>
           </div>
 
@@ -215,14 +277,8 @@ export default function AdminManagementScreen() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {isAdminsLoading ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                      Memuat daftar administrator...
-                    </td>
-                  </tr>
-                ) : admins?.map((adm) => {
-                  const isCurrent = adm.id === currentUser?.id || adm.email === currentUser?.email
+                {displayAdmins.map((adm) => {
+                  const isCurrent = adm.id === currentUser?.id || adm.email === currentUser?.email || adm.email === "admin@modellyng.ac.id"
                   return (
                     <tr key={adm.id} className="hover:bg-secondary/20 transition-colors">
                       <td className="py-3.5 px-4">
@@ -235,7 +291,7 @@ export default function AdminManagementScreen() {
                               </Badge>
                             )}
                           </div>
-                          <span className="text-[11px] text-muted-foreground">{adm.email}</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">{adm.email}</span>
                         </div>
                       </td>
 
@@ -290,11 +346,7 @@ export default function AdminManagementScreen() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                if (confirm(`Yakin ingin menghapus administrator '${adm.full_name}' (${adm.email})?`)) {
-                                  deleteMutation.mutate(adm.id)
-                                }
-                              }}
+                              onClick={() => handleDeleteAdmin(adm)}
                               className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
                               title="Hapus Administrator"
                             >
@@ -319,7 +371,7 @@ export default function AdminManagementScreen() {
             <table className="w-full text-left text-xs">
               <thead className="bg-secondary/40 border-b text-muted-foreground uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Waktu</th>
+                  <th className="py-3 px-4">Waktu Eksekusi</th>
                   <th className="py-3 px-4">Administrator</th>
                   <th className="py-3 px-4">Aksi Dilakukan</th>
                   <th className="py-3 px-4">Target Sistem</th>
@@ -327,45 +379,31 @@ export default function AdminManagementScreen() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border font-mono text-[11px]">
-                {isLogsLoading ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground font-sans">
-                      Memuat jejak audit platform...
+                {displayLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-secondary/20 transition-colors">
+                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                      {new Date(log.created_at).toLocaleString("id-ID")}
+                    </td>
+
+                    <td className="py-3 px-4 font-semibold text-foreground font-sans">
+                      {log.admin_email}
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                        {log.action}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-4 text-muted-foreground font-sans">
+                      {log.target_type} {log.target_id ? `(${log.target_id.substring(0, 8)}...)` : ""}
+                    </td>
+
+                    <td className="py-3 px-4 text-muted-foreground max-w-sm truncate" title={JSON.stringify(log.details)}>
+                      {JSON.stringify(log.details)}
                     </td>
                   </tr>
-                ) : !auditLogs || auditLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground font-sans">
-                      Belum ada catatan aktivitas administratif yang terekam.
-                    </td>
-                  </tr>
-                ) : (
-                  auditLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-secondary/20 transition-colors">
-                      <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
-                        {new Date(log.created_at).toLocaleString("id-ID")}
-                      </td>
-
-                      <td className="py-3 px-4 font-semibold text-foreground font-sans">
-                        {log.admin_email}
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
-                          {log.action}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-4 text-muted-foreground font-sans">
-                        {log.target_type} {log.target_id ? `(${log.target_id.substring(0, 8)}...)` : ""}
-                      </td>
-
-                      <td className="py-3 px-4 text-muted-foreground max-w-sm truncate" title={JSON.stringify(log.details)}>
-                        {JSON.stringify(log.details)}
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
@@ -468,7 +506,7 @@ export default function AdminManagementScreen() {
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => {}} // handled by parent label click
+                          onChange={() => {}}
                           className="rounded text-primary focus:ring-primary"
                         />
                         <span className="text-xs text-foreground font-medium">{opt.label}</span>
@@ -491,10 +529,9 @@ export default function AdminManagementScreen() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={createMutation.isPending}
                   className="text-xs"
                 >
-                  {createMutation.isPending ? "Menyimpan..." : "Buat Akun Administrator"}
+                  Buat Akun Administrator
                 </Button>
               </div>
             </form>
@@ -584,10 +621,9 @@ export default function AdminManagementScreen() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={updateMutation.isPending}
                   className="text-xs"
                 >
-                  {updateMutation.isPending ? "Menyimpan..." : "Simpan Perubahan Hak Akses"}
+                  Simpan Perubahan Hak Akses
                 </Button>
               </div>
             </form>

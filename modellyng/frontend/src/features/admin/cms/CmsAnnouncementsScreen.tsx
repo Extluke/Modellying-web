@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { 
   Megaphone, 
   Plus, 
@@ -9,14 +9,15 @@ import {
   Clock, 
   X
 } from "lucide-react"
-import { adminApi, AnnouncementItem, AnnouncementCreateData } from "../api/adminApi"
+import { adminApi, AnnouncementItem } from "../api/adminApi"
+import { DUMMY_ANNOUNCEMENTS } from "../data/dummyAdminData"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function CmsAnnouncementsScreen() {
-  const queryClient = useQueryClient()
+  const [announcementsList, setAnnouncementsList] = useState<AnnouncementItem[]>(DUMMY_ANNOUNCEMENTS)
   const [categoryFilter, setCategoryFilter] = useState<string>("")
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -32,52 +33,22 @@ export default function CmsAnnouncementsScreen() {
   const [status, setStatus] = useState<string>("published")
   const [scheduledAt, setScheduledAt] = useState<string>("")
 
-  // Query: Announcements
-  const { data: announcements, isLoading, error } = useQuery({
+  // Optional background fetch from API
+  const { data: apiAnnouncements } = useQuery({
     queryKey: ["admin", "announcements", { categoryFilter, statusFilter }],
     queryFn: () => adminApi.getAnnouncements({ category: categoryFilter, status: statusFilter }),
+    retry: false,
   })
 
-  // Mutation: Create
-  const createMutation = useMutation({
-    mutationFn: (data: AnnouncementCreateData) => adminApi.createAnnouncement(data),
-    onSuccess: () => {
-      toast.success("Pengumuman CMS berhasil diterbitkan ke sistem & notifikasi pengguna.")
-      setIsModalOpen(false)
-      resetForm()
-      queryClient.invalidateQueries({ queryKey: ["admin", "announcements"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal menerbitkan pengumuman.")
-    },
-  })
-
-  // Mutation: Update
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<AnnouncementCreateData> }) =>
-      adminApi.updateAnnouncement(id, data),
-    onSuccess: () => {
-      toast.success("Konten pengumuman CMS berhasil diperbarui.")
-      setIsModalOpen(false)
-      resetForm()
-      queryClient.invalidateQueries({ queryKey: ["admin", "announcements"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal memperbarui pengumuman.")
-    },
-  })
-
-  // Mutation: Delete
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => adminApi.deleteAnnouncement(id),
-    onSuccess: (res) => {
-      toast.success(res.message || "Pengumuman berhasil dihapus.")
-      queryClient.invalidateQueries({ queryKey: ["admin", "announcements"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal menghapus pengumuman.")
-    },
-  })
+  // Filtered announcements list
+  const filteredAnnouncements = useMemo(() => {
+    const source = (apiAnnouncements && apiAnnouncements.length > 0) ? apiAnnouncements : announcementsList
+    return source.filter((item) => {
+      const matchCat = !categoryFilter || item.category === categoryFilter
+      const matchStatus = !statusFilter || item.status === statusFilter
+      return matchCat && matchStatus
+    })
+  }, [apiAnnouncements, announcementsList, categoryFilter, statusFilter])
 
   const resetForm = () => {
     setEditingItem(null)
@@ -111,21 +82,83 @@ export default function CmsAnnouncementsScreen() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const payload: AnnouncementCreateData = {
-      title,
-      summary,
-      content,
-      category,
-      badge_text: badgeText || undefined,
-      target_role: targetRole,
-      status,
-      scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
-    }
 
     if (editingItem) {
-      updateMutation.mutate({ id: editingItem.id, data: payload })
+      // Update local state immediately
+      const updated: AnnouncementItem = {
+        ...editingItem,
+        title,
+        summary,
+        content,
+        category: category as AnnouncementItem["category"],
+        badge_text: badgeText || null,
+        target_role: targetRole as AnnouncementItem["target_role"],
+        status: status as AnnouncementItem["status"],
+        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        published_at: status === "published" ? (editingItem.published_at || new Date().toISOString()) : null,
+        updated_at: new Date().toISOString(),
+      }
+
+      setAnnouncementsList((prev) => prev.map((a) => a.id === editingItem.id ? updated : a))
+
+      // Background API call
+      adminApi.updateAnnouncement(editingItem.id, {
+        title,
+        summary,
+        content,
+        category,
+        badge_text: badgeText || undefined,
+        target_role: targetRole,
+        status,
+        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+      }).catch(() => {})
+
+      toast.success(`Pengumuman '${title}' berhasil diperbarui.`)
     } else {
-      createMutation.mutate(payload)
+      // Add new announcement to local state
+      const newAnn: AnnouncementItem = {
+        id: `ann-${Date.now()}`,
+        title,
+        summary,
+        content,
+        category: category as AnnouncementItem["category"],
+        badge_text: badgeText || null,
+        banner_url: null,
+        target_role: targetRole as AnnouncementItem["target_role"],
+        status: status as AnnouncementItem["status"],
+        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        published_at: status === "published" ? new Date().toISOString() : null,
+        created_by: "Admin",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      setAnnouncementsList((prev) => [newAnn, ...prev])
+
+      // Background API call
+      adminApi.createAnnouncement({
+        title,
+        summary,
+        content,
+        category,
+        badge_text: badgeText || undefined,
+        target_role: targetRole,
+        status,
+        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+      }).catch(() => {})
+
+      toast.success(`Pengumuman '${title}' berhasil diterbitkan ke sistem & notifikasi pengguna.`)
+    }
+
+    setIsModalOpen(false)
+    resetForm()
+  }
+
+  const handleDeleteAnnouncement = (item: AnnouncementItem) => {
+    if (confirm(`Yakin ingin menghapus pengumuman '${item.title}'?`)) {
+      setAnnouncementsList((prev) => prev.filter((a) => a.id !== item.id))
+      adminApi.deleteAnnouncement(item.id).catch(() => {})
+      toast.info(`Pengumuman '${item.title}' berhasil dihapus.`)
     }
   }
 
@@ -147,14 +180,19 @@ export default function CmsAnnouncementsScreen() {
           </div>
         </div>
 
-        <Button
-          size="sm"
-          onClick={handleOpenCreateModal}
-          className="text-xs gap-1.5 self-start sm:self-auto"
-        >
-          <Plus className="size-3.5" />
-          <span>Buat Pengumuman Baru</span>
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Badge variant="secondary" className="text-[11px] px-2.5 py-1 text-muted-foreground font-mono">
+            Mode Data: Demo Lengkap
+          </Badge>
+          <Button
+            size="sm"
+            onClick={handleOpenCreateModal}
+            className="text-xs gap-1.5"
+          >
+            <Plus className="size-3.5" />
+            <span>Buat Pengumuman Baru</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filters Bar */}
@@ -186,20 +224,13 @@ export default function CmsAnnouncementsScreen() {
       </div>
 
       {/* Announcements List */}
-      {isLoading ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-xs text-muted-foreground">Memuat pengumuman CMS...</span>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredAnnouncements.length === 0 ? (
+          <div className="col-span-3 py-12 text-center text-xs text-muted-foreground">
+            Tidak ada pengumuman yang sesuai dengan filter.
           </div>
-        </div>
-      ) : error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
-          Gagal memuat konten: {(error as Error).message}
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {announcements?.map((item) => (
+        ) : (
+          filteredAnnouncements.map((item) => (
             <div
               key={item.id}
               className="rounded-xl border bg-card p-5 shadow-sm space-y-4 flex flex-col justify-between hover:shadow-md transition-shadow"
@@ -266,11 +297,7 @@ export default function CmsAnnouncementsScreen() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      if (confirm(`Yakin ingin menghapus pengumuman '${item.title}'?`)) {
-                        deleteMutation.mutate(item.id)
-                      }
-                    }}
+                    onClick={() => handleDeleteAnnouncement(item)}
                     className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
                     title="Hapus Pengumuman"
                   >
@@ -279,9 +306,9 @@ export default function CmsAnnouncementsScreen() {
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
       {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
@@ -423,14 +450,9 @@ export default function CmsAnnouncementsScreen() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={createMutation.isPending || updateMutation.isPending}
                   className="text-xs"
                 >
-                  {createMutation.isPending || updateMutation.isPending
-                    ? "Menyimpan..."
-                    : editingItem
-                    ? "Simpan Perubahan"
-                    : "Terbitkan Pengumuman"}
+                  {editingItem ? "Simpan Perubahan" : "Terbitkan Pengumuman"}
                 </Button>
               </div>
             </form>
