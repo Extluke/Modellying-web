@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { 
   CreditCard, 
   Plus, 
@@ -9,16 +9,18 @@ import {
   Users, 
   FileText, 
   MessageSquare,
-  X
+  X,
+  Sparkles
 } from "lucide-react"
-import { adminApi, SubscriptionPlanItem, SubscriptionPlanCreateData } from "../api/adminApi"
+import { adminApi, SubscriptionPlanItem } from "../api/adminApi"
+import { DUMMY_SUBSCRIPTION_PLANS } from "../data/dummyAdminData"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function SubscriptionsScreen() {
-  const queryClient = useQueryClient()
+  const [plansList, setPlansList] = useState<SubscriptionPlanItem[]>(DUMMY_SUBSCRIPTION_PLANS)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null)
 
@@ -39,52 +41,15 @@ export default function SubscriptionsScreen() {
   const [isPopular, setIsPopular] = useState(false)
   const [isActive, setIsActive] = useState(true)
 
-  // Query: Get plans
-  const { data: plans, isLoading, error } = useQuery({
+  // Optional background fetch from API
+  const { data: apiPlans } = useQuery({
     queryKey: ["admin", "subscriptions", "plans"],
     queryFn: adminApi.getSubscriptionPlans,
+    retry: false,
   })
 
-  // Mutation: Create Plan
-  const createMutation = useMutation({
-    mutationFn: (data: SubscriptionPlanCreateData) => adminApi.createSubscriptionPlan(data),
-    onSuccess: () => {
-      toast.success("Paket langganan baru berhasil dibuat.")
-      setIsModalOpen(false)
-      resetForm()
-      queryClient.invalidateQueries({ queryKey: ["admin", "subscriptions", "plans"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal membuat paket langganan.")
-    },
-  })
-
-  // Mutation: Update Plan
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<SubscriptionPlanCreateData> }) =>
-      adminApi.updateSubscriptionPlan(id, data),
-    onSuccess: () => {
-      toast.success("Konfigurasi paket langganan berhasil diperbarui.")
-      setIsModalOpen(false)
-      resetForm()
-      queryClient.invalidateQueries({ queryKey: ["admin", "subscriptions", "plans"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal memperbarui paket langganan.")
-    },
-  })
-
-  // Mutation: Delete/Archive Plan
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => adminApi.deleteSubscriptionPlan(id),
-    onSuccess: (res) => {
-      toast.success(res.message || "Paket langganan berhasil diproses.")
-      queryClient.invalidateQueries({ queryKey: ["admin", "subscriptions", "plans"] })
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Gagal menghapus paket langganan.")
-    },
-  })
+  // Use API plans if returned and non-empty, otherwise use stateful dummy plans
+  const displayPlans = (apiPlans && apiPlans.length > 0) ? apiPlans : plansList
 
   const resetForm = () => {
     setEditingPlan(null)
@@ -138,23 +103,64 @@ export default function SubscriptionsScreen() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
     if (editingPlan) {
-      updateMutation.mutate({
-        id: editingPlan.id,
-        data: {
-          name,
-          description,
-          price,
-          billing_period: billingPeriod,
-          paper_limit_per_month: paperLimit,
-          ai_query_limit_per_day: aiQueryLimit,
-          features,
-          is_popular: isPopular,
-          is_active: isActive,
-        },
-      })
+      // Update local state immediately
+      const updatedItem: SubscriptionPlanItem = {
+        ...editingPlan,
+        name,
+        description,
+        price,
+        billing_period: billingPeriod as SubscriptionPlanItem["billing_period"],
+        paper_limit_per_month: paperLimit,
+        ai_query_limit_per_day: aiQueryLimit,
+        features,
+        is_popular: isPopular,
+        is_active: isActive,
+        updated_at: new Date().toISOString(),
+      }
+
+      setPlansList((prev) => prev.map((p) => p.id === editingPlan.id ? updatedItem : p))
+      
+      // Background API call
+      adminApi.updateSubscriptionPlan(editingPlan.id, {
+        name,
+        description,
+        price,
+        billing_period: billingPeriod,
+        paper_limit_per_month: paperLimit,
+        ai_query_limit_per_day: aiQueryLimit,
+        features,
+        is_popular: isPopular,
+        is_active: isActive,
+      }).catch(() => {})
+
+      toast.success(`Konfigurasi paket langganan '${name}' berhasil diperbarui.`)
     } else {
-      createMutation.mutate({
+      // Create new plan in local state
+      const newPlan: SubscriptionPlanItem = {
+        id: `plan-${Date.now()}`,
+        code: code.trim().toLowerCase(),
+        name,
+        description,
+        price,
+        currency: "IDR",
+        billing_period: billingPeriod as SubscriptionPlanItem["billing_period"],
+        paper_limit_per_month: paperLimit,
+        ai_query_limit_per_day: aiQueryLimit,
+        features,
+        is_active: isActive,
+        is_popular: isPopular,
+        sort_order: plansList.length + 1,
+        active_subscribers_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      setPlansList((prev) => [...prev, newPlan])
+
+      // Background API call
+      adminApi.createSubscriptionPlan({
         code: code.trim().toLowerCase(),
         name,
         description,
@@ -165,7 +171,22 @@ export default function SubscriptionsScreen() {
         features,
         is_popular: isPopular,
         is_active: isActive,
-      })
+      }).catch(() => {})
+
+      toast.success(`Paket langganan baru '${name}' berhasil diterbitkan.`)
+    }
+
+    setIsModalOpen(false)
+    resetForm()
+  }
+
+  const handleDeletePlan = (plan: SubscriptionPlanItem) => {
+    if (confirm(`Yakin ingin menonaktifkan atau mengarsipkan paket '${plan.name}'?`)) {
+      setPlansList((prev) =>
+        prev.map((p) => p.id === plan.id ? { ...p, is_active: false } : p)
+      )
+      adminApi.deleteSubscriptionPlan(plan.id).catch(() => {})
+      toast.info(`Paket langganan '${plan.name}' berhasil dinonaktifkan (diarsipkan).`)
     }
   }
 
@@ -196,141 +217,131 @@ export default function SubscriptionsScreen() {
           </div>
         </div>
 
-        <Button
-          size="sm"
-          onClick={handleOpenCreateModal}
-          className="text-xs gap-1.5 self-start sm:self-auto"
-        >
-          <Plus className="size-3.5" />
-          <span>Buat Paket Langganan Baru</span>
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Badge variant="secondary" className="text-[11px] px-2.5 py-1 text-muted-foreground font-mono">
+            Mode Data: Demo Lengkap
+          </Badge>
+          <Button
+            size="sm"
+            onClick={handleOpenCreateModal}
+            className="text-xs gap-1.5"
+          >
+            <Plus className="size-3.5" />
+            <span>Buat Paket Baru</span>
+          </Button>
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-xs text-muted-foreground">Memuat paket langganan...</span>
-          </div>
-        </div>
-      ) : error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
-          Gagal memuat paket: {(error as Error).message}
-        </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {plans?.map((plan) => (
-            <div
-              key={plan.id}
-              className={`rounded-2xl border bg-card p-6 shadow-sm flex flex-col justify-between relative transition-all hover:shadow-md ${
-                plan.is_popular ? "border-primary ring-1 ring-primary/30" : ""
-              } ${!plan.is_active ? "opacity-60 bg-muted/20" : ""}`}
-            >
-              {plan.is_popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary text-primary-foreground text-[10px] font-semibold px-3 py-0.5 shadow-sm">
-                    Paling Diminati (Rekomendasi)
-                  </Badge>
+      {/* Grid of Plans */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {displayPlans.map((plan) => (
+          <div
+            key={plan.id}
+            className={`rounded-2xl border bg-card p-5 shadow-sm flex flex-col justify-between relative transition-all hover:shadow-md ${
+              plan.is_popular ? "border-primary ring-1 ring-primary/30" : ""
+            } ${!plan.is_active ? "opacity-60 bg-muted/20" : ""}`}
+          >
+            {plan.is_popular && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <Badge className="bg-primary text-primary-foreground text-[10px] font-semibold px-3 py-0.5 shadow-sm flex items-center gap-1">
+                  <Sparkles className="size-3" />
+                  <span>Paling Diminati</span>
+                </Badge>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground leading-tight">{plan.name}</h3>
+                  <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                    {plan.code}
+                  </p>
                 </div>
+
+                <Badge variant={plan.is_active ? "default" : "secondary"} className="text-[10px]">
+                  {plan.is_active ? "Aktif" : "Nonaktif"}
+                </Badge>
+              </div>
+
+              {plan.description && (
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                  {plan.description}
+                </p>
               )}
 
-              <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-foreground">{plan.name}</h3>
-                    <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                      kode: {plan.code}
-                    </p>
-                  </div>
-
-                  <Badge variant={plan.is_active ? "default" : "secondary"} className="text-[10px]">
-                    {plan.is_active ? "Aktif" : "Nonaktif"}
-                  </Badge>
-                </div>
-
-                {plan.description && (
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {plan.description}
-                  </p>
-                )}
-
-                {/* Price Display */}
-                <div className="border-y py-3 space-y-0.5">
-                  <div className="text-2xl font-black text-foreground">
-                    {formatIDR(plan.price)}
-                    {plan.price > 0 && (
-                      <span className="text-xs font-normal text-muted-foreground ml-1.5">
-                        /{plan.billing_period === "monthly" ? "bulan" : plan.billing_period}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-1">
-                    <span className="flex items-center gap-1">
-                      <FileText className="size-3 text-primary" />
-                      Limit: <strong>{plan.paper_limit_per_month} paper</strong>/bln
+              {/* Price Display */}
+              <div className="border-y py-3 space-y-0.5">
+                <div className="text-xl font-black text-foreground">
+                  {formatIDR(plan.price)}
+                  {plan.price > 0 && (
+                    <span className="text-xs font-normal text-muted-foreground ml-1">
+                      /{plan.billing_period === "monthly" ? "bln" : plan.billing_period === "annual" ? "thn" : plan.billing_period}
                     </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="size-3 text-primary" />
-                      Limit AI: <strong>{plan.ai_query_limit_per_day}</strong>/hari
-                    </span>
-                  </div>
+                  )}
                 </div>
-
-                {/* Features List */}
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Fasilitas Termasuk:
-                  </p>
-                  <ul className="space-y-2 text-xs">
-                    {plan.features.map((f, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                        <span className="text-foreground leading-tight">{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Bottom Actions & Subscriber Count */}
-              <div className="pt-5 mt-5 border-t flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Users className="size-3.5 text-primary" />
-                  <span>
-                    <strong>{plan.active_subscribers_count}</strong> Peneliti Aktif
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground pt-1">
+                  <span className="flex items-center gap-1">
+                    <FileText className="size-3 text-primary" />
+                    <strong>{plan.paper_limit_per_month}</strong> paper
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="size-3 text-primary" />
+                    <strong>{plan.ai_query_limit_per_day}</strong> AI/hari
                   </span>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleOpenEditModal(plan)}
-                    className="h-8 px-2 text-xs"
-                    title="Ubah Konfigurasi Paket"
-                  >
-                    <Edit3 className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm(`Yakin ingin menonaktifkan atau menghapus paket '${plan.name}'?`)) {
-                        deleteMutation.mutate(plan.id)
-                      }
-                    }}
-                    className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10"
-                    title="Hapus / Arsipkan Paket"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
+              {/* Features List */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Fasilitas Termasuk:
+                </p>
+                <ul className="space-y-1.5 text-xs">
+                  {plan.features.map((f, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <span className="text-foreground leading-tight text-[11px]">{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+
+            {/* Bottom Actions & Subscriber Count */}
+            <div className="pt-4 mt-4 border-t flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Users className="size-3.5 text-primary" />
+                <span>
+                  <strong>{plan.active_subscribers_count}</strong> Peneliti
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleOpenEditModal(plan)}
+                  className="h-7 w-7 p-0 text-xs"
+                  title="Ubah Konfigurasi Paket"
+                >
+                  <Edit3 className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeletePlan(plan)}
+                  className="h-7 w-7 p-0 text-xs text-destructive hover:bg-destructive/10"
+                  title="Hapus / Arsipkan Paket"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
@@ -520,14 +531,9 @@ export default function SubscriptionsScreen() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={createMutation.isPending || updateMutation.isPending}
                   className="text-xs"
                 >
-                  {createMutation.isPending || updateMutation.isPending
-                    ? "Menyimpan..."
-                    : editingPlan
-                    ? "Simpan Perubahan"
-                    : "Terbitkan Paket Baru"}
+                  {editingPlan ? "Simpan Perubahan" : "Terbitkan Paket Baru"}
                 </Button>
               </div>
             </form>
