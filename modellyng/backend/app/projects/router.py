@@ -1107,7 +1107,7 @@ def bulk_accept_project_reviews(
 @projects_router.get("/{project_id}/export")
 def export_project_synthesis(
     project_id: str,
-    format: str = Query("xlsx", regex="^(csv|xlsx|pdf)$", description="Format unduhan (csv, xlsx, pdf)"),
+    format: str = Query("xlsx", pattern="^(csv|xlsx|pdf)$", description="Format unduhan (csv, xlsx, pdf)"),
     current_user: dict = Depends(get_current_user),
 ):
     """
