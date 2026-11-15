@@ -67,10 +67,10 @@ export default function WelcomeScreen() {
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-[58px] font-extrabold tracking-tight text-white leading-[1.12]">
-              Bangun Masa Depan Riset Akademik Anda{" "}
+            <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-extrabold tracking-tight text-white leading-[1.14]">
+              Upload Paper-mu di Modellyng,{" "}
               <span className="block mt-1 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-indigo-200">
-                Lebih Cepat.
+                Susun Karya Ilmiah Lebih Mudah!
               </span>
             </h1>
 
