@@ -1,5 +1,6 @@
 import React from "react"
-import { BookOpenCheck, ShieldCheck, Sparkles, FileSearch } from "lucide-react"
+import { ShieldCheck, Sparkles, FileSearch } from "lucide-react"
+import modellyngLogo from "@/assets/modellyng-logo.jpg"
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -17,12 +18,16 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 
         {/* Top Branding */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/30">
-            <BookOpenCheck className="size-6" />
+          <div className="size-11 rounded-xl overflow-hidden shadow-lg shadow-indigo-500/25 border border-white/10 shrink-0">
+            <img
+              src={modellyngLogo}
+              alt="Logo Modellyng"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xl font-extrabold tracking-tight">Modellyng</span>
+              <span className="text-xl font-extrabold tracking-tight text-white">Modellyng</span>
               <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
                 Web 2.0
               </span>
@@ -39,7 +44,10 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           </div>
 
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl text-white">
-            Bangun Masa Depan Riset Akademik Anda Lebih Cepat.
+            Upload Paper-mu di Modellyng,{" "}
+            <span className="block mt-1 text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-200 to-indigo-100">
+              Susun Karya Ilmiah Lebih Mudah!
+            </span>
           </h1>
 
           <p className="mt-4 text-sm leading-relaxed text-indigo-100/80">
@@ -70,8 +78,12 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className="w-full max-w-md">
           {/* Mobile Logo Header */}
           <div className="mb-8 flex flex-col items-center text-center lg:hidden">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg mb-2">
-              <BookOpenCheck className="size-6" />
+            <div className="size-12 rounded-2xl overflow-hidden shadow-lg mb-2">
+              <img
+                src={modellyngLogo}
+                alt="Logo Modellyng"
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">Modellyng</span>
             <span className="text-xs text-muted-foreground">Evidence-Centered Academic PDF Analysis</span>

@@ -29,7 +29,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl mx-auto">
+    <div className="p-6 space-y-6 w-full">
       <div className="border-b pb-4">
         <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <Settings className="size-5 text-primary" />
@@ -152,7 +152,7 @@ export default function SettingsScreen() {
             <label className="text-[11px] font-medium text-muted-foreground block">
               Status Akses Fitur Akun Gratis:
             </label>
-            <div className="grid gap-2 sm:grid-cols-2 text-xs">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-xs">
               <div className="flex items-start gap-2 p-2.5 rounded-lg border bg-background/50">
                 <CheckCircle2 className="size-4 text-emerald-500 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
@@ -203,7 +203,7 @@ export default function SettingsScreen() {
             <span>Preferensi Sitasi & Model AI</span>
           </h3>
 
-          <div className="space-y-3 text-xs">
+          <div className="grid gap-4 sm:grid-cols-2 text-xs">
             <div className="space-y-1">
               <label className="font-medium text-muted-foreground">Format Standar Daftar Pustaka</label>
               <select className="h-9 w-full rounded-md border bg-background px-3 text-xs">
@@ -221,7 +221,7 @@ export default function SettingsScreen() {
                 </label>
                 <span className="font-semibold text-primary">80%</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground pt-1">
                 Komponen dengan skor di bawah 80% akan otomatis masuk ke Antrean Review.
               </p>
             </div>
