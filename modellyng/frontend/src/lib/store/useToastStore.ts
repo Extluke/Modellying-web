@@ -37,8 +37,8 @@ export const useToastStore = create<ToastStore>((set) => ({
 
 // Export convenient global helper
 export const toast = {
-  success: (msg: string) => useToastStore.getState().showToast(msg, "success"),
-  error: (msg: string) => useToastStore.getState().showToast(msg, "error"),
-  info: (msg: string) => useToastStore.getState().showToast(msg, "info"),
-  warning: (msg: string) => useToastStore.getState().showToast(msg, "warning"),
+  success: (msg: string, duration?: number) => useToastStore.getState().showToast(msg, "success", duration),
+  error: (msg: string, duration?: number) => useToastStore.getState().showToast(msg, "error", duration),
+  info: (msg: string, duration?: number) => useToastStore.getState().showToast(msg, "info", duration),
+  warning: (msg: string, duration?: number) => useToastStore.getState().showToast(msg, "warning", duration),
 }

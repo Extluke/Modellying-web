@@ -20,6 +20,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { toast } from "@/lib/store/useToastStore"
+import { useAuthStore } from "@/features/auth/store/authStore"
+import { WhatsAppPaymentModal } from "@/features/user/pricing/components/WhatsAppPaymentModal"
+import {
+  ADMIN_WHATSAPP_DISPLAY,
+  buildPricingWhatsAppUrl,
+} from "@/features/user/pricing/utils/whatsappPricing"
 
 export interface PricingPlan {
   id: "free" | "student_14" | "student_30"
@@ -179,12 +185,34 @@ export const PRICING_PLANS: PricingPlan[] = [
 ]
 
 export function PricingSection() {
+  const user = useAuthStore((s) => s.user)
   const [selectedPlanId, setSelectedPlanId] = useState<string>("student_30")
+  const [activeModalPlan, setActiveModalPlan] = useState<PricingPlan | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const handleSelectPlan = (plan: PricingPlan) => {
     setSelectedPlanId(plan.id)
+    if (plan.id === "free") {
+      toast.info(
+        "Free Plan adalah paket dasar bawaan sistem yang aktif gratis.",
+        5000
+      )
+      return
+    }
+
+    const whatsappUrl = buildPricingWhatsAppUrl(plan, user)
+    try {
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer")
+    } catch {
+      // Fallback in modal
+    }
+
+    setActiveModalPlan(plan)
+    setIsModalOpen(true)
+
     toast.success(
-      `Simulasi pemilihan paket: ${plan.name} (${plan.priceFormatted}). Prototipe UI berhasil merespon interaksi!`
+      `Mengarahkan ke WhatsApp Admin (${ADMIN_WHATSAPP_DISPLAY}) untuk paket ${plan.name}.`,
+      5000
     )
   }
 
@@ -507,6 +535,17 @@ export function PricingSection() {
           </Button>
         </div>
       </div>
+
+      {/* WhatsApp Payment Confirmation Modal */}
+      <WhatsAppPaymentModal
+        isOpen={isModalOpen}
+        plan={activeModalPlan}
+        user={user}
+        onClose={() => {
+          setIsModalOpen(false)
+          setActiveModalPlan(null)
+        }}
+      />
     </section>
   )
 }

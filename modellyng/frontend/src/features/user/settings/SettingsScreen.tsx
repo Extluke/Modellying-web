@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import { ROUTES } from "@/app/routes"
+import { formatSubscriptionTierName } from "@/features/user/pricing/utils/whatsappPricing"
 
 export default function SettingsScreen() {
   const navigate = useNavigate()
@@ -70,40 +71,64 @@ export default function SettingsScreen() {
         </div>
 
         {/* Subscription Plan & Upgrade Access Card */}
-        <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-card via-card to-primary/[0.04] p-5 shadow-xs space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Crown className="size-4 text-primary" />
-                <span className="text-xs font-bold text-foreground">Status Paket Akun</span>
-                <Badge variant="muted" className="text-[10px] font-semibold px-2 py-0.2">
-                  Free Plan (Aktif)
-                </Badge>
+        {(() => {
+          const isDev = user?.subscription_tier === "developer"
+          const isPro =
+            user?.subscription_tier === "student_30" ||
+            user?.subscription_tier === "student_14"
+
+          return (
+            <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-card via-card to-primary/[0.04] p-5 shadow-xs space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Crown className="size-4 text-primary" />
+                    <span className="text-xs font-bold text-foreground">Status Paket Akun</span>
+                    <Badge
+                      variant={isDev ? "primary" : isPro ? "ready" : "muted"}
+                      className="text-[10px] font-semibold px-2 py-0.2"
+                    >
+                      {formatSubscriptionTierName(user?.subscription_tier)} (Aktif)
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {isDev ? (
+                      <>
+                        Anda menggunakan akun <strong className="text-foreground">Developer</strong> dengan akses penuh ke seluruh fitur dan tanpa batasan kuota.
+                      </>
+                    ) : isPro ? (
+                      <>
+                        Anda saat ini menggunakan paket <strong className="text-primary">{formatSubscriptionTierName(user?.subscription_tier)}</strong> dengan kuota <span className="font-semibold text-primary">15 token setiap hari</span>, akses penuh Comparative Matrix, dan Research Gap Map interaktif.
+                      </>
+                    ) : (
+                      <>
+                        Anda saat ini menggunakan paket gratis dengan batas <span className="font-semibold text-foreground">3 upload per hari</span>.
+                        Upgrade ke Student Pro untuk mendapatkan <span className="font-semibold text-primary">15 token setiap hari</span>, akses penuh Comparative Matrix, dan Research Gap Map interaktif.
+                      </>
+                    )}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Anda saat ini menggunakan paket gratis dengan batas <span className="font-semibold text-foreground">3 upload per hari</span>.
-                Upgrade ke Student Pro untuk mendapatkan <span className="font-semibold text-primary">15 token setiap hari</span>, akses penuh Comparative Matrix, dan Research Gap Map interaktif.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-border/50">
-            <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-              <Sparkles className="size-3.5 text-primary shrink-0" />
-              <span>
-                Tersedia paket <strong>Student Pro 14 Hari</strong> (Rp29.000) dan <strong>30 Hari</strong> (Rp49.000)
-              </span>
-            </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-border/50">
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="size-3.5 text-primary shrink-0" />
+                  <span>
+                    Tersedia paket <strong>Student Pro 14 Hari</strong> (Rp29.000) dan <strong>30 Hari</strong> (Rp49.000) via WhatsApp Admin
+                  </span>
+                </div>
 
-            <Button asChild size="sm" className="gap-2 text-xs font-semibold rounded-lg shadow-sm shadow-primary/20 shrink-0">
-              <Link to={ROUTES.USER.PRICING}>
-                <Crown className="size-3.5 text-amber-300" />
-                <span>Lihat Pilihan Paket & Upgrade</span>
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </Button>
-          </div>
-        </div>
+                <Button asChild size="sm" className="gap-2 text-xs font-semibold rounded-lg shadow-sm shadow-primary/20 shrink-0">
+                  <Link to={ROUTES.USER.PRICING}>
+                    <Crown className="size-3.5 text-amber-300" />
+                    <span>{isPro ? "Kelola / Perpanjang Paket" : "Lihat Pilihan Paket & Upgrade"}</span>
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Usage Limits Card (Dummy Frontend Data) */}
         <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
@@ -113,7 +138,7 @@ export default function SettingsScreen() {
               <span>Batas Penggunaan & Kuota Harian (Usage Limit)</span>
             </h3>
             <Badge variant="outline" className="text-[10px] font-medium border-muted-foreground/30">
-              Free Plan
+              {formatSubscriptionTierName(user?.subscription_tier)}
             </Badge>
           </div>
 

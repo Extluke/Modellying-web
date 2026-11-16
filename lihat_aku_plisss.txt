@@ -204,8 +204,12 @@ src/features/
 │   │       └── ClearHistoryConfirmModal.tsx  # Dialog konfirmasi pembersihan riwayat lokal dengan toast 5 detik
 │   ├── notifications/                # /notifications (Pusat notifikasi status tugas)
 │   ├── settings/                     # /settings (Profil, preferensi sitasi, status paket, kartu rincian batas penggunaan / usage limit, & tautan pricing)
-│   ├── pricing/                      # /settings/pricing (Katalog Paket Berlangganan Mahasiswa: Free, Pro 14 Hari, Pro 30 Hari)
-│   │   └── PricingScreen.tsx         # Layar pilihan paket, perbandingan matriks fitur, simulasi pemilihan, & FAQ
+│   ├── pricing/                      # /settings/pricing (Katalog Paket Berlangganan Mahasiswa & Sistem Pembayaran WhatsApp)
+│   │   ├── PricingScreen.tsx         # Layar katalog paket, matriks perbandingan fitur, hero banner, & FAQ
+│   │   ├── components/
+│   │   │   └── WhatsAppPaymentModal.tsx # Modal konfirmasi pemesanan, salin template pesan, & fallback tautan WA
+│   │   └── utils/
+│   │       └── whatsappPricing.ts    # Nomor WA admin (+6281269274671), generator pesan template, & URL builder
 │   └── styleguide/                   # /styleguide (Single Source of Truth Design System & Prototipe Komponen)
 │       ├── StyleGuideScreen.tsx      # Hub Style Guide: token warna, tipografi, button, badge, input, card, pricing, & form bug
 │       └── components/
@@ -551,6 +555,14 @@ lengkap dengan lencana tingkatan akun (Developer, Pro 30 Hari, Free Plan) dan to
 - Password   : modellying_web_password
 - Database   : postgres
 - URL Lengkap: postgresql://postgres:modellying_web_password@127.0.0.1:28022/postgres
+
+
+5. KONTAK LAYANAN WHATSAPP ADMIN (PEMBAYARAN & AKTIVASI PAKET)
+--------------------------------------------------------------------------------
+- Nomor WhatsApp Resmi : +62 812-6927-4671 (6281269274671)
+- Tautan Langsung      : https://wa.me/6281269274671
+- Metode Pembayaran    : QRIS Instan (GoPay, OVO, Dana, ShopeePay) & Transfer Bank (BCA, Mandiri, BNI, BRI)
+- Jam Operasional      : 24/7 (Panduan Pembayaran, Verifikasi Bukti Transfer & Aktivasi Paket Instan)
 
 
 ================================================================================
@@ -1162,6 +1174,38 @@ DETAIL FITUR & INTEGRASI SISTEM
     4. `manage_api_keys`: Hak pengelolaan API Key penyedia AI & kuota switching.
     5. `manage_admins`: Hak kelola tim administrator dan perubahan hak akses.
   * Rekam Jejak Audit Platform Komprehensif (*Admin Audit Trail*): Tab Jejak Audit mencatat setiap tindakan administratif (siapa yang melakukan, aksi apa, entitas target, rincian JSON payload, dan stempel waktu) ke dalam tabel `public.admin_audit_logs`.
+
+16. SISTEM PEMBAYARAN & AKTIVASI LANGGANAN MAHASISWA VIA WHATSAPP ADMIN
+--------------------------------------------------------------------------------
+- Alur Pemesanan Cepat & Praktis (Tanpa Kartu Kredit):
+  * Pengguna masuk ke halaman katalog paket di `http://localhost:3000/settings/pricing`
+    atau melalui tombol upgrade di Pengaturan Akun (`/settings`).
+  * Tersedia 3 opsi tingkatan paket:
+    1. Free Plan (Akun Dasar): Kuota 3 dokumen/hari, reset 24 jam (Rp0).
+    2. Student Pro – 14 Hari: Kuota 15 token/hari (total s.d. 210 token), akses penuh Comparative Matrix & Gap Map (Rp29.000).
+    3. Student Pro – 30 Hari: Kuota 15 token/hari (total s.d. 450 token), pilihan paling populer & ekonomis (Rp49.000).
+  * Pengalihan Langsung 1-Klik ke WhatsApp Admin:
+    Saat pengguna mengklik tombol "Beli Student Pro 14 Hari" atau "Beli Student Pro 30 Hari", sistem
+    langsung mengarahkan pengguna ke nomor WhatsApp Admin resmi:
+    https://wa.me/6281269274671 (+62 812-6927-4671)
+    lengkap dengan parameter draf pesan otomatis terformat (`?text=...`).
+- Format Draf Pesan Template Otomatis (`whatsappPricing.ts`):
+  * Pesan otomatis terisi dengan rapi, terstruktur, dan sopan:
+    - Salam pembuka resmi kepada Admin Modellyng.
+    - Rincian Paket: Nama paket pilihan, nominal harga IDR, masa aktif, dan kuota 15 token/hari.
+    - Data Identitas Akun Peneliti: Nama lengkap (`user.full_name`), email akun terdaftar (`user.email`),
+      dan status paket aktif saat ini (`user.subscription_tier`).
+    - Permintaan panduan instruksi pembayaran (QRIS / Transfer Bank) dan proses aktivasi akun.
+- Modal Interaktif & Pengaman Pop-up Blocker (`WhatsAppPaymentModal.tsx`):
+  * Jika peramban memblokir pembukaan tab baru (*pop-up blocker*), modal interaktif tetap muncul
+    di layar menampilkan:
+    - Rincian paket dan identitas akun pemesan yang terhubung.
+    - Kotak pratinjau teks template pesan dengan tombol "Salin Pesan" (clipboard) sekali klik.
+    - Tombol aksi utama warna hijau khas WhatsApp: "Lanjut ke WhatsApp Admin (+62 812-6927-4671)".
+    - Lencana verifikasi metode bayar yang didukung (QRIS Instan & Transfer Bank).
+- Notifikasi Umpan Balik Seragam:
+  * Dilengkapi notifikasi toast seragam durasi tepat 5 detik (5000 ms) yang memberi kepastian
+    bahwa pengguna sedang dialihkan ke WhatsApp Admin.
 
 
 ================================================================================

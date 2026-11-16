@@ -17,6 +17,10 @@ import {
   Wand2,
   FileText,
   ShieldCheck,
+  MessageCircle,
+  ExternalLink,
+  GraduationCap,
+  Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -24,26 +28,71 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { ROUTES } from "@/app/routes"
 import { toast } from "@/lib/store/useToastStore"
 import { PRICING_PLANS, PricingPlan } from "@/features/styleguide/components/PricingSection"
+import { useAuthStore } from "@/features/auth/store/authStore"
+import { WhatsAppPaymentModal } from "./components/WhatsAppPaymentModal"
+import {
+  ADMIN_WHATSAPP_DISPLAY,
+  ADMIN_WHATSAPP_BASE_URL,
+  buildPricingWhatsAppUrl,
+  formatSubscriptionTierName,
+} from "./utils/whatsappPricing"
 
 export default function PricingScreen() {
+  const user = useAuthStore((s) => s.user)
   const [selectedPlanId, setSelectedPlanId] = useState<string>("student_30")
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null)
 
+  // WhatsApp Order Confirmation Modal State
+  const [activeModalPlan, setActiveModalPlan] = useState<PricingPlan | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
   const handleSelectPlan = (plan: PricingPlan) => {
     setSelectedPlanId(plan.id)
+
     if (plan.id === "free") {
-      toast.info("Anda saat ini sudah berada di Free Plan (Akun Dasar).")
-    } else {
-      toast.success(
-        `Simulasi pemilihan paket: ${plan.name} (${plan.priceFormatted}). Anda akan diarahkan ke konfirmasi pembayaran!`
-      )
+      if (user?.subscription_tier === "free" || !user?.subscription_tier) {
+        toast.info(
+          "Anda saat ini sudah aktif di Free Plan (Akun Dasar). Silakan pilih paket Student Pro untuk kuota 15 token harian.",
+          5000
+        )
+      } else {
+        toast.info(
+          "Free Plan adalah paket bawaan gratis. Akun Anda saat ini memiliki paket aktif yang lebih tinggi.",
+          5000
+        )
+      }
+      return
     }
+
+    // 1. Build WhatsApp direct URL with template message
+    const whatsappUrl = buildPricingWhatsAppUrl(plan, user)
+
+    // 2. Open WhatsApp in new tab for direct frictionless redirection
+    try {
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer")
+    } catch {
+      // Fallback handled by modal
+    }
+
+    // 3. Open helpful modal dialog as confirmation & fallback
+    setActiveModalPlan(plan)
+    setIsModalOpen(true)
+
+    // 4. Uniform 5-second toast notification
+    toast.success(
+      `Mengarahkan ke WhatsApp Admin (${ADMIN_WHATSAPP_DISPLAY}) untuk paket ${plan.name}. Silakan kirim pesan yang disiapkan untuk panduan pembayaran QRIS / Transfer Bank.`,
+      5000
+    )
   }
 
   const faqs = [
     {
       q: "Bagaimana cara kerja kuota 15 token harian pada Student Pro?",
       a: "Setiap hari selama masa aktif (14 hari atau 30 hari), akun Anda akan mendapatkan 15 token baru yang dapat digunakan untuk menganalisis dokumen paper atau melakukan query AI. Kuota harian ini diperbarui setiap 24 jam.",
+    },
+    {
+      q: "Bagaimana cara pembayaran dan aktivasi paket?",
+      a: "Setelah Anda mengklik paket yang diinginkan, Anda akan langsung terhubung ke WhatsApp Admin kami (+62 812-6927-4671) dengan draf pesan otomatis. Admin akan membagikan kode QRIS atau nomor rekening transfer bank (BCA/Mandiri/BNI/BRI/GoPay/OVO/Dana), dan paket Anda langsung diaktifkan segera setelah pembayaran terkonfirmasi.",
     },
     {
       q: "Apakah langganan ini akan diperpanjang secara otomatis?",
@@ -54,8 +103,8 @@ export default function PricingScreen() {
       a: "Seluruh proyek, paper yang telah diunggah, dan hasil analisis Anda tetap tersimpan dengan aman di akun Anda. Anda tetap dapat membukanya kembali dalam mode pembacaan dasar.",
     },
     {
-      q: "Metode pembayaran apa saja yang didukung?",
-      a: "Modellyng mendukung QRIS (GoPay, OVO, Dana, ShopeePay), Transfer Bank Virtual Account (BCA, Mandiri, BNI, BRI), serta dompet digital lokal mahasiswa Indonesia.",
+      q: "Metode pembayaran apa saja yang didukung via WhatsApp Admin?",
+      a: "Modellyng mendukung QRIS (GoPay, OVO, Dana, ShopeePay), Transfer Bank Virtual Account / Rekening Bank (BCA, Mandiri, BNI, BRI), serta dompet digital lokal mahasiswa Indonesia.",
     },
   ]
 
@@ -70,6 +119,60 @@ export default function PricingScreen() {
           <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform text-muted-foreground" />
           <span>Kembali ke Pengaturan Akun</span>
         </Link>
+
+        {user && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Paket Anda saat ini:</span>
+            <Badge variant="primary" className="font-semibold text-[11px]">
+              {formatSubscriptionTierName(user.subscription_tier)}
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      {/* Header / Hero Section */}
+      <div className="text-center space-y-3 max-w-3xl mx-auto pt-2">
+        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary border border-primary/20 shadow-xs">
+          <GraduationCap className="size-4" />
+          <span>Skema Akun & Penetapan Harga Ramah Mahasiswa</span>
+        </div>
+        <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+          Pilihan Paket Berlangganan Modellyng
+        </h1>
+        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+          Tingkatkan produktivitas analisis riset Anda. Bebas hambatan dengan aktivasi instan melalui WhatsApp Admin kami tanpa perlu kartu kredit.
+        </p>
+      </div>
+
+      {/* Quick WhatsApp Support Banner */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+        <div className="flex items-center gap-3.5">
+          <div className="size-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <MessageCircle className="size-5" />
+          </div>
+          <div>
+            <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
+              <span>Aktivasi Pembayaran Mudah & Terpandu via WhatsApp</span>
+              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[9px] px-1.5 py-0">
+                Layanan Admin
+              </Badge>
+            </h4>
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+              Cukup klik paket yang diinginkan. Anda akan diarahkan ke WhatsApp Admin (<strong>{ADMIN_WHATSAPP_DISPLAY}</strong>) dengan pesan template siap kirim.
+            </p>
+          </div>
+        </div>
+
+        <a
+          href={ADMIN_WHATSAPP_BASE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shrink-0 transition-colors shadow-xs shadow-emerald-600/20"
+        >
+          <MessageCircle className="size-3.5" />
+          <span>Chat WhatsApp Admin</span>
+          <ExternalLink className="size-3" />
+        </a>
       </div>
 
       {/* 3 Pricing Cards Grid */}
@@ -77,6 +180,7 @@ export default function PricingScreen() {
         {PRICING_PLANS.map((plan) => {
           const isSelected = selectedPlanId === plan.id
           const isPro30 = plan.id === "student_30"
+          const isCurrentActivePlan = user?.subscription_tier === plan.id
 
           return (
             <Card
@@ -104,19 +208,30 @@ export default function PricingScreen() {
                 <CardHeader className="space-y-3 pb-4">
                   {/* Tier Badge & Duration */}
                   <div className="flex items-center justify-between gap-2">
-                    <Badge
-                      variant={
-                        plan.id === "free"
-                          ? "muted"
-                          : plan.id === "student_30"
-                          ? "primary"
-                          : "ready"
-                      }
-                      className="text-[11px] font-semibold px-2.5 py-0.5 rounded-md"
-                    >
-                      {plan.tierBadge}
-                    </Badge>
-                    <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge
+                        variant={
+                          plan.id === "free"
+                            ? "muted"
+                            : plan.id === "student_30"
+                            ? "primary"
+                            : "ready"
+                        }
+                        className="text-[11px] font-semibold px-2.5 py-0.5 rounded-md"
+                      >
+                        {plan.tierBadge}
+                      </Badge>
+                      {isCurrentActivePlan && (
+                        <Badge
+                          variant="ready"
+                          className="text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 flex items-center gap-1"
+                        >
+                          <Check className="size-3" />
+                          <span>Paket Aktif</span>
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1 shrink-0">
                       <Calendar className="size-3" />
                       {plan.durationText}
                     </span>
@@ -217,22 +332,42 @@ export default function PricingScreen() {
 
               {/* Action Button Footer */}
               <CardFooter className="pt-2 pb-5 border-t border-border/50">
-                <Button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleSelectPlan(plan)
-                  }}
-                  variant={isPro30 ? "primary" : plan.ctaVariant}
-                  className={`w-full rounded-xl text-xs font-semibold gap-2 transition-all ${
-                    isPro30
-                      ? "shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/30"
-                      : ""
-                  }`}
-                >
-                  <span>{plan.id === "free" ? "Paket Saat Ini" : plan.ctaText}</span>
-                  <ArrowRight className="size-3.5" />
-                </Button>
+                {plan.id === "free" ? (
+                  <Button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleSelectPlan(plan)
+                    }}
+                    variant="outline"
+                    className="w-full rounded-xl text-xs font-semibold gap-2 transition-all cursor-pointer"
+                  >
+                    <span>{isCurrentActivePlan ? "Paket Saat Ini" : "Paket Dasar"}</span>
+                    <CheckCircle2 className="size-3.5 text-emerald-500" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleSelectPlan(plan)
+                    }}
+                    variant={isPro30 ? "primary" : plan.ctaVariant}
+                    className={`w-full rounded-xl text-xs font-semibold gap-2 transition-all cursor-pointer ${
+                      isPro30
+                        ? "shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/30"
+                        : ""
+                    }`}
+                  >
+                    <MessageCircle className="size-3.5" />
+                    <span>
+                      {isCurrentActivePlan
+                        ? `Perpanjang ${plan.name}`
+                        : `Beli ${plan.name}`}
+                    </span>
+                    <ArrowRight className="size-3.5" />
+                  </Button>
+                )}
               </CardFooter>
             </Card>
           )
@@ -380,7 +515,17 @@ export default function PricingScreen() {
           })}
         </div>
       </div>
+
+      {/* WhatsApp Payment Confirmation Modal */}
+      <WhatsAppPaymentModal
+        isOpen={isModalOpen}
+        plan={activeModalPlan}
+        user={user}
+        onClose={() => {
+          setIsModalOpen(false)
+          setActiveModalPlan(null)
+        }}
+      />
     </div>
   )
 }
-
