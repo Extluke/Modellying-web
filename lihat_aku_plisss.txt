@@ -146,7 +146,7 @@ src/features/
 │   │   │   └── useKnowledgeGraphStore.ts # Zustand store: simpul terpilih, filter zona/jenis/pencarian, & layar penuh
 │   │   ├── utils/
 │   │   │   ├── graphBuilder.ts       # Pembangun graf dari matriks komparatif: simpul, relasi, saturasi, & penyambung antar paper
-│   │   │   ├── graphLayout.ts        # Tata letak zona bertingkat (Celah Riset | Rendah | Sedang | Tinggi | Sumber Paper)
+│   │   │   ├── graphLayout.ts        # Tata letak zona bertingkat (Sumber Paper | Tinggi | Sedang | Rendah | Celah Riset)
 │   │   │   ├── graphText.ts          # Judul simpul ringkas, token kata kunci, & tipologi celah
 │   │   │   ├── graphMeta.ts          # Label, ikon, & warna jenis simpul dan zona
 │   │   │   └── flowModel.ts          # Konversi ke node/edge React Flow & perhitungan fokus (filter, pencarian, sorotan)
@@ -1058,8 +1058,8 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Saturasi = porsi paper yang membahas simpul: <= 20% Rendah, <= 50% Sedang, selebihnya Tinggi. Celah Riset selalu zona
     "Celah Riset"; paper berada pada zona "Sumber Paper".
 
-- Tata Letak Zona (`utils/graphLayout.ts`): zona berurutan dari kiri ke kanan: Celah Riset | Saturasi Rendah | Sedang | Tinggi |
-  Sumber Paper. Simpul dalam zona disusun dalam kolom dan diurutkan menurut rata-rata posisi tetangganya untuk memperpendek garis.
+- Tata Letak Zona (`utils/graphLayout.ts`): zona berurutan dari kiri ke kanan: Sumber Paper | Saturasi Tinggi | Sedang | Rendah |
+  Celah Riset. Simpul dalam zona disusun dalam kolom dan diurutkan menurut rata-rata posisi tetangganya untuk memperpendek garis.
 
 - Kanvas (`KnowledgeGraphCanvas.tsx`, React Flow dimuat lazy bersama rute):
   * Kartu simpul bergradasi per jenis (`KnowledgeGraphNodeCard.tsx`) dan garis melayang yang keluar dari tepi kartu (`FloatingEdge.tsx`).

@@ -1,8 +1,11 @@
 /**
  * Zone-based layered layout of the knowledge graph.
  *
- * Same idea as the mobile backend (`layout.py`): nodes are grouped into vertical zones by
- * saturation status, ordered left to right as none (research gaps), low, medium, high.
+ * Nodes are grouped into vertical zones ordered left to right as:
+ * 1. Sumber Paper (`source`) at the far left
+ * 2. Pembahasan / Saturasi (`high`, `medium`, `low` saturation status) in the middle
+ * 3. Celah Riset (`none`) at the far right
+ *
  * Inside each zone nodes are stacked in columns and ordered by the average position of their
  * neighbours (barycenter heuristic), which keeps connected nodes close and edges short.
  */
@@ -18,8 +21,8 @@ export const NODE_WIDTH = 248
 /** Typical rendered height of a node card; real heights are measured by React Flow. */
 export const NODE_HEIGHT = 96
 
-/** Left to right. Paper nodes always live in the `source` band at the right edge. */
-export const ZONE_ORDER: GraphZoneKey[] = ["none", "low", "medium", "high", "source"]
+/** Left to right: Sumber paper -> pembahasan (saturasi tinggi, sedang, rendah) -> celah riset. */
+export const ZONE_ORDER: GraphZoneKey[] = ["source", "high", "medium", "low", "none"]
 
 export function zoneOf(node: Pick<KnowledgeGraphNode, "kind" | "saturation">): GraphZoneKey {
   return node.kind === "paper" ? "source" : node.saturation
