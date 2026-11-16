@@ -246,7 +246,10 @@ BATCH_DEFINITIONS = [
 2. research_objective (Tujuan Penelitian):
    Pernyataan spesifik dan terukur mengenai apa yang akan dicapai/dibangun/dibuktikan dalam studi ini.
 3. research_questions (Pertanyaan Penelitian):
-   Daftar pertanyaan penelitian (5W1H) yang memandu eksperimen studi ini. Jika paper tidak menyajikan butir pertanyaan secara eksplisit, rumuskan 1-2 pertanyaan penelitian akademis yang dijawab oleh eksperimen studi ini berdasarkan tujuan dan masalah riset, dan kutip kalimat tujuan sebagai quote.
+   Daftar pertanyaan penelitian (5W1H) yang memandu eksperimen studi ini. Jika paper tidak menyajikan butir pertanyaan secara eksplisit, rumuskan 1-2 pertanyaan penelitian akademis yang dijawab oleh eksperimen studi ini berdasarkan tujuan dan masalah riset, dan kutip kalimat tujuan sebagai quote. Wajib disajikan dalam format butir-butir bernomor urut rapi yang dipisahkan oleh baris baru (enter), contoh:
+   1. [Pertanyaan pertama]?
+   2. [Pertanyaan kedua]?
+   DILARANG KERAS menggabungkan butir pertanyaan ke dalam satu paragraf bersambung tanpa pemisah baris baru/enter.
 4. subject_demographics (Konteks & Demografi Subjek):
    Target populasi/domain, sumber subjek/komentar, atau platform/artefak yang dievaluasi.
 """

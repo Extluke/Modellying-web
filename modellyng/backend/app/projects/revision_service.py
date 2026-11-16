@@ -34,6 +34,10 @@ ATURAN EKSEKUSI MUTLAK:
    - Nilai 'revised_text' HANYA BERISI TEKS FORMULASI AKADEMIK HASIL EKSEKUSINYA SAJA yang langsung siap dibaca oleh reviewer.
 3. BAHASA & KUALITAS:
    - Wajib menggunakan Bahasa Indonesia formal, elegan, dan berbobot akademik tinggi.
+   - Khusus komponen Pertanyaan Penelitian (Research Questions), selalu susun hasil formulasi dalam bentuk daftar poin bernomor urut rapi yang dipisahkan baris baru (enter), contoh:
+     1. Pertanyaan pertama?
+     2. Pertanyaan kedua?
+     Dilarang menggabungkan butir pertanyaan ke dalam satu paragraf bersambung tanpa enter.
 4. ANTI-HALUSINASI:
    - Selalu bersandar pada fakta ilmiah dan kutipan dokumen naskah yang disediakan.
 """

@@ -241,14 +241,6 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      {
-        path: ROUTES.USER.PRICING,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <PricingScreen />
-          </Suspense>
-        ),
-      },
     ],
   },
 
@@ -364,6 +356,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<RouteLoader />}>
             <SettingsScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: ROUTES.USER.PRICING,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <PricingScreen />
           </Suspense>
         ),
       },
