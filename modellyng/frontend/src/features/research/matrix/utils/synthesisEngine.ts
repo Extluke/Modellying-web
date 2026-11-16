@@ -1,5 +1,9 @@
 import { ComparativeMatrixResponse, MatrixPaper } from "@/features/projects/api/projectsApi"
 import { formatBibliography, formatInTextCitation } from "./citationFormatter"
+import {
+  type MethodologicalApproachItem,
+  buildMethodologicalApproaches,
+} from "./variableClassifier"
 
 export interface FollowUpIdea {
   rank: number
@@ -19,6 +23,7 @@ export interface ProjectSynthesisData {
   differences: string[]
   researchPatterns: string[]
   approachDifferences: string[]
+  methodologicalApproaches: MethodologicalApproachItem[]
   gapsAndOpportunities: string[]
   followUpIdeas: FollowUpIdea[]
   paperPositions: PaperPositionItem[]
@@ -104,18 +109,26 @@ export function generateProjectSynthesis(
   // 3. Susun Perbedaan (Differences) & Perbedaan Pendekatan Metodologi
   const differences: string[] = []
   const approachDifferences: string[] = []
+  const methodologicalApproaches = buildMethodologicalApproaches(papers, matrix)
+
+  methodologicalApproaches.forEach((approach) => {
+    const varSummary =
+      approach.variables.length > 0
+        ? ` Variabel yang diuji meliputi: ${approach.variables
+            .map((v) => `${v.name} (${v.categoryShortLabel})`)
+            .join(", ")}.`
+        : ""
+    approachDifferences.push(
+      `${approach.citation} menerapkan pendekatan "${approach.methodologyFullText}".${varSummary}`
+    )
+  })
+
   papers.forEach((p) => {
     const citation = formatInTextCitation(p)
-    const methodText = matrix["methodology"]?.[p.id]?.value?.text
-    if (methodText) {
-      approachDifferences.push(
-        `${citation} menerapkan pendekatan "${methodText.slice(0, 140)}${methodText.length > 140 ? "..." : ""}".`
-      )
-    }
     const sampleText = matrix["dataset_sample"]?.[p.id]?.value?.text
     if (sampleText) {
       differences.push(
-        `Karakteristik data pada ${citation}: memanfaatkan ${sampleText.slice(0, 130)}${sampleText.length > 130 ? "..." : ""}.`
+        `Karakteristik data pada ${citation}: memanfaatkan ${sampleText}.`
       )
     }
   })
@@ -226,6 +239,7 @@ export function generateProjectSynthesis(
     differences,
     researchPatterns,
     approachDifferences,
+    methodologicalApproaches,
     gapsAndOpportunities,
     followUpIdeas,
     paperPositions,

@@ -114,8 +114,11 @@ src/features/
 │   │   │   ├── PaperFilterPopover.tsx     # Pilih paper yang dibandingkan (minimal 2 paper)
 │   │   │   ├── ExpandableCellModal.tsx    # Modal perbesaran teks ekstraksi akademik utuh
 │   │   │   ├── ProjectSynthesisCard.tsx   # Kartu sintesis AI global komparatif & copy naskah formal
+│   │   │   ├── MethodologyDifferencesSection.tsx # Penampilan menyeluruh metodologi & tag badge interaktif seluruh variabel
 │   │   │   └── IntelligenceReportCard.tsx # Kartu laporan intelijen & 5 gaya sitasi (APA, IEEE, dll)
 │   │   └── utils/
+│   │       ├── synthesisEngine.ts         # Mesin kalkulator & penyusun sintesis komparatif multi-paper
+│   │       ├── variableClassifier.ts      # Ekstraksi & taksonomi variabel (bebas, terikat, moderator, kontrol, operasional)
 │   │       ├── matrixFormatters.ts        # Label grup, status sel, warna skor keyakinan, format teks sel
 │   │       ├── exportMatrixCsv.ts         # Pembangun & pengunduh CSV UTF-8 BOM
 │   │       ├── citationFormatter.ts       # Generator sitasi APA, IEEE, Harvard, Vancouver, Chicago
@@ -824,9 +827,15 @@ DETAIL FITUR & INTEGRASI SISTEM
     Setiap sel bab menampilkan lencana status beserta catatan singkat hasil deteksi seksi.
   * Kartu Sintesis AI Global Komparatif (`ProjectSynthesisCard.tsx`):
     Kartu sintesis cerdas multi-paper yang merangkum 8 aspek komparatif: Persamaan antar paper,
-    Perbedaan pendekatan metodologi, Pola riset yang teridentifikasi, Kesenjangan & peluang riset,
+    Perbedaan pendekatan metodologi & taksonomi variabel, Pola riset yang teridentifikasi, Kesenjangan & peluang riset,
     3 Ide penelitian lanjutan berperingkat beserta rasional ilmiah, Ringkasan posisi spesifik tiap
     dokumen dalam peta literatur, dan Naskah narasi akademik formal bersitasi pengarang-tahun.
+    - Seksi Perbedaan Pendekatan Metodologi & Variabel (`MethodologyDifferencesSection.tsx` & `variableClassifier.ts`):
+      Menampilkan pemaparan menyeluruh dan gamblang seluruh variabel penelitian per dokumen yang terbagi
+      ke dalam taksonomi baku: Variabel Bebas (Independen), Variabel Terikat (Dependen), Variabel Moderator/Mediasi,
+      Variabel Kontrol, dan Konsep Operasional. Setiap variabel dirender dalam tag badge interaktif tanpa pemotongan
+      teks (whitespace-normal), dilengkapi filter kategori cepat, tooltip definisi taksonomi, dan aksi salin satu-klik
+      dengan notifikasi toast 5 detik. Pendekatan metodologi ditampilkan utuh tanpa pemotongan teks (.slice/ellipsis).
     Dilengkapi tombol "Salin Poin" dan "Salin Paragraf Akademik" dengan feedback toast 5 detik.
   * Kartu Laporan Intelijen & Bibliografi Riset (`IntelligenceReportCard.tsx`):
     Kartu laporan intelijen komprehensif yang menyajikan metrik statistik riset (total relasi,
