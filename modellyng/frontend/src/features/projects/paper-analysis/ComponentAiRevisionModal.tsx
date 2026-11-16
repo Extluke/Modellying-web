@@ -83,14 +83,26 @@ export function ComponentAiRevisionModal({
         component.sort_order === 3 ||
         Boolean(component.label?.id && /pertanyaan penelitian/i.test(component.label.id))
 
+      const isFutureWork =
+        component.parameter_key === "future_work" ||
+        component.parameter_key === "rekomendasi_lanjutan" ||
+        component.sort_order === 13 ||
+        Boolean(component.label?.id && /peluang riset|riset mendatang|future work/i.test(component.label.id))
+
       const formattedCurrentText = isResearchQuestions
         ? formatQuestionsAsNumberedText(parseResearchQuestions(currentText))
         : currentText
 
+      const exampleHints = isResearchQuestions
+        ? `*"ubah menjadi 2 pertanyaan lebih spesifik"*, *"perjelas variabel yang diteliti"*`
+        : isFutureWork
+        ? `*"tambahkan peluang riset berbasis AI/LLM"*, *"pertajam peluang yang belum disadari penulis"*, *"rumuskan 2 ide kebaruan untuk tesis"*`
+        : `*"ubah menjadi 2 paragraf"*, *"buat lebih ringkas"*, atau *"pertegas kontribusinya"*`
+
       const initialGreeting: ChatTurn = {
         id: `greeting-${Date.now()}`,
         role: "assistant",
-        content: `Halo! Saya Asisten Revisi Ilmiah Modellyng. Anda sedang meninjau komponen **${componentLabel}**.\n\nFormulasi aktif saat ini adalah:\n${isResearchQuestions ? formattedCurrentText : `> "${currentText}"`}\n\nSilakan berikan instruksi perbaikan yang Anda inginkan (contoh: ${isResearchQuestions ? `*"ubah menjadi 2 pertanyaan lebih spesifik"*, *"perjelas variabel yang diteliti"*` : `*"ubah menjadi 2 paragraf"*, *"buat lebih ringkas"*, atau *"pertegas kontribusinya"*`}). Saya akan langsung mengeksekusi teks hasilnya sesuai arahan Anda...`,
+        content: `Halo! Saya Asisten Revisi Ilmiah Modellyng. Anda sedang meninjau komponen **${componentLabel}**.\n\nFormulasi aktif saat ini adalah:\n${isResearchQuestions ? formattedCurrentText : `> "${currentText}"`}\n\nSilakan berikan instruksi perbaikan yang Anda inginkan (contoh: ${exampleHints}). Saya akan langsung mengeksekusi teks hasilnya sesuai arahan Anda...`,
       }
       setMessages([initialGreeting])
     }

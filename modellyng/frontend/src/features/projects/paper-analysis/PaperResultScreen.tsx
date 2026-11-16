@@ -20,6 +20,8 @@ import { EvidencePanel } from "@/features/projects/paper-analysis/EvidencePanel"
 import { ComponentAiRevisionModal } from "./ComponentAiRevisionModal"
 import { DoiVerificationDrawer } from "./DoiVerificationDrawer"
 import { ResearchQuestionsCardContent } from "./components/ResearchQuestionsCardContent"
+import { FutureWorkCardContent } from "./components/FutureWorkCardContent"
+import type { PaperAnalysisContext } from "./utils/futureWorkAugmentor"
 import {
   ArrowLeft,
   Sparkles,
@@ -177,6 +179,23 @@ export default function PaperResultScreen() {
 
     return groups
   }, [components])
+
+  // Contextual synthesis inputs for domain-aware components (e.g. Future Work augmentor)
+  const paperContext: PaperAnalysisContext = useMemo(() => {
+    const getCompText = (keys: string[]) => {
+      const found = components.find((c) => keys.includes(c.parameter_key))
+      return found?.value?.text || ""
+    }
+    return {
+      title: paper?.title || "",
+      problem: getCompText(["research_problem", "problem_statement"]),
+      methodology: getCompText(["methodology", "metodologi"]),
+      limitations: getCompText(["limitations", "keterbatasan_riset"]),
+      dataset: getCompText(["dataset_sample", "sample_data"]),
+      findings: getCompText(["results_findings", "temuan_utama"]),
+      variables: getCompText(["variables_concepts", "variables"]),
+    }
+  }, [components, paper?.title])
 
   // Scroll to Evidence block in PdfViewer
   const scrollToEvidence = (comp: ExtractedComponent, ev: EvidenceItem) => {
@@ -431,6 +450,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
                     openRevisionModal={(c) => setEditingComponent(c)}
@@ -457,6 +477,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
                     openRevisionModal={(c) => setEditingComponent(c)}
@@ -483,6 +504,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
                     openRevisionModal={(c) => setEditingComponent(c)}
@@ -621,6 +643,7 @@ function getParameterIcon(key: string) {
  */
 interface ComponentCardProps {
   comp: ExtractedComponent
+  paperContext?: PaperAnalysisContext
   activeEvidence: EvidenceItem | null
   scrollToEvidence: (comp: ExtractedComponent, blockId?: string) => void
   openRevisionModal: (comp: ExtractedComponent) => void
@@ -629,6 +652,7 @@ interface ComponentCardProps {
 
 function ComponentCard({
   comp,
+  paperContext,
   activeEvidence,
   scrollToEvidence,
   openRevisionModal,
@@ -643,6 +667,12 @@ function ComponentCard({
     comp.parameter_key === "research_questions" ||
     comp.sort_order === 3 ||
     Boolean(comp.label?.id && /pertanyaan penelitian/i.test(comp.label.id))
+
+  const isFutureWork =
+    comp.parameter_key === "future_work" ||
+    comp.parameter_key === "rekomendasi_lanjutan" ||
+    comp.sort_order === 13 ||
+    Boolean(comp.label?.id && /peluang riset|riset mendatang|future work/i.test(comp.label.id))
 
   const title = comp.label.id || comp.parameter_key
   const primaryEvidence = comp.evidence && comp.evidence.length > 0 ? comp.evidence[0] : null
@@ -711,6 +741,11 @@ function ComponentCard({
       <CardContent className="px-5 pt-0 pb-3">
         {isResearchQuestions ? (
           <ResearchQuestionsCardContent text={comp.value?.text} />
+        ) : isFutureWork ? (
+          <FutureWorkCardContent
+            text={comp.value?.text}
+            paperContext={paperContext}
+          />
         ) : (
           <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-normal">
             {comp.value?.text || "Informasi tidak ditemukan dalam dokumen paper ini."}
