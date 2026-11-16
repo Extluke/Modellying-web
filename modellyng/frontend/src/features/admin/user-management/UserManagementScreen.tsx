@@ -17,7 +17,9 @@ import {
   ExternalLink,
   MessageSquare,
   ArrowLeft,
-  Check
+  Check,
+  Star,
+  RefreshCw
 } from "lucide-react"
 import { adminApi, AdminUserItem, AdminBugReportItem } from "../api/adminApi"
 import { DUMMY_USERS, DUMMY_BUG_REPORTS } from "../data/dummyAdminData"
@@ -80,11 +82,12 @@ export default function UserManagementScreen() {
   const [targetStatus, setTargetStatus] = useState<"active" | "suspended" | "deactivated">("suspended")
   const [suspensionReason, setSuspensionReason] = useState("")
 
-  // Email Inbox Bug states
+  // Email Inbox Bug states (Gmail Style)
   const [selectedBugId, setSelectedBugId] = useState<string | null>(null)
   const [inlineStatus, setInlineStatus] = useState<string>("investigating")
   const [inlineNotes, setInlineNotes] = useState<string>("")
-  const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
+  const [starredBugIds, setStarredBugIds] = useState<string[]>(["bug-01", "bug-05"])
+  const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([])
 
   // Optional background fetch from API
   const { data: apiUserData } = useQuery({
@@ -114,11 +117,16 @@ export default function UserManagementScreen() {
     })
   }, [apiUserData, usersList, search, roleFilter, statusFilter])
 
-  // Filtered bug reports list based on state & search
+  // Filtered bug reports list based on state, search & stars
   const filteredBugs = useMemo(() => {
     const source = (apiBugData && apiBugData.length > 0) ? apiBugData : bugReportsList
     return source.filter((b) => {
-      const matchStatus = !bugStatusFilter || b.status === bugStatusFilter
+      let matchStatus = true
+      if (bugStatusFilter === "starred") {
+        matchStatus = starredBugIds.includes(b.id)
+      } else if (bugStatusFilter) {
+        matchStatus = b.status === bugStatusFilter
+      }
       const term = bugSearch.toLowerCase()
       const matchSearch = !term ||
         b.title.toLowerCase().includes(term) ||
@@ -127,15 +135,56 @@ export default function UserManagementScreen() {
         (b.user_email && b.user_email.toLowerCase().includes(term))
       return matchStatus && matchSearch
     })
-  }, [apiBugData, bugReportsList, bugStatusFilter, bugSearch])
+  }, [apiBugData, bugReportsList, bugStatusFilter, bugSearch, starredBugIds])
 
   const activeBug = useMemo(() => {
-    if (selectedBugId) {
-      const found = filteredBugs.find((b) => b.id === selectedBugId)
-      if (found) return found
+    if (!selectedBugId) return null
+    const source = (apiBugData && apiBugData.length > 0) ? apiBugData : bugReportsList
+    return source.find((b) => b.id === selectedBugId) || null
+  }, [selectedBugId, apiBugData, bugReportsList])
+
+  const toggleStar = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setStarredBugIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedCheckboxes.length === filteredBugs.length) {
+      setSelectedCheckboxes([])
+    } else {
+      setSelectedCheckboxes(filteredBugs.map((b) => b.id))
     }
-    return filteredBugs[0] || null
-  }, [filteredBugs, selectedBugId])
+  }
+
+  const toggleSelectRow = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setSelectedCheckboxes((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleBulkStatusChange = (newStatus: AdminBugReportItem["status"]) => {
+    if (selectedCheckboxes.length === 0) return
+    setBugReportsList((prev) =>
+      prev.map((b) =>
+        selectedCheckboxes.includes(b.id)
+          ? {
+              ...b,
+              status: newStatus,
+              resolved_at: newStatus === "resolved" ? new Date().toISOString() : b.resolved_at,
+            }
+          : b
+      )
+    )
+    const statusLabel = 
+      newStatus === "resolved" ? "Terselesaikan" : 
+      newStatus === "investigating" ? "Sedang Diinvestigasi" : 
+      newStatus === "closed" ? "Ditutup" : "Open"
+    toast.success(`${selectedCheckboxes.length} tiket terpilih berhasil diubah statusnya menjadi '${statusLabel}'.`)
+    setSelectedCheckboxes([])
+  }
 
   useEffect(() => {
     if (activeBug) {
@@ -466,353 +515,428 @@ export default function UserManagementScreen() {
         </div>
       )}
 
-      {/* TAB 2: BUG REPORTS & TICKETS - EMAIL INBOX INTERFACE */}
+      {/* TAB 2: BUG REPORTS & TICKETS - GMAIL STYLE INBOX */}
       {activeTab === "bugs" && (
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="space-y-4">
+          {/* Header Summary */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <p className="text-xs text-muted-foreground">
-                Kotak Masuk Tiket & Laporan Kendala Sistem dari Peneliti (Tampilan Pesan Email)
+                Kotak Masuk Laporan Kendala & Tiket Pengguna (Tampilan Format Email Resmi)
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[11px] gap-1.5 px-2.5 py-1 bg-primary/5 text-primary border-primary/20">
                 <Inbox className="size-3.5" />
-                <span>{filteredBugs.length} Tiket Masuk</span>
+                <span>{filteredBugs.length} Tiket di Kotak Masuk</span>
               </Badge>
             </div>
           </div>
 
-          {/* Email Client Shell */}
-          <div className="rounded-2xl border bg-card shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[640px] max-h-[780px]">
-            {/* LEFT PANE: INBOX LIST */}
-            <div className={`w-full md:w-80 lg:w-[380px] shrink-0 border-r flex flex-col bg-card/60 ${mobileDetailOpen ? "hidden md:flex" : "flex"}`}>
-              {/* Search & Filter Header */}
-              <div className="p-3 border-b space-y-2.5 bg-muted/20">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                  <Input
-                    value={bugSearch}
-                    onChange={(e) => setBugSearch(e.target.value)}
-                    placeholder="Cari subjek, pesan, pelapor..."
-                    className="h-8 pl-8 text-xs bg-background"
-                  />
-                  {bugSearch && (
-                    <button
-                      onClick={() => setBugSearch("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          {/* VIEW MODE 1: GMAIL INBOX LIST (When no bug is selected) */}
+          {!activeBug ? (
+            <div className="rounded-2xl border bg-card shadow-sm overflow-hidden flex flex-col">
+              {/* Gmail Top Toolbar */}
+              <div className="p-3 border-b bg-muted/20 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                {/* Left actions & Checkboxes */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2 pl-1 pr-2 border-r">
+                    <input
+                      type="checkbox"
+                      checked={filteredBugs.length > 0 && selectedCheckboxes.length === filteredBugs.length}
+                      onChange={toggleSelectAll}
+                      title="Pilih Semua Tiket"
+                      className="size-4 rounded border-muted-foreground/30 text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        toast.info("Menyegarkan kotak masuk...")
+                      }}
+                      className="size-7 text-muted-foreground hover:text-foreground"
+                      title="Segarkan Kotak Masuk"
                     >
-                      <X className="size-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Filter Pills */}
-                <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] no-scrollbar">
-                  {[
-                    { id: "", label: "Semua" },
-                    { id: "open", label: "Open" },
-                    { id: "investigating", label: "Ditinjau" },
-                    { id: "resolved", label: "Selesai" },
-                  ].map((filter) => (
-                    <button
-                      key={filter.id}
-                      onClick={() => setBugStatusFilter(filter.id)}
-                      className={`px-2.5 py-1 rounded-md shrink-0 transition-colors font-medium ${
-                        bugStatusFilter === filter.id
-                          ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                          : "bg-secondary/70 text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Scrollable Email List */}
-              <div className="flex-1 overflow-y-auto divide-y divide-border/60">
-                {filteredBugs.length === 0 ? (
-                  <div className="p-8 text-center space-y-2">
-                    <Inbox className="size-8 text-muted-foreground/40 mx-auto" />
-                    <p className="text-xs text-muted-foreground">Tidak ada pesan tiket yang cocok</p>
+                      <RefreshCw className="size-3.5" />
+                    </Button>
                   </div>
-                ) : (
-                  filteredBugs.map((bug) => {
-                    const isSelected = activeBug?.id === bug.id
-                    return (
-                      <button
-                        key={bug.id}
-                        onClick={() => {
-                          setSelectedBugId(bug.id)
-                          setMobileDetailOpen(true)
-                        }}
-                        className={`w-full text-left p-3.5 transition-all flex gap-3 relative ${
-                          isSelected
-                            ? "bg-primary/5 dark:bg-primary/10 border-l-4 border-l-primary"
-                            : "hover:bg-muted/40 border-l-4 border-l-transparent"
-                        }`}
-                      >
-                        {/* Avatar Initials */}
-                        <div className={`size-8 rounded-full shrink-0 flex items-center justify-center font-bold text-[11px] ${
-                          bug.severity === "critical"
-                            ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                            : bug.severity === "high"
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                            : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                        }`}>
-                          {getInitials(bug.user_name || bug.user_email)}
-                        </div>
 
-                        {/* Thread Preview */}
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className={`text-xs truncate ${isSelected || bug.status === "open" ? "font-bold text-foreground" : "font-medium text-foreground/80"}`}>
-                              {bug.user_name || bug.user_email || "Peneliti"}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              {new Date(bug.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
-                            </span>
-                          </div>
-
-                          <p className={`text-xs truncate ${isSelected ? "font-semibold text-primary" : "font-medium text-foreground/90"}`}>
-                            {bug.title}
-                          </p>
-
-                          <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
-                            {bug.description}
-                          </p>
-
-                          <div className="flex items-center gap-1.5 pt-1">
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider border ${getSeverityBadge(bug.severity)}`}>
-                              {bug.severity}
-                            </span>
-                            <Badge variant="outline" className={`text-[9px] py-0 px-1.5 ${getStatusBadge(bug.status)}`}>
-                              {bug.status}
-                            </Badge>
-                            {bug.admin_notes && (
-                              <span className="ml-auto flex items-center gap-0.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                                <CheckCircle2 className="size-3" />
-                                <span>Dibalas</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* RIGHT PANE: READING & ACTION PANE */}
-            <div className={`flex-1 flex flex-col bg-background/50 overflow-hidden ${!mobileDetailOpen ? "hidden md:flex" : "flex"}`}>
-              {activeBug ? (
-                <div className="flex-1 flex flex-col h-full overflow-hidden">
-                  {/* Top Email Toolbar */}
-                  <div className="px-5 py-3 border-b bg-muted/20 flex items-center justify-between gap-2 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setMobileDetailOpen(false)}
-                        className="md:hidden h-8 px-2 text-xs gap-1"
-                      >
-                        <ArrowLeft className="size-3.5" />
-                        <span>Kembali</span>
-                      </Button>
-                      <span className="text-xs font-mono text-muted-foreground">
-                        Tiket #{activeBug.id}
+                  {selectedCheckboxes.length > 0 ? (
+                    <div className="flex items-center gap-2 animate-in fade-in">
+                      <span className="text-xs font-semibold text-primary">
+                        {selectedCheckboxes.length} dipilih
                       </span>
-                    </div>
-
-                    {/* Quick status actions */}
-                    <div className="flex items-center gap-1.5">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleQuickStatusChange("investigating")}
-                        disabled={activeBug.status === "investigating"}
+                        onClick={() => handleBulkStatusChange("investigating")}
                         className="h-7 text-[11px] px-2.5"
                       >
                         Tandai Investigasi
                       </Button>
                       <Button
-                        variant={activeBug.status === "resolved" ? "secondary" : "default"}
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleQuickStatusChange("resolved")}
-                        disabled={activeBug.status === "resolved"}
-                        className="h-7 text-[11px] px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => handleBulkStatusChange("resolved")}
+                        className="h-7 text-[11px] px-2.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                       >
                         <Check className="size-3 mr-1" />
                         Tandai Selesai
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkStatusChange("closed")}
+                        className="h-7 text-[11px] px-2 text-muted-foreground"
+                      >
+                        Tutup Tiket
+                      </Button>
                     </div>
+                  ) : (
+                    /* Filter Tabs like Gmail categories */
+                    <div className="flex items-center gap-1 overflow-x-auto text-[11px] no-scrollbar">
+                      {[
+                        { id: "", label: "Semua Pesan" },
+                        { id: "open", label: "Open (Belum Ditangani)" },
+                        { id: "investigating", label: "Sedang Diinvestigasi" },
+                        { id: "resolved", label: "Selesai" },
+                        { id: "starred", label: "⭐ Berbintang" },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setBugStatusFilter(tab.id)}
+                          className={`px-3 py-1 rounded-md transition-colors font-medium shrink-0 ${
+                            bugStatusFilter === tab.id
+                              ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
+                              : "bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right search input */}
+                <div className="flex items-center gap-2 self-end lg:self-auto">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                    <Input
+                      value={bugSearch}
+                      onChange={(e) => setBugSearch(e.target.value)}
+                      placeholder="Telusuri laporan bug..."
+                      className="h-8 pl-8 pr-7 text-xs w-48 sm:w-64 bg-background"
+                    />
+                    {bugSearch && (
+                      <button
+                        onClick={() => setBugSearch("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
                   </div>
+                  <span className="text-[11px] text-muted-foreground shrink-0 pl-1">
+                    1-{filteredBugs.length} dari {filteredBugs.length}
+                  </span>
+                </div>
+              </div>
 
-                  {/* Email Body Scroll Area */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {/* Subject */}
-                    <div className="space-y-3 pb-4 border-b">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getSeverityBadge(activeBug.severity)}`}>
-                          Tingkat: {activeBug.severity}
-                        </span>
-                        <Badge variant="outline" className={`text-[10px] ${getStatusBadge(activeBug.status)}`}>
-                          Status: {activeBug.status}
-                        </Badge>
-                      </div>
-                      <h2 className="text-base sm:text-lg font-bold text-foreground leading-snug">
-                        {activeBug.title}
-                      </h2>
-                    </div>
+              {/* Gmail Inbox Rows List */}
+              <div className="divide-y divide-border/60 overflow-x-auto min-h-[420px]">
+                {filteredBugs.length === 0 ? (
+                  <div className="py-16 text-center space-y-2">
+                    <Inbox className="size-10 text-muted-foreground/40 mx-auto" />
+                    <p className="text-xs text-muted-foreground font-medium">
+                      Kotak masuk kosong atau tidak ada tiket yang cocok dengan pencarian Anda.
+                    </p>
+                  </div>
+                ) : (
+                  filteredBugs.map((bug) => {
+                    const isChecked = selectedCheckboxes.includes(bug.id)
+                    const isStarred = starredBugIds.includes(bug.id)
+                    const isOpen = bug.status === "open"
 
-                    {/* Sender Info Card (Like an Email Header) */}
-                    <div className="flex items-start justify-between gap-4 p-4 rounded-xl bg-card border shadow-xs">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                          {getInitials(activeBug.user_name || activeBug.user_email)}
-                        </div>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-foreground">
-                              {activeBug.user_name || "Peneliti Modellyng"}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground font-mono">
-                              &lt;{activeBug.user_email || "no-email@modellying.ac.id"}&gt;
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                            <Clock className="size-3 text-muted-foreground" />
-                            <span>Dikirim: {new Date(activeBug.created_at).toLocaleString("id-ID", {
-                              weekday: "long",
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit"
-                            })} WIB</span>
-                          </p>
-                        </div>
-                      </div>
+                    return (
+                      <div
+                        key={bug.id}
+                        onClick={() => setSelectedBugId(bug.id)}
+                        className={`group flex items-center gap-3 px-4 py-3 text-xs transition-all cursor-pointer select-none ${
+                          isChecked
+                            ? "bg-primary/5 dark:bg-primary/10"
+                            : isOpen
+                            ? "bg-card font-medium hover:bg-muted/40"
+                            : "bg-muted/10 text-muted-foreground hover:bg-muted/30"
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            toggleSelectRow(e as any, bug.id)
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="size-4 rounded border-muted-foreground/30 text-primary focus:ring-primary cursor-pointer shrink-0"
+                        />
 
-                      {activeBug.page_url && (
-                        <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-primary font-mono bg-primary/10 px-2.5 py-1 rounded-md shrink-0">
-                          <ExternalLink className="size-3" />
-                          <span className="truncate max-w-[180px]">{activeBug.page_url}</span>
-                        </div>
-                      )}
-                    </div>
+                        {/* Star Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => toggleStar(e, bug.id)}
+                          className="p-0.5 text-muted-foreground/40 hover:text-amber-400 shrink-0 transition-colors"
+                          title={isStarred ? "Hapus Bintang" : "Tandai Berbintang"}
+                        >
+                          <Star className={`size-4 ${isStarred ? "fill-amber-400 text-amber-400" : ""}`} />
+                        </button>
 
-                    {/* Email Message Content */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        <Mail className="size-3.5 text-primary" />
-                        <span>Isi Laporan Kendala dari Pengguna:</span>
-                      </div>
-                      <div className="rounded-xl border bg-card p-5 shadow-xs text-xs sm:text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed space-y-3 font-normal">
-                        <p>{activeBug.description}</p>
-
-                        {activeBug.page_url && (
-                          <div className="sm:hidden pt-2 border-t text-[11px] text-primary font-mono flex items-center gap-1">
-                            <ExternalLink className="size-3" />
-                            <span>Tautan: {activeBug.page_url}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Previous Admin Reply if exists */}
-                    {activeBug.admin_notes && (
-                      <div className="rounded-xl border border-emerald-300/40 bg-emerald-500/5 p-4 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                          <span className="flex items-center gap-1.5">
-                            <CheckCircle2 className="size-3.5 text-emerald-600" />
-                            <span>Catatan & Resolusi Terakhir Admin:</span>
+                        {/* Sender Name Column (Fixed width like Gmail) */}
+                        <div className="w-36 sm:w-44 md:w-52 shrink-0 truncate">
+                          <span className={`text-xs truncate ${isOpen ? "font-bold text-foreground" : "font-normal text-foreground/80"}`}>
+                            {bug.user_name || bug.user_email || "Peneliti"}
                           </span>
-                          {activeBug.resolved_at && (
-                            <span className="text-[10px] text-muted-foreground font-normal">
-                              {new Date(activeBug.resolved_at).toLocaleDateString("id-ID")}
+                        </div>
+
+                        {/* Subject & Snippet Inline (Exact Gmail Signature Layout!) */}
+                        <div className="flex-1 min-w-0 flex items-center gap-2 truncate">
+                          <span className={`truncate ${isOpen ? "font-bold text-foreground" : "font-semibold text-foreground/85"}`}>
+                            {bug.title}
+                          </span>
+                          <span className="text-muted-foreground/40 shrink-0">-</span>
+                          <span className="text-muted-foreground truncate hidden sm:inline">
+                            {bug.description}
+                          </span>
+                        </div>
+
+                        {/* Severity & Status Badges */}
+                        <div className="hidden lg:flex items-center gap-1.5 shrink-0">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${getSeverityBadge(bug.severity)}`}>
+                            {bug.severity}
+                          </span>
+                          <Badge variant="outline" className={`text-[9px] py-0 px-1.5 ${getStatusBadge(bug.status)}`}>
+                            {bug.status}
+                          </Badge>
+                          {bug.admin_notes && (
+                            <span title="Sudah ditindaklanjuti admin">
+                              <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-foreground/90 leading-relaxed italic bg-background/50 p-3 rounded-lg border">
-                          "{activeBug.admin_notes}"
-                        </p>
+
+                        {/* Date Column (Right-aligned like Gmail) */}
+                        <div className="w-16 sm:w-20 text-right shrink-0 text-[11px] text-muted-foreground font-medium">
+                          <span className={isOpen ? "font-bold text-foreground" : ""}>
+                            {new Date(bug.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          ) : (
+            /* VIEW MODE 2: GMAIL EMAIL DETAIL VIEW (When a bug is opened) */
+            <div className="rounded-2xl border bg-card shadow-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+              {/* Email Detail Top Toolbar */}
+              <div className="p-3 border-b bg-muted/20 flex items-center justify-between gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedBugId(null)}
+                  className="h-8 gap-2 text-xs font-semibold text-primary hover:text-primary hover:bg-primary/10"
+                >
+                  <ArrowLeft className="size-4" />
+                  <span>Kembali ke Kotak Masuk</span>
+                </Button>
+
+                {/* Quick actions on the email */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-muted-foreground mr-1 hidden sm:inline">
+                    Tiket #{activeBug.id}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleQuickStatusChange("investigating")}
+                    disabled={activeBug.status === "investigating"}
+                    className="h-7 text-[11px] px-2.5"
+                  >
+                    Tandai Investigasi
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => handleQuickStatusChange("resolved")}
+                    disabled={activeBug.status === "resolved"}
+                    className="h-7 text-[11px] px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Check className="size-3 mr-1" />
+                    Tandai Selesai
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleQuickStatusChange("closed")}
+                    disabled={activeBug.status === "closed"}
+                    className="h-7 text-[11px] px-2 text-muted-foreground"
+                  >
+                    Tutup
+                  </Button>
+                </div>
+              </div>
+
+              {/* Email Content Area */}
+              <div className="p-6 space-y-6 max-w-5xl">
+                {/* Subject Header */}
+                <div className="space-y-3 pb-4 border-b">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getSeverityBadge(activeBug.severity)}`}>
+                      Urgensi: {activeBug.severity}
+                    </span>
+                    <Badge variant="outline" className={`text-[10px] ${getStatusBadge(activeBug.status)}`}>
+                      Status: {activeBug.status}
+                    </Badge>
+                  </div>
+                  <h1 className="text-lg sm:text-xl font-bold text-foreground leading-snug">
+                    {activeBug.title}
+                  </h1>
+                </div>
+
+                {/* Sender Card (Gmail Email Header Layout) */}
+                <div className="flex items-start justify-between gap-4 p-4 rounded-xl bg-muted/20 border">
+                  <div className="flex items-center gap-3">
+                    <div className="size-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                      {getInitials(activeBug.user_name || activeBug.user_email)}
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-foreground">
+                          {activeBug.user_name || "Peneliti Modellyng"}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          &lt;{activeBug.user_email || "no-email@modellying.ac.id"}&gt;
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                        <Clock className="size-3 text-muted-foreground" />
+                        <span>Dikirim: {new Date(activeBug.created_at).toLocaleString("id-ID", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })} WIB</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {activeBug.page_url && (
+                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-primary font-mono bg-primary/10 px-3 py-1.5 rounded-lg shrink-0">
+                      <ExternalLink className="size-3.5" />
+                      <span className="truncate max-w-[220px]">Lokasi: {activeBug.page_url}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Email Body Content */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <Mail className="size-3.5 text-primary" />
+                    <span>Pesan Detail Kendala yang Dilaporkan:</span>
+                  </div>
+                  <div className="rounded-xl border bg-card p-6 shadow-2xs text-xs sm:text-sm text-foreground/95 whitespace-pre-wrap leading-relaxed space-y-3 font-normal">
+                    <p>{activeBug.description}</p>
+
+                    {activeBug.page_url && (
+                      <div className="sm:hidden pt-3 border-t text-xs text-primary font-mono flex items-center gap-1.5">
+                        <ExternalLink className="size-3.5" />
+                        <span>Lokasi berkas: {activeBug.page_url}</span>
                       </div>
                     )}
+                  </div>
+                </div>
 
-                    {/* Inline Reply / Resolution Action Form */}
-                    <div className="rounded-xl border bg-card p-5 space-y-3 shadow-xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                          <MessageSquare className="size-3.5 text-primary" />
-                          <span>Tulis Balasan / Tindak Lanjut Resolusi</span>
-                        </div>
-                        <span className="text-[11px] text-muted-foreground">Admin Desk</span>
+                {/* Previous Admin Note / Response */}
+                {activeBug.admin_notes && (
+                  <div className="rounded-xl border border-emerald-300/40 bg-emerald-500/5 p-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="size-3.5 text-emerald-600" />
+                        <span>Tanggapan / Catatan Resolusi Terakhir Admin:</span>
+                      </span>
+                      {activeBug.resolved_at && (
+                        <span className="text-[10px] text-muted-foreground font-normal">
+                          Diselesaikan pada {new Date(activeBug.resolved_at).toLocaleDateString("id-ID")}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-foreground/90 leading-relaxed italic bg-background/60 p-3 rounded-lg border">
+                      "{activeBug.admin_notes}"
+                    </p>
+                  </div>
+                )}
+
+                {/* Reply & Follow-Up Box */}
+                <div className="rounded-xl border bg-card p-5 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <MessageSquare className="size-3.5 text-primary" />
+                      <span>Kirim Balasan & Tindak Lanjut Resolusi</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">Admin Desk</span>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="w-full sm:w-60 space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">
+                          Ubah Status Tiket:
+                        </label>
+                        <select
+                          value={inlineStatus}
+                          onChange={(e) => setInlineStatus(e.target.value)}
+                          className="w-full text-xs rounded-md border bg-background p-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="open">Open (Belum Selesai)</option>
+                          <option value="investigating">Sedang Diinvestigasi Tim</option>
+                          <option value="resolved">Selesai / Diperbaiki (Resolved)</option>
+                          <option value="closed">Ditutup (Closed)</option>
+                        </select>
                       </div>
+                    </div>
 
-                      <div className="space-y-3 pt-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                          <div className="w-full sm:w-60 space-y-1">
-                            <label className="text-[11px] font-medium text-muted-foreground">
-                              Ubah Status Tiket:
-                            </label>
-                            <select
-                              value={inlineStatus}
-                              onChange={(e) => setInlineStatus(e.target.value)}
-                              className="w-full text-xs rounded-md border bg-background p-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                            >
-                              <option value="open">Open (Menunggu Tindakan)</option>
-                              <option value="investigating">Sedang Diinvestigasi Tim</option>
-                              <option value="resolved">Selesai / Diperbaiki (Resolved)</option>
-                              <option value="closed">Ditutup (Closed)</option>
-                            </select>
-                          </div>
-                        </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-muted-foreground">
+                        Pesan Balasan / Solusi Teknis untuk Pengguna:
+                      </label>
+                      <textarea
+                        value={inlineNotes}
+                        onChange={(e) => setInlineNotes(e.target.value)}
+                        placeholder="Contoh: Kendala gagal parsing tabel telah diperbaiki pada mesin ekstraksi v1.4. Dokumen Anda sudah siap dianalisis kembali..."
+                        rows={3}
+                        className="w-full rounded-md border bg-background p-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
+                      />
+                    </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-medium text-muted-foreground">
-                            Pesan Balasan / Solusi Teknis untuk Pengguna:
-                          </label>
-                          <textarea
-                            value={inlineNotes}
-                            onChange={(e) => setInlineNotes(e.target.value)}
-                            placeholder="Contoh: Kendala gagal parsing tabel telah diperbaiki pada mesin ekstraksi v1.4. Dokumen Anda sudah siap dianalisis kembali..."
-                            rows={3}
-                            className="w-full rounded-md border bg-background p-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-end pt-1">
-                          <Button
-                            size="sm"
-                            onClick={handleApplyInlineResolution}
-                            className="text-xs gap-1.5 px-4"
-                          >
-                            <Send className="size-3.5" />
-                            <span>Kirim Balasan & Simpan Resolusi</span>
-                          </Button>
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-end pt-1">
+                      <Button
+                        size="sm"
+                        onClick={handleApplyInlineResolution}
+                        className="text-xs gap-1.5 px-4"
+                      >
+                        <Send className="size-3.5" />
+                        <span>Kirim Balasan & Simpan Resolusi</span>
+                      </Button>
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
-                  <div className="size-14 rounded-2xl bg-muted/50 border flex items-center justify-center text-muted-foreground">
-                    <Mail className="size-7" />
-                  </div>
-                  <div className="space-y-1 max-w-sm">
-                    <h3 className="text-sm font-semibold text-foreground">Pilih Laporan Kendala</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Pilih salah satu pesan tiket pada panel sebelah kiri untuk membaca detail laporan bug dan menulis balasan resolusi kepada pengguna.
-                    </p>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
