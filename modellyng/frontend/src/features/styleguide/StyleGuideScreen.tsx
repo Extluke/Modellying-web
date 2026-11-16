@@ -27,17 +27,19 @@ import {
   SquareCheck,
   Send,
   CreditCard,
+  Bug,
 } from "lucide-react"
 import { PricingSection } from "./components/PricingSection"
 import { UpgradeLimitSection } from "./components/UpgradeLimitSection"
+import { BugReportSection } from "./components/BugReportSection"
 
-type StyleGuideTab = "pricing" | "colors" | "typography" | "buttons" | "badges" | "cards" | "inputs"
+type StyleGuideTab = "pricing" | "bug_report" | "colors" | "typography" | "buttons" | "badges" | "cards" | "inputs"
 
 export default function StyleGuideScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get("tab") as StyleGuideTab | null
   const [activeTab, setActiveTab] = useState<StyleGuideTab>(
-    tabParam && ["pricing", "colors", "typography", "buttons", "badges", "cards", "inputs"].includes(tabParam)
+    tabParam && ["pricing", "bug_report", "colors", "typography", "buttons", "badges", "cards", "inputs"].includes(tabParam)
       ? tabParam
       : "pricing"
   )
@@ -65,6 +67,7 @@ export default function StyleGuideScreen() {
         <div className="flex flex-wrap gap-2 pt-4">
           {[
             { id: "pricing", label: "Pricing Akun (Free & Student Pro)", icon: CreditCard },
+            { id: "bug_report", label: "Form Laporan Bug", icon: Bug },
             { id: "colors", label: "Palet Warna", icon: Palette },
             { id: "typography", label: "Skala Tipografi", icon: Type },
             { id: "buttons", label: "Tombol (Button)", icon: MousePointerClick },
@@ -74,6 +77,7 @@ export default function StyleGuideScreen() {
           ].map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
+            const isSpecial = tab.id === "pricing" || tab.id === "bug_report"
             return (
               <Button
                 key={tab.id}
@@ -81,14 +85,14 @@ export default function StyleGuideScreen() {
                 size="sm"
                 onClick={() => handleTabChange(tab.id as StyleGuideTab)}
                 className={`gap-1.5 transition-all ${
-                  tab.id === "pricing" && !isActive
+                  isSpecial && !isActive
                     ? "border-primary/40 text-primary hover:bg-primary/5"
                     : ""
                 }`}
               >
                 <Icon className="size-3.5" />
                 <span>{tab.label}</span>
-                {tab.id === "pricing" && (
+                {isSpecial && (
                   <span className="rounded-full bg-primary/20 text-primary text-[9px] font-bold px-1.5 py-0.2">
                     Baru
                   </span>
@@ -104,6 +108,13 @@ export default function StyleGuideScreen() {
         <div className="space-y-16">
           <PricingSection />
           <UpgradeLimitSection />
+        </div>
+      )}
+
+      {/* 0B. FORMULIR LAPORAN BUG & KENDALA SISTEM */}
+      {activeTab === "bug_report" && (
+        <div className="space-y-16">
+          <BugReportSection />
         </div>
       )}
 

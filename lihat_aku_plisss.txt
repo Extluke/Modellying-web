@@ -33,6 +33,7 @@ Modellying-web/
 │   │   │   ├── database.py           # Connection pool PostgreSQL
 │   │   │   └── main.py               # Titik masuk FastAPI & registrasi router
 │   │   ├── database/                 # Skema & skrip migrasi SQL PostgreSQL
+│   │   │   └── migrations/           # Riwayat migrasi DDL/DML (001 s.d. 009_student_subscription_and_quota.sql)
 │   │   ├── docker/                   # Konfigurasi Docker Compose stack terisolasi
 │   │   │   ├── docker-compose.yml    # Layanan DB, Redis, Meta, Studio, & Mailpit
 │   │   │   └── .env.example          # Contoh variabel environment Docker
@@ -195,8 +196,14 @@ src/features/
 │   │       └── ClearHistoryConfirmModal.tsx  # Dialog konfirmasi pembersihan riwayat lokal dengan toast 5 detik
 │   ├── notifications/                # /notifications (Pusat notifikasi status tugas)
 │   ├── settings/                     # /settings (Profil, preferensi sitasi, status paket, kartu rincian batas penggunaan / usage limit, & tautan pricing)
-│   └── pricing/                      # /settings/pricing (Katalog Paket Berlangganan Mahasiswa: Free, Pro 14 Hari, Pro 30 Hari)
-│       └── PricingScreen.tsx         # Layar pilihan paket, perbandingan matriks fitur, simulasi pemilihan, & FAQ
+│   ├── pricing/                      # /settings/pricing (Katalog Paket Berlangganan Mahasiswa: Free, Pro 14 Hari, Pro 30 Hari)
+│   │   └── PricingScreen.tsx         # Layar pilihan paket, perbandingan matriks fitur, simulasi pemilihan, & FAQ
+│   └── styleguide/                   # /styleguide (Single Source of Truth Design System & Prototipe Komponen)
+│       ├── StyleGuideScreen.tsx      # Hub Style Guide: token warna, tipografi, button, badge, input, card, pricing, & form bug
+│       └── components/
+│           ├── PricingSection.tsx     # Prototipe kartu pricing akun Free & Student Pro
+│           ├── UpgradeLimitSection.tsx# Template modal upgrade & batas limit kuota
+│           └── BugReportSection.tsx   # Formulir laporan kendala teknis & bug sistem (embedded, modal, tracker)
 │
 └── admin/                            # Panel Manajemen Sistem & Tata Kelola (Fatih)
     ├── api/                          # adminApi.ts (Layanan API Client TanStack Query 6 tugas admin)
@@ -549,6 +556,11 @@ DETAIL FITUR & INTEGRASI SISTEM
   * `public.extracted_components`: Hasil ekstraksi 11 parameter dalam format JSONB dinamis.
   * `public.paper_blocks`: Koordinat bounding box dan segmen teks per halaman untuk highlighter bukti PDF.
   * `public.password_reset_tokens`: Pengelolaan token unik pemulihan kata sandi dengan masa kedaluwarsa 1 jam.
+  * `public.subscription_plans`: Katalog paket langganan mahasiswa (`free`, `student_14`, `student_30`) memuat harga IDR, durasi hari, limit berkas harian, limit token harian, dan fitur JSONB.
+  * `public.user_subscriptions`: Relasi langganan pengguna aktif, masa aktif, relasi invoice, dan total token terakumulasi.
+  * `public.user_daily_usage`: Buku kas kuota harian (*daily usage ledger*) berkonstrain unik `(user_id, usage_date)` untuk tracking konsumsi 3 file/hari (Free) dan 15 token/hari (Student Pro).
+  * `public.subscription_invoices`: Riwayat transaksi dan tagihan dengan nomor invoice unik, nominal IDR, metode pembayaran (QRIS/VA), dan status verifikasi.
+  * `public.v_user_active_subscription`: View analitik status paket aktif pengguna saat ini beserta perhitungan sisa hari dan batas kuota.
 
 2. FITUR RUANG KERJA PROYEK RISET & UNGGAH PDF
 --------------------------------------------------------------------------------
@@ -592,6 +604,10 @@ DETAIL FITUR & INTEGRASI SISTEM
 - Halaman Katalog Paket Mahasiswa Fokus (/settings/pricing):
   * Tampilan fokus bebas distraksi (tanpa Navbar dan Sidebar), dengan tombol navigasi kembali `← Kembali ke Pengaturan Akun`.
   * Menampilkan 3 kartu paket (Free Plan Rp0, Student Pro 14 Hari Rp29.000, Student Pro 30 Hari Rp49.000), tabel komparasi fitur, dan FAQ.
+- Komponen Formulir Laporan Bug & Kendala Sistem (/styleguide?tab=bug_report):
+  * Tersedia di Style Guide sebagai Single Source of Truth rancangan antarmuka pelaporan kendala teknis (`BugReportSection.tsx`).
+  * Mendukung 3 mode presentasi interaktif: Mode 1 Kartu Tersemat (*Embedded Card Form*), Mode 2 Dialog Modal Melayang (*Floating Trigger Pop-up*), dan Mode 3 Pelacak Riwayat Tiket (*Ticket Status Tracker*).
+  * Field lengkap selaras skema `public.bug_reports`: Judul kendala, seleksi halaman target (`page_url`), 4 level urgensi (*low, medium, high, critical*), deskripsi terinci, langkah reproduksi, dropzone unggah bukti tangkapan layar, serta pencatatan otomatis spesifikasi perangkat/browser untuk mempercepat debugging tim pengembang.
 - Navigasi Otomatis Sesi:
   Setelah login berhasil, pengguna selalu diarahkan langsung ke Dasbor Utama (`/dashboard`).
   Akses ke halaman terlindungi otomatis dialihkan ke `/login` jika sesi belum terautentikasi.
