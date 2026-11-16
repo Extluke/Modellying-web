@@ -18,6 +18,10 @@ import {
   useUpdateComponent,
 } from "../api/projectsApi"
 import { toast } from "@/lib/store/useToastStore"
+import {
+  parseResearchQuestions,
+  formatQuestionsAsNumberedText,
+} from "./utils/researchQuestionsFormatter"
 
 interface ChatTurn {
   id: string
@@ -74,14 +78,23 @@ export function ComponentAiRevisionModal({
       setIsWaitingDecision(false)
       setInputText("")
 
+      const isResearchQuestions =
+        component.parameter_key === "research_questions" ||
+        component.sort_order === 3 ||
+        Boolean(component.label?.id && /pertanyaan penelitian/i.test(component.label.id))
+
+      const formattedCurrentText = isResearchQuestions
+        ? formatQuestionsAsNumberedText(parseResearchQuestions(currentText))
+        : currentText
+
       const initialGreeting: ChatTurn = {
         id: `greeting-${Date.now()}`,
         role: "assistant",
-        content: `Halo! Saya Asisten Revisi Ilmiah Modellyng. Anda sedang meninjau komponen **${componentLabel}**.\n\nFormulasi aktif saat ini adalah:\n> "${currentText}"\n\nSilakan berikan instruksi perbaikan yang Anda inginkan (contoh: *"ubah menjadi 2 paragraf"*, *"buat lebih ringkas"*, atau *"pertegas kontribusinya"*). Saya akan langsung mengeksekusi teks hasilnya sesuai arahan Anda...`,
+        content: `Halo! Saya Asisten Revisi Ilmiah Modellyng. Anda sedang meninjau komponen **${componentLabel}**.\n\nFormulasi aktif saat ini adalah:\n${isResearchQuestions ? formattedCurrentText : `> "${currentText}"`}\n\nSilakan berikan instruksi perbaikan yang Anda inginkan (contoh: ${isResearchQuestions ? `*"ubah menjadi 2 pertanyaan lebih spesifik"*, *"perjelas variabel yang diteliti"*` : `*"ubah menjadi 2 paragraf"*, *"buat lebih ringkas"*, atau *"pertegas kontribusinya"*`}). Saya akan langsung mengeksekusi teks hasilnya sesuai arahan Anda...`,
       }
       setMessages([initialGreeting])
     }
-  }, [isOpen, component.parameter_key, currentText, componentLabel])
+  }, [isOpen, component.parameter_key, component.sort_order, component.label, currentText, componentLabel])
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -162,7 +175,16 @@ export function ComponentAiRevisionModal({
         },
       })
 
-      const newDraft = result.revised_text
+      const isResearchQuestions =
+        component.parameter_key === "research_questions" ||
+        component.sort_order === 3 ||
+        Boolean(component.label?.id && /pertanyaan penelitian/i.test(component.label.id))
+
+      const rawDraft = result.revised_text
+      const newDraft = isResearchQuestions
+        ? formatQuestionsAsNumberedText(parseResearchQuestions(rawDraft))
+        : rawDraft
+
       setActiveDraft(newDraft)
 
       // 3. Add Assistant Revised Draft Message

@@ -82,9 +82,14 @@ src/features/
 │   │   ├── PaperResultScreen.tsx     # /projects/:id/papers/:paperId (Panel 13 parameter dalam 3 tab: Konteks, Metode, Hasil)
 │   │   ├── DoiVerificationDrawer.tsx # Drawer Cek Keabsahan Sumber (DOI) meluncur dari sebelah kiri layar (Crossref & DataCite)
 │   │   ├── ComponentAiRevisionModal.tsx # Modal interaktif asisten AI pembantu revisi formulasi (draggable & guided loop)
+│   │   ├── components/               # Komponen spesifik analisis naskah
+│   │   │   └── ResearchQuestionsCardContent.tsx # Format kartu Pertanyaan Penelitian (multi-line, numbered list rapi)
+│   │   ├── utils/                    # Utilitas analisis & parsing naskah
+│   │   │   └── researchQuestionsFormatter.ts # Pemrosesan cerdas butir pertanyaan riset (preamble, questions, closing)
 │   │   ├── pdfMatcher.ts             # Mesin pencocokan kutipan bukti fleksibel multi-tier (Tier 1-4)
 │   │   ├── PdfViewer.tsx             # Mesin penampil PDF privat, zoom, lompat halaman, & cache 10 menit TanStack Query
-│   │   └── EvidencePanel.tsx         # Panel kutipan bukti terhubung ke koordinat PDF
+│   │   ├── EvidencePanel.tsx         # Panel kutipan bukti terhubung ke koordinat PDF
+│   │   └── EvidencePdfModal.tsx      # Modal penelaah bukti kutipan PDF kanonik
 │   ├── review/                       # Antrean Tinjauan Komponen
 │   │   ├── ReviewQueueScreen.tsx     # /projects/:id/review (Validasi hasil AI)
 │   │   └── ComponentRevisionModal.tsx# Modal perbaikan data ekstraksi
@@ -670,6 +675,11 @@ DETAIL FITUR & INTEGRASI SISTEM
     3. Hirarki Tipografi Bersih & Elegan: Judul parameter berukuran `text-base font-bold` diimbangi lencana status interaktif (Perlu Ditinjau / Disetujui / Diedit) serta lencana skor akurasi model dalam palet warna kontras yang harmonis.
     4. Kontainer Bukti Kaca Buram Tersemat (Embedded Evidence Container): Wadah kutipan beraksen lembut (`rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80`) yang menampilkan kutipan dokumen verbatim, nomor halaman kanonik, serta tombol aksi "Sorot di PDF ↗".
     5. Bilah Tombol Aksi Rata Kanan: Tombol "Revisi" beraksen outline dan tombol "Setujui" beraksen solid Indigo dengan ikon umpan balik visual instan.
+    6. Format Khusus Kartu Parameter #3 Pertanyaan Penelitian (`ResearchQuestionsCardContent.tsx` & `researchQuestionsFormatter.ts`):
+       - Pemformatan Teks Multi-line Otomatis: Mengonversi narasi satu baris/paragraf bersambung (seperti pola inline `(1)... (2)...`, `1)... 2)...`, `1.... 2....`, klausa interogatif majemuk `, dan seberapa...`, maupun tanda tanya ganda) menjadi butir-butir pertanyaan terpisah secara cerdas.
+       - Penomoran Urut Rapi (Numbered List): Tiap butir pertanyaan disajikan dalam format `1. xxx?`, `2. xxx?`, `3. xxx?` dengan indeks angka tebal beraksen Indigo Primary (`font-mono font-bold text-primary`) dan pemisah baris baru/enter.
+       - Spasi Vertikal Proporsional: Memanfaatkan `flex flex-col gap-2.5` untuk memberikan jeda baca yang proporsional dan nyaman di mata akademisi, memisahkan kalimat pengantar (preamble) dan kalimat penjelas (closing) secara rapi.
+       - Integrasi Modal Revisi AI: Draf revisi dari Asisten AI juga diformat secara otomatis menjadi butir pertanyaan bernomor bertingkat sebelum disetujui dan disimpan ke basis data.
   * Navigasi Tab Kontras Tinggi (High-Contrast Tabs):
     3 tab grup utama (`Konteks & Masalah`, `Metode & Data`, `Hasil & Gap`) disajikan dengan diferensiasi kontras tinggi yang tegas antara tab aktif (solid Indigo dengan teks putih tebal dan bayangan fokus) vs tab non-aktif (subdued muted).
   * Tampilan Split-Screen Interaktif (VS Code Resizable Split-Pane):

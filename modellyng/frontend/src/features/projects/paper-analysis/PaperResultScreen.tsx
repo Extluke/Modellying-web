@@ -19,6 +19,7 @@ import { PdfViewer } from "@/features/projects/paper-analysis/PdfViewer"
 import { EvidencePanel } from "@/features/projects/paper-analysis/EvidencePanel"
 import { ComponentAiRevisionModal } from "./ComponentAiRevisionModal"
 import { DoiVerificationDrawer } from "./DoiVerificationDrawer"
+import { ResearchQuestionsCardContent } from "./components/ResearchQuestionsCardContent"
 import {
   ArrowLeft,
   Sparkles,
@@ -638,6 +639,11 @@ function ComponentCard({
   const isAccepted = comp.status === "accepted"
   const isEdited = comp.status === "edited"
 
+  const isResearchQuestions =
+    comp.parameter_key === "research_questions" ||
+    comp.sort_order === 3 ||
+    Boolean(comp.label?.id && /pertanyaan penelitian/i.test(comp.label.id))
+
   const title = comp.label.id || comp.parameter_key
   const primaryEvidence = comp.evidence && comp.evidence.length > 0 ? comp.evidence[0] : null
   const evidenceQuote = primaryEvidence?.quote || ""
@@ -703,9 +709,13 @@ function ComponentCard({
 
       {/* BODY: Academic Indonesian Extracted Text */}
       <CardContent className="px-5 pt-0 pb-3">
-        <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-normal">
-          {comp.value?.text || "Informasi tidak ditemukan dalam dokumen paper ini."}
-        </p>
+        {isResearchQuestions ? (
+          <ResearchQuestionsCardContent text={comp.value?.text} />
+        ) : (
+          <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-normal">
+            {comp.value?.text || "Informasi tidak ditemukan dalam dokumen paper ini."}
+          </p>
+        )}
       </CardContent>
 
       {/* EVIDENCE: Blok Kutipan Kanonik Dokumen Asli */}
