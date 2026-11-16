@@ -86,6 +86,7 @@ class UserResponse(BaseModel):
     full_name: str
     email: str
     role: str = "researcher"
+    subscription_tier: Optional[str] = "free"
     created_at: str
 
 

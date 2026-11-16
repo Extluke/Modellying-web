@@ -27,6 +27,7 @@ class PostgresUserStorage:
     def _seed_default_users(self):
         defaults = [
             ("Cahayu UI Specialist", "cahayu@modellyng.ac.id", "Password123", "researcher"),
+            ("Lawren Researcher", "lawren@modellyng.ac.id", "Password123", "researcher"),
             ("Arby Tech Lead", "arby@modellyng.ac.id", "Password123", "researcher"),
             ("Faqih Core Developer", "faqih@modellyng.ac.id", "Password123", "researcher"),
             ("Fatih AI Specialist", "fatih@modellyng.ac.id", "Password123", "researcher"),
@@ -58,7 +59,7 @@ class PostgresUserStorage:
                 cur.execute("""
                     INSERT INTO public.users (email, password_hash, full_name, role)
                     VALUES (%s, %s, %s, %s)
-                    RETURNING id, full_name, email, role, created_at;
+                    RETURNING id, full_name, email, role, subscription_tier, created_at;
                 """, (email_clean, pwd_hash, full_name.strip(), role))
                 row = cur.fetchone()
                 return {
@@ -67,6 +68,7 @@ class PostgresUserStorage:
                     "email": row["email"],
                     "password_hash": pwd_hash,
                     "role": row["role"],
+                    "subscription_tier": row.get("subscription_tier") or "free",
                     "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else str(row["created_at"]),
                 }
 
@@ -75,7 +77,7 @@ class PostgresUserStorage:
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, full_name, email, password_hash, role, created_at
+                    SELECT id, full_name, email, password_hash, role, subscription_tier, created_at
                     FROM public.users
                     WHERE lower(email) = %s;
                 """, (email_clean,))
@@ -88,6 +90,7 @@ class PostgresUserStorage:
                     "email": row["email"],
                     "password_hash": row["password_hash"],
                     "role": row["role"],
+                    "subscription_tier": row.get("subscription_tier") or "free",
                     "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else str(row["created_at"]),
                 }
 
@@ -95,7 +98,7 @@ class PostgresUserStorage:
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, full_name, email, password_hash, role, created_at
+                    SELECT id, full_name, email, password_hash, role, subscription_tier, created_at
                     FROM public.users
                     WHERE id = %s;
                 """, (user_id,))
@@ -108,6 +111,7 @@ class PostgresUserStorage:
                     "email": row["email"],
                     "password_hash": row["password_hash"],
                     "role": row["role"],
+                    "subscription_tier": row.get("subscription_tier") or "free",
                     "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else str(row["created_at"]),
                 }
 

@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { Eye, EyeOff, AlertCircle, Loader2, CheckCircle2 } from "lucide-react"
+import { Eye, EyeOff, AlertCircle, Loader2, CheckCircle2, Crown } from "lucide-react"
 import { AuthLayout } from "./components/AuthLayout"
 import { Button } from "@/components/ui/button"
 import { ROUTES } from "@/app/routes"
@@ -81,13 +81,18 @@ export default function LoginScreen() {
     }
   }
 
-  // Quick fill demo credentials for reviewer convenience (Researcher or Admin)
-  const handleFillDemo = (type: "researcher" | "admin" = "researcher") => {
+  // Quick fill demo credentials for reviewer convenience (Admin, Pro, Free)
+  type DemoAccountType = "admin" | "cahayu_pro" | "lawren_free"
+
+  const handleFillDemo = (type: DemoAccountType) => {
     if (type === "admin") {
       setEmail("admin@modellyng.ac.id")
-      setPassword("Password123!")
-    } else {
+      setPassword("Password123")
+    } else if (type === "cahayu_pro") {
       setEmail("cahayu@modellyng.ac.id")
+      setPassword("Password123")
+    } else if (type === "lawren_free") {
+      setEmail("lawren@modellyng.ac.id")
       setPassword("Password123")
     }
     setErrors({})
@@ -125,48 +130,82 @@ export default function LoginScreen() {
           </div>
         )}
 
-        {/* Quick Demo Hint */}
-        <div className="mb-5 rounded-xl border border-indigo-200/90 bg-indigo-50/70 p-3 text-xs text-indigo-950 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-200 space-y-2">
+        {/* Quick Demo Hint with 3 Tier Accounts */}
+        <div className="mb-5 rounded-xl border border-indigo-200/90 bg-indigo-50/70 p-3 text-xs text-indigo-950 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-200 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-indigo-900 dark:text-indigo-300">
-              Akun Uji Coba:
+              Pilihan Akun Uji Coba:
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              Klik salah satu untuk isi otomatis
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleFillDemo("researcher")}
-              className="flex flex-col items-start rounded-lg border border-indigo-200/80 bg-background/90 p-2 text-left hover:border-primary hover:bg-primary/5 transition-all shadow-xs group"
-            >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[11px] font-bold text-foreground group-hover:text-primary transition-colors">
-                  Peneliti
-                </span>
-                <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                  Isi Otomatis
-                </span>
-              </div>
-              <span className="text-[10px] text-muted-foreground truncate w-full mt-0.5 font-mono">
-                cahayu@modellyng.ac.id
-              </span>
-            </button>
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {/* 1. Admin (Developer) */}
             <button
               type="button"
               onClick={() => handleFillDemo("admin")}
-              className="flex flex-col items-start rounded-lg border border-purple-200/80 bg-background/90 p-2 text-left hover:border-purple-600 hover:bg-purple-500/5 transition-all shadow-xs group"
+              className="flex flex-col items-start justify-between rounded-lg border border-purple-200/80 dark:border-purple-900/60 bg-background/95 p-2 text-left hover:border-purple-600 hover:bg-purple-500/5 transition-all shadow-2xs group cursor-pointer"
             >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[11px] font-bold text-foreground group-hover:text-purple-600 transition-colors">
-                  Administrator
+              <div className="flex items-center justify-between w-full gap-1 mb-1">
+                <span className="text-[11px] font-bold text-foreground group-hover:text-purple-600 transition-colors truncate">
+                  Admin
                 </span>
-                <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 dark:bg-purple-950/60 dark:text-purple-300 px-1.5 py-0.5 rounded">
-                  Isi Otomatis
+                <span className="text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/60 px-1.5 py-0.2 rounded-full border border-purple-300/40 shrink-0">
+                  Developer
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground truncate w-full mt-0.5 font-mono">
+              <span className="text-[10px] text-muted-foreground truncate w-full font-mono mb-1.5">
                 admin@modellyng.ac.id
+              </span>
+              <span className="text-[9px] font-semibold text-purple-600 dark:text-purple-400 group-hover:underline">
+                Isi Otomatis →
+              </span>
+            </button>
+
+            {/* 2. Cahayu (Student Pro 30) */}
+            <button
+              type="button"
+              onClick={() => handleFillDemo("cahayu_pro")}
+              className="flex flex-col items-start justify-between rounded-lg border border-indigo-200/80 dark:border-indigo-900/60 bg-background/95 p-2 text-left hover:border-primary hover:bg-primary/5 transition-all shadow-2xs group cursor-pointer"
+            >
+              <div className="flex items-center justify-between w-full gap-1 mb-1">
+                <span className="text-[11px] font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                  Cahayu
+                </span>
+                <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.2 rounded-full border border-primary/25 shrink-0 flex items-center gap-0.5">
+                  <Crown className="size-2.5 text-amber-500" />
+                  <span>Pro 30 Hari</span>
+                </span>
+              </div>
+              <span className="text-[10px] text-muted-foreground truncate w-full font-mono mb-1.5">
+                cahayu@modellyng.ac.id
+              </span>
+              <span className="text-[9px] font-semibold text-primary group-hover:underline">
+                Isi Otomatis →
+              </span>
+            </button>
+
+            {/* 3. Lawren (Free) */}
+            <button
+              type="button"
+              onClick={() => handleFillDemo("lawren_free")}
+              className="flex flex-col items-start justify-between rounded-lg border border-slate-200/90 dark:border-slate-800 bg-background/95 p-2 text-left hover:border-slate-400 hover:bg-slate-500/5 transition-all shadow-2xs group cursor-pointer"
+            >
+              <div className="flex items-center justify-between w-full gap-1 mb-1">
+                <span className="text-[11px] font-bold text-foreground group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors truncate">
+                  Lawren
+                </span>
+                <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded-full border border-slate-200 dark:border-slate-700 shrink-0">
+                  Free Plan
+                </span>
+              </div>
+              <span className="text-[10px] text-muted-foreground truncate w-full font-mono mb-1.5">
+                lawren@modellyng.ac.id
+              </span>
+              <span className="text-[9px] font-semibold text-muted-foreground group-hover:text-foreground group-hover:underline">
+                Isi Otomatis →
               </span>
             </button>
           </div>

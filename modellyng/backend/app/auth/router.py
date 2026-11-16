@@ -85,6 +85,7 @@ async def register(req: RegisterRequest):
             full_name=user["full_name"],
             email=user["email"],
             role=user["role"],
+            subscription_tier=user.get("subscription_tier") or "free",
             created_at=user["created_at"],
         ),
     )
@@ -131,6 +132,7 @@ async def login(req: LoginRequest, request: Request):
             full_name=user["full_name"],
             email=user["email"],
             role=user["role"],
+            subscription_tier=user.get("subscription_tier") or "free",
             created_at=user["created_at"],
         ),
     )
@@ -205,5 +207,6 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
         full_name=current_user["full_name"],
         email=current_user["email"],
         role=current_user["role"],
+        subscription_tier=current_user.get("subscription_tier") or "free",
         created_at=current_user["created_at"],
     )

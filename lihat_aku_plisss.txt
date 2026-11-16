@@ -509,31 +509,35 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 
 3. AKUN UJI COBA SIAP PAKAI (DEMO RESEARCHER & ADMIN ACCOUNTS)
 --------------------------------------------------------------------------------
-Backend telah dilengkapi dengan akun peneliti dan admin siap pakai yang tersimpan permanen
-di basis data:
+Backend telah dilengkapi dengan akun pengujian dengan tingkat langganan (subscription tier)
+berbeda yang tersimpan permanen di basis data untuk memfasilitasi verifikasi fitur:
 
-- Akun Administrator Sistem (Akses Penuh Panel Admin):
-  Email     : admin@modellyng.ac.id
-  Kata Sandi: Password123
-  Peran     : admin
+- Akun 1: Administrator Sistem (Tag: Developer)
+  Email         : admin@modellyng.ac.id
+  Kata Sandi    : Password123
+  Peran         : admin
+  Tingkat Akun  : developer (Akses tanpa batas, seluruh modul analitik & panel admin)
 
-- Akun Peneliti 1:
-  Email     : cahayu@modellyng.ac.id
-  Kata Sandi: Password123
-  Peran     : researcher
+- Akun 2: Peneliti Berbayar (Tag: Student Pro 30 Hari)
+  Email         : cahayu@modellyng.ac.id
+  Kata Sandi    : Password123
+  Peran         : researcher
+  Tingkat Akun  : student_30 (Paket Student Pro aktif 30 hari, kuota 15 token/ekstraksi harian)
 
-- Akun Peneliti 2:
-  Email     : arby@modellyng.ac.id
-  Kata Sandi: Password123
-  Peran     : researcher
+- Akun 3: Peneliti Gratis (Tag: Free Plan)
+  Email         : lawren@modellyng.ac.id
+  Kata Sandi    : Password123
+  Peran         : researcher
+  Tingkat Akun  : free (Paket standar gratis, batas 3 unggah dokumen per hari)
 
-- Akun Peneliti 3:
-  Email     : demo@modellyng.ac.id
-  Kata Sandi: Password123
-  Peran     : researcher
+*Akun Peneliti Tambahan Lainnya:*
+- Arby: arby@modellyng.ac.id (Kata Sandi: Password123 | Peran: researcher)
+- Demo: demo@modellyng.ac.id (Kata Sandi: Password123 | Peran: researcher)
 
-*Fitur Cepat:* Pada layar Login (`http://localhost:3000/login`), tersedia tombol
-"Isi Otomatis" untuk memasukkan kredensial akun demo secara instan.
+*Fitur Cepat Layar Login:*
+Pada layar Login (`http://localhost:3000/login`), tersedia panel 3 kartu "Akun Uji Coba"
+lengkap dengan lencana tingkatan akun (Developer, Pro 30 Hari, Free Plan) dan tombol
+"Isi Otomatis" untuk mengisi kredensial secara instan dalam 1 klik.
 
 
 4. KREDENSIAL KONEKSI BASIS DATA (SUPABASE POSTGRESQL)

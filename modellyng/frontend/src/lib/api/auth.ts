@@ -5,6 +5,7 @@ export interface User {
   full_name: string
   email: string
   role: string
+  subscription_tier?: string
   created_at: string
 }
 
