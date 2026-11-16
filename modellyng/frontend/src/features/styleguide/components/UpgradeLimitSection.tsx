@@ -6,19 +6,27 @@ import {
   Check,
   X,
   Clock,
-  Table,
+  TableProperties,
   PenTool,
   GitBranch,
   UploadCloud,
   Layers,
-  ArrowRight,
   Eye,
   RefreshCw,
   Info,
+  FileText,
+  CheckCircle2,
+  MessageCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { toast } from "@/lib/store/useToastStore"
+import { useAuthStore } from "@/features/auth/store/authStore"
+import { PRICING_PLANS } from "./PricingSection"
+import {
+  ADMIN_WHATSAPP_DISPLAY,
+  buildPricingWhatsAppUrl,
+} from "@/features/user/pricing/utils/whatsappPricing"
 
 /**
  * ============================================================================
@@ -48,8 +56,10 @@ interface PromoFeatureDetails {
   subtitle: string
   badgeLabel: string
   previewTitle: string
+  previewSubtitle: string
+  icon: typeof TableProperties
   benefits: {
-    icon: typeof Table
+    icon: typeof TableProperties
     text: string
   }[]
 }
@@ -64,9 +74,11 @@ const PROMO_FEATURE_CONTENT: Record<PromoFeatureType, PromoFeatureDetails> = {
       "Dapatkan penjelasan mendalam, perbandingan metode, serta AI Editing untuk mengembangkan hasil analisis Anda.",
     badgeLabel: "Comparative Paper Matrix",
     previewTitle: "Comparative Paper Matrix",
+    previewSubtitle: "Komparasi 13 Parameter Ilmiah Multi-Paper",
+    icon: TableProperties,
     benefits: [
       {
-        icon: Table,
+        icon: TableProperties,
         text: "Tabel perbandingan lengkap (metode, temuan, keterbatasan)",
       },
       {
@@ -91,7 +103,9 @@ const PROMO_FEATURE_CONTENT: Record<PromoFeatureType, PromoFeatureDetails> = {
     subtitle:
       "Buka visualisasi lengkap untuk memahami perbedaan penelitian, relasi klaster, dan menemukan celah riset yang siap Anda teliti.",
     badgeLabel: "Research Gap Map",
-    previewTitle: "Research Gap Map & Flow",
+    previewTitle: "Research Gap Map & Flow Canvas",
+    previewSubtitle: "Kanvas Alur & Relasi Antar-Penelitian",
+    icon: GitBranch,
     benefits: [
       {
         icon: GitBranch,
@@ -119,14 +133,16 @@ const PROMO_FEATURE_CONTENT: Record<PromoFeatureType, PromoFeatureDetails> = {
     subtitle:
       "Analisis lebih banyak naskah PDF secara simultan. Kuota harian terbarukan setiap hari selama masa aktif.",
     badgeLabel: "Batas Upload Dokumen",
-    previewTitle: "PDF Upload & Pipeline Ingest",
+    previewTitle: "PDF Pipeline & Kuota Token",
+    previewSubtitle: "Pipeline Ekstraksi Dokumen & Token Kuota",
+    icon: UploadCloud,
     benefits: [
       {
         icon: UploadCloud,
         text: "Kuota 15 token harian (akumulasi hingga 450 token)",
       },
       {
-        icon: Table,
+        icon: TableProperties,
         text: "Akses penuh matriks sintesis & gap map",
       },
       {
@@ -141,7 +157,292 @@ const PROMO_FEATURE_CONTENT: Record<PromoFeatureType, PromoFeatureDetails> = {
   },
 }
 
+/**
+ * ============================================================================
+ * KOMPONEN THUMBNAIL VISUAL SPESIFIK UNTUK TIAP FITUR
+ * ============================================================================
+ * Menghasilkan ilustrasi visual unik yang realistis sesuai progres fitur:
+ * 1. Comparative Paper Matrix: Tabel multi-kolom parameter dengan blur analisis terkunci.
+ * 2. Research Gap Map: Kanvas flow graph berbasis simpul (paper, limitasi, celah novelty).
+ * 3. Kuota Upload PDF: Kartu dokumen PDF, status ekstraksi 13 parameter, & meteran kuota 3/3.
+ */
+function FeatureThumbnailPreview({
+  feature,
+}: {
+  feature: PromoFeatureType
+}) {
+  const content = PROMO_FEATURE_CONTENT[feature]
+  const IconComponent = content.icon
+
+  if (feature === "matrix") {
+    return (
+      <div className="w-full flex flex-col items-center">
+        {/* Mock Preview Card Container */}
+        <div className="relative w-full max-w-[290px] rounded-2xl bg-white dark:bg-card border border-primary/25 shadow-xl p-3.5 space-y-3 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="size-6 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                <IconComponent className="size-3.5" />
+              </div>
+              <span className="text-[11px] font-bold text-foreground truncate">
+                {content.previewTitle}
+              </span>
+            </div>
+            <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+              13 Parameter
+            </span>
+          </div>
+
+          {/* Matrix Columns & Cell Grid Illustration */}
+          <div className="space-y-1.5 text-[8px]">
+            {/* Table Header Columns */}
+            <div className="grid grid-cols-4 gap-1 font-bold text-muted-foreground pb-1 border-b border-border/40 text-center">
+              <span className="text-left font-semibold">Parameter</span>
+              <span className="truncate">Paper #1</span>
+              <span className="truncate">Paper #2</span>
+              <span className="truncate text-primary">Paper #3</span>
+            </div>
+
+            {/* Row 1: Rumusan Masalah */}
+            <div className="grid grid-cols-4 gap-1 items-center bg-muted/20 p-1 rounded">
+              <span className="font-semibold text-foreground truncate">Masalah</span>
+              <div className="h-1.5 rounded bg-muted-foreground/30 w-full" />
+              <div className="h-1.5 rounded bg-muted-foreground/30 w-full" />
+              <div className="h-1.5 rounded bg-primary/40 w-full" />
+            </div>
+
+            {/* Row 2: Metodologi */}
+            <div className="grid grid-cols-4 gap-1 items-center bg-muted/20 p-1 rounded">
+              <span className="font-semibold text-foreground truncate">Metode</span>
+              <span className="truncate text-[7.5px] font-mono bg-background px-1 py-0.2 rounded border text-muted-foreground">
+                ResNet
+              </span>
+              <span className="truncate text-[7.5px] font-mono bg-background px-1 py-0.2 rounded border text-muted-foreground">
+                ViT-B
+              </span>
+              <span className="truncate text-[7.5px] font-mono bg-primary/10 text-primary px-1 py-0.2 rounded border border-primary/20 font-semibold">
+                Hybrid
+              </span>
+            </div>
+
+            {/* Row 3: Temuan Utama */}
+            <div className="grid grid-cols-4 gap-1 items-center bg-muted/20 p-1 rounded">
+              <span className="font-semibold text-foreground truncate">Temuan</span>
+              <span className="text-[7.5px] text-muted-foreground text-center">94.2%</span>
+              <span className="text-[7.5px] text-muted-foreground text-center">96.8%</span>
+              <span className="text-[7.5px] text-primary font-bold text-center">97.4%</span>
+            </div>
+          </div>
+
+          {/* Frosted Glass Lock Callout */}
+          <div className="relative pt-1 text-center space-y-2">
+            <div className="relative inline-flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-35" />
+              <div className="size-11 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30">
+                <Lock className="size-5" />
+              </div>
+            </div>
+            <div className="space-y-0.5">
+              <div className="inline-block rounded-full bg-primary/10 dark:bg-card px-3 py-0.5 shadow-2xs border border-primary/25">
+                <span className="text-[10px] font-bold text-primary">
+                  Komparasi 13 Parameter Terkunci
+                </span>
+              </div>
+              <p className="text-[9px] text-muted-foreground">
+                Tabel dasar terbuka • Analisis silang mendalam khusus Pro
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Tag */}
+        <div className="mt-3.5 flex items-center gap-1.5 text-[11px] font-semibold text-primary/90">
+          <IconComponent className="size-3.5" />
+          <span>{content.previewSubtitle}</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (feature === "gap_map") {
+    return (
+      <div className="w-full flex flex-col items-center">
+        {/* Mock Preview Card Container */}
+        <div className="relative w-full max-w-[290px] rounded-2xl bg-white dark:bg-card border border-emerald-500/30 shadow-xl p-3.5 space-y-3 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="size-6 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <IconComponent className="size-3.5" />
+              </div>
+              <span className="text-[11px] font-bold text-foreground truncate">
+                {content.previewTitle}
+              </span>
+            </div>
+            <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30 shrink-0">
+              Flow Canvas
+            </span>
+          </div>
+
+          {/* Interactive React Flow Canvas Graph Graphic */}
+          <div className="relative rounded-xl border border-border/60 bg-slate-50/70 dark:bg-slate-900/40 p-2.5 min-h-[95px] flex flex-col justify-between overflow-hidden bg-[radial-gradient(#94a3b8_0.75px,transparent_0.75px)] dark:bg-[radial-gradient(#475569_0.75px,transparent_0.75px)] [background-size:6px_6px]">
+            {/* Top Nodes */}
+            <div className="flex items-center justify-between gap-1 text-[8px]">
+              <div className="flex items-center gap-1 rounded-md bg-card border border-indigo-200 dark:border-indigo-900/60 px-1.5 py-0.5 shadow-2xs font-semibold text-foreground">
+                <span className="size-1.5 rounded-full bg-indigo-500" />
+                <span>Paper A (2023)</span>
+              </div>
+              <div className="flex items-center gap-1 rounded-md bg-card border border-sky-200 dark:border-sky-900/60 px-1.5 py-0.5 shadow-2xs font-semibold text-foreground">
+                <span className="size-1.5 rounded-full bg-sky-500" />
+                <span>Paper B (2024)</span>
+              </div>
+            </div>
+
+            {/* Flow Connecting Lines */}
+            <div className="my-1 flex items-center justify-center gap-1 text-[7.5px] text-muted-foreground font-mono">
+              <span className="h-px w-8 bg-indigo-400/60" />
+              <span className="rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 px-1 font-semibold border border-amber-500/20">
+                Limitasi Terdeteksi
+              </span>
+              <span className="h-px w-8 bg-sky-400/60" />
+            </div>
+
+            {/* Converging Novelty Center Node */}
+            <div className="rounded-lg border-2 border-emerald-500/80 bg-emerald-50/90 dark:bg-emerald-950/50 p-1.5 text-center shadow-xs">
+              <div className="text-[8.5px] font-extrabold text-emerald-800 dark:text-emerald-300 flex items-center justify-center gap-1">
+                <Sparkles className="size-2.5 text-amber-500" />
+                <span>Celah Riset Baru (Novelty Gap)</span>
+              </div>
+              <div className="text-[7.5px] text-muted-foreground mt-0.5">
+                Efisiensi Model pada Edge Device (Skor 92%)
+              </div>
+            </div>
+          </div>
+
+          {/* Frosted Glass Lock Callout */}
+          <div className="relative pt-1 text-center space-y-2">
+            <div className="relative inline-flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping opacity-35" />
+              <div className="size-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30">
+                <Lock className="size-5" />
+              </div>
+            </div>
+            <div className="space-y-0.5">
+              <div className="inline-block rounded-full bg-emerald-500/10 dark:bg-card px-3 py-0.5 shadow-2xs border border-emerald-500/30">
+                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                  Visualisasi Relasi & Celah Terkunci
+                </span>
+              </div>
+              <p className="text-[9px] text-muted-foreground">
+                Flow map tanpa sensor • Perumusan usulan proposal AI
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Tag */}
+        <div className="mt-3.5 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+          <IconComponent className="size-3.5" />
+          <span>{content.previewSubtitle}</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Feature: upload (Kuota Upload & PDF Ingestion Pipeline)
+  return (
+    <div className="w-full flex flex-col items-center">
+      {/* Mock Preview Card Container */}
+      <div className="relative w-full max-w-[290px] rounded-2xl bg-white dark:bg-card border border-amber-500/30 shadow-xl p-3.5 space-y-3 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="size-6 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <IconComponent className="size-3.5" />
+            </div>
+            <span className="text-[11px] font-bold text-foreground truncate">
+              {content.previewTitle}
+            </span>
+          </div>
+          <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30 shrink-0">
+            3/3 Limit
+          </span>
+        </div>
+
+        {/* File Pipeline Stack & Usage Bar */}
+        <div className="space-y-2 text-[8px]">
+          {/* File 1: Ingested */}
+          <div className="flex items-center justify-between p-1.5 rounded-lg border border-border/60 bg-muted/20">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <FileText className="size-3 text-rose-500 shrink-0" />
+              <div className="truncate">
+                <p className="font-semibold text-foreground truncate">DeepLearning_NLP.pdf</p>
+                <p className="text-[7.5px] text-muted-foreground">3.8 MB • 13 Parameter Siap</p>
+              </div>
+            </div>
+            <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />
+          </div>
+
+          {/* File 2: Blocked by quota */}
+          <div className="flex items-center justify-between p-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Clock className="size-3 text-amber-500 shrink-0" />
+              <div className="truncate">
+                <p className="font-semibold text-foreground truncate">Vision_Transformer.pdf</p>
+                <p className="text-[7.5px] text-amber-600 dark:text-amber-400">Tertahan (Batas Tercapai)</p>
+              </div>
+            </div>
+            <span className="text-[7px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-1 py-0.2 rounded">
+              Menunggu
+            </span>
+          </div>
+
+          {/* Daily Quota Progress Bar */}
+          <div className="pt-0.5 space-y-1">
+            <div className="flex items-center justify-between text-[7.5px]">
+              <span className="font-medium text-muted-foreground">Kuota Hari Ini: 3 / 3 File</span>
+              <span className="font-bold text-amber-600">100% Penuh</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-amber-500 rounded-full w-full" />
+            </div>
+          </div>
+        </div>
+
+        {/* Frosted Glass Lock Callout */}
+        <div className="relative pt-1 text-center space-y-2">
+          <div className="relative inline-flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-amber-500/20 animate-ping opacity-35" />
+            <div className="size-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/30">
+              <Lock className="size-5" />
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <div className="inline-block rounded-full bg-amber-500/10 dark:bg-card px-3 py-0.5 shadow-2xs border border-amber-500/30">
+              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                Batas 3 File/Hari Tercapai
+              </span>
+            </div>
+            <p className="text-[9px] text-muted-foreground">
+              Upgrade ke Student Pro untuk 15 token harian tanpa antre
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Tag */}
+      <div className="mt-3.5 flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+        <IconComponent className="size-3.5" />
+        <span>{content.previewSubtitle}</span>
+      </div>
+    </div>
+  )
+}
+
 export function UpgradeLimitSection() {
+  const user = useAuthStore((s) => s.user)
+
   // State untuk modal pop-up promosi
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedPromoFeature, setSelectedPromoFeature] = useState<PromoFeatureType>("matrix")
@@ -183,6 +484,23 @@ export function UpgradeLimitSection() {
     toast.success("Timer simulasi 24 jam berhasil direset! Pop-up siap ditampilkan kembali.")
   }
 
+  // Handler upgrade langsung via WhatsApp Admin
+  const handleUpgradeViaWhatsApp = (planOption: "14_days" | "30_days") => {
+    const planId = planOption === "14_days" ? "student_14" : "student_30"
+    const targetPlan = PRICING_PLANS.find((p) => p.id === planId)
+    if (targetPlan) {
+      const waUrl = buildPricingWhatsAppUrl(targetPlan, user)
+      try {
+        window.open(waUrl, "_blank", "noopener,noreferrer")
+      } catch {
+        // Fallback
+      }
+      toast.success(
+        `Mengarahkan ke WhatsApp Admin (${ADMIN_WHATSAPP_DISPLAY}) untuk ${targetPlan.name}!`
+      )
+    }
+  }
+
   const promoContent = PROMO_FEATURE_CONTENT[selectedPromoFeature]
 
   return (
@@ -204,7 +522,6 @@ export function UpgradeLimitSection() {
 
       {/* ==================================================================== */}
       {/* BAGIAN 1: REKOMENDASI TAMPILAN PESAN UPGRADE IN-LINE (A, B, C)       */}
-      {/* Sesuai Referensi Gambar 1                                            */}
       {/* ==================================================================== */}
       <div className="space-y-6">
         <div className="flex items-center gap-2 border-b pb-2">
@@ -224,12 +541,12 @@ export function UpgradeLimitSection() {
               <span>Ketika Kuota Upload Habis</span>
             </span>
 
-            <Card className="rounded-2xl border border-border/90 bg-card p-6 shadow-xs flex flex-col justify-between text-center space-y-4">
+            <Card className="rounded-2xl border border-amber-500/20 bg-card p-6 shadow-xs flex flex-col justify-between text-center space-y-4">
               <div className="space-y-3">
-                {/* Lock Icon */}
+                {/* Specific Upload Icon */}
                 <div className="flex justify-center">
-                  <div className="size-10 rounded-full bg-muted/60 text-muted-foreground flex items-center justify-center">
-                    <Lock className="size-4.5" />
+                  <div className="size-11 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
+                    <UploadCloud className="size-5.5" />
                   </div>
                 </div>
 
@@ -275,20 +592,20 @@ export function UpgradeLimitSection() {
               <span>Ketika Membuka Comparative Paper Matrix Terkunci</span>
             </span>
 
-            <Card className="rounded-2xl border border-border/90 bg-card p-6 shadow-xs flex flex-col justify-between space-y-4">
+            <Card className="rounded-2xl border border-primary/20 bg-card p-6 shadow-xs flex flex-col justify-between space-y-4">
               <div className="space-y-3">
                 {/* Header with Title & PRO Badge */}
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-foreground">Analisis Lengkap</h4>
-                  <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-extrabold text-[10px] px-2 py-0.5 border border-amber-500/20 tracking-wider">
+                  <span className="rounded-full bg-primary/10 text-primary font-extrabold text-[10px] px-2 py-0.5 border border-primary/20 tracking-wider">
                     PRO
                   </span>
                 </div>
 
-                {/* Lock Icon */}
+                {/* Specific Matrix Icon */}
                 <div className="pt-1">
-                  <div className="size-8 rounded-lg bg-muted/60 text-muted-foreground flex items-center justify-center">
-                    <Lock className="size-4" />
+                  <div className="size-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shadow-xs">
+                    <TableProperties className="size-4.5" />
                   </div>
                 </div>
 
@@ -322,20 +639,20 @@ export function UpgradeLimitSection() {
               <span>Ketika Membuka Research Gap Map</span>
             </span>
 
-            <Card className="rounded-2xl border border-border/90 bg-card p-6 shadow-xs flex flex-col justify-between space-y-4">
+            <Card className="rounded-2xl border border-emerald-500/20 bg-card p-6 shadow-xs flex flex-col justify-between space-y-4">
               <div className="space-y-3">
                 {/* Header with Title & PRO Badge */}
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-foreground">Research Gap Map</h4>
-                  <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-extrabold text-[10px] px-2 py-0.5 border border-amber-500/20 tracking-wider">
+                  <span className="rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-extrabold text-[10px] px-2 py-0.5 border border-emerald-500/20 tracking-wider">
                     PRO
                   </span>
                 </div>
 
-                {/* Lock Icon & Subheading */}
+                {/* Specific Gap Map Icon & Subheading */}
                 <div className="space-y-2 pt-1">
-                  <div className="size-8 rounded-lg bg-muted/60 text-muted-foreground flex items-center justify-center">
-                    <Lock className="size-4" />
+                  <div className="size-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-xs">
+                    <GitBranch className="size-4.5" />
                   </div>
                   <h5 className="text-xs font-bold text-foreground">
                     Temukan Hubungan Antarpenelitian
@@ -366,7 +683,6 @@ export function UpgradeLimitSection() {
 
       {/* ==================================================================== */}
       {/* BAGIAN 2: THUMBNAIL / MODAL PROMOSI SAAT BARU BUKA APLIKASI (24 JAM) */}
-      {/* Sesuai Referensi Gambar 2                                            */}
       {/* ==================================================================== */}
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
@@ -389,7 +705,7 @@ export function UpgradeLimitSection() {
               variant="outline"
               size="sm"
               onClick={() => setIsModalOpen(true)}
-              className="text-xs gap-1.5 h-8.5 rounded-xl border-primary/30 text-primary hover:bg-primary/5"
+              className="text-xs gap-1.5 h-8.5 rounded-xl border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
             >
               <Eye className="size-3.5" />
               <span>Buka Tampilan Pop-up Modal</span>
@@ -398,86 +714,61 @@ export function UpgradeLimitSection() {
         </div>
 
         {/* Tab Switcher untuk melihat preview 3 jenis fitur */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-muted-foreground">Pilih Pratinjau Fitur:</span>
-          {(["matrix", "gap_map", "upload"] as PromoFeatureType[]).map((ft) => (
-            <Button
-              key={ft}
-              type="button"
-              variant={selectedPromoFeature === ft ? "primary" : "outline"}
-              size="sm"
-              onClick={() => setSelectedPromoFeature(ft)}
-              className="text-xs h-7.5 px-3 rounded-lg"
-            >
-              {ft === "matrix" && "Comparative Matrix"}
-              {ft === "gap_map" && "Research Gap Map"}
-              {ft === "upload" && "Kuota Upload & Token"}
-            </Button>
-          ))}
+          {(["matrix", "gap_map", "upload"] as PromoFeatureType[]).map((ft) => {
+            const isSelected = selectedPromoFeature === ft
+            return (
+              <Button
+                key={ft}
+                type="button"
+                variant={isSelected ? "primary" : "outline"}
+                size="sm"
+                onClick={() => setSelectedPromoFeature(ft)}
+                className="text-xs h-8 px-3 rounded-xl gap-1.5 cursor-pointer"
+              >
+                {ft === "matrix" && (
+                  <>
+                    <TableProperties className="size-3.5" />
+                    <span>Comparative Matrix</span>
+                  </>
+                )}
+                {ft === "gap_map" && (
+                  <>
+                    <GitBranch className="size-3.5" />
+                    <span>Research Gap Map</span>
+                  </>
+                )}
+                {ft === "upload" && (
+                  <>
+                    <UploadCloud className="size-3.5" />
+                    <span>Kuota Upload & Token</span>
+                  </>
+                )}
+              </Button>
+            )
+          })}
         </div>
 
-        {/* EMBEDDED SHOWCASE (Tampilan Utuh Sesuai Screenshot 2) */}
+        {/* EMBEDDED SHOWCASE (Tampilan Utuh Sesuai Preview Desain) */}
         <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card shadow-xl max-w-4xl mx-auto">
           <div className="grid md:grid-cols-12 min-h-[460px]">
-            {/* SISI KIRI: Ilustrasi Visual Fitur Terkunci (Mock Canvas Preview) */}
-            <div className="md:col-span-5 bg-gradient-to-br from-[#F1EFFF] via-[#ECE8FF] to-[#E5E0FF] dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-background p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-primary/10">
+            {/* SISI KIRI: Ilustrasi Visual Fitur Terkunci (Dinamis per Fitur) */}
+            <div
+              className={`md:col-span-5 p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-border/60 transition-colors duration-300 ${
+                selectedPromoFeature === "matrix"
+                  ? "bg-gradient-to-br from-[#F1EFFF] via-[#ECE8FF] to-[#E5E0FF] dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-background"
+                  : selectedPromoFeature === "gap_map"
+                  ? "bg-gradient-to-br from-[#EBF8F2] via-[#E2F4EB] to-[#D5EFE3] dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-background"
+                  : "bg-gradient-to-br from-[#FFF7ED] via-[#FFEDD5] to-[#FED7AA] dark:from-amber-950/30 dark:via-orange-950/20 dark:to-background"
+              }`}
+            >
               {/* Floating decorative elements */}
               <div className="absolute -top-12 -left-12 size-40 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
               <div className="absolute -bottom-12 -right-12 size-40 rounded-full bg-purple-500/10 blur-2xl pointer-events-none" />
 
-              {/* Mock Preview Card Container */}
-              <div className="relative w-full max-w-[280px] rounded-2xl bg-white dark:bg-card border border-primary/20 shadow-lg p-4 space-y-3">
-                {/* Mock Card Header */}
-                <div className="flex items-center gap-2 border-b border-border/50 pb-2.5">
-                  <div className="size-5 rounded-md bg-primary/10 text-primary flex items-center justify-center">
-                    <Table className="size-3" />
-                  </div>
-                  <span className="text-[11px] font-bold text-foreground truncate">
-                    {promoContent.previewTitle}
-                  </span>
-                </div>
-
-                {/* Mock Table Skeleton with Shaded Columns */}
-                <div className="space-y-1.5 opacity-60">
-                  <div className="grid grid-cols-5 gap-1 text-[8px] font-bold text-muted-foreground pb-1 border-b border-border/40 text-center">
-                    <span>Paper</span>
-                    <span>Metode</span>
-                    <span className="text-primary font-bold">Temuan</span>
-                    <span>Keterb...</span>
-                    <span>Analisis</span>
-                  </div>
-                  {[1, 2, 3, 4].map((row) => (
-                    <div key={row} className="grid grid-cols-5 gap-1 items-center">
-                      <div className="h-2 rounded bg-muted-foreground/20" />
-                      <div className="h-2 rounded bg-muted-foreground/20" />
-                      <div className="h-2 rounded bg-primary/30" />
-                      <div className="h-2 rounded bg-muted-foreground/20" />
-                      <div className="h-2 rounded bg-muted-foreground/20" />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Central Lock Callout Bubble */}
-                <div className="pt-2 text-center space-y-2">
-                  <div className="relative inline-flex items-center justify-center">
-                    <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-30" />
-                    <div className="size-12 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30">
-                      <Lock className="size-5" />
-                    </div>
-                  </div>
-                  <div className="inline-block rounded-full bg-white/95 dark:bg-card px-3 py-1 shadow-sm border border-primary/20">
-                    <span className="text-[10px] font-bold text-primary">
-                      Fitur ini hanya tersedia untuk pengguna Pro
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Floating Arrow Document Indicator */}
-              <div className="mt-4 flex items-center gap-1.5 text-[11px] font-semibold text-primary/80">
-                <ArrowRight className="size-3.5 -rotate-45" />
-                <span>Dokumen Riset Akademik</span>
-              </div>
+              {/* Dynamic Feature Thumbnail Component */}
+              <FeatureThumbnailPreview feature={selectedPromoFeature} />
             </div>
 
             {/* SISI KANAN: Daftar Manfaat & Opsi Paket */}
@@ -556,7 +847,7 @@ export function UpgradeLimitSection() {
                   >
                     {/* Ribbon */}
                     <span className="absolute -top-2.5 right-3 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-white shadow-xs">
-                      Most Popular
+                      Paling Populer
                     </span>
 
                     <div className="flex items-center gap-2">
@@ -583,17 +874,15 @@ export function UpgradeLimitSection() {
               <div className="space-y-2 pt-2">
                 <Button
                   type="button"
-                  onClick={() => {
-                    toast.success(
-                      `Simulasi pembelian: ${
-                        selectedPlanOption === "14_days" ? "Student Pro 14 Hari (Rp29.000)" : "Student Pro 30 Hari (Rp49.000)"
-                      } via thumbnail promosi!`
-                    )
-                  }}
+                  onClick={() => handleUpgradeViaWhatsApp(selectedPlanOption)}
                   className="w-full h-11 rounded-xl text-xs font-bold gap-2 shadow-md shadow-primary/20 bg-primary hover:bg-primary-hover text-white transition-all cursor-pointer"
                 >
-                  <Crown className="size-4 text-amber-300" />
-                  <span>Upgrade ke Student Pro</span>
+                  <MessageCircle className="size-4" />
+                  <span>
+                    Upgrade via WhatsApp (
+                    {selectedPlanOption === "14_days" ? "14 Hari • Rp29.000" : "30 Hari • Rp49.000"}
+                    )
+                  </span>
                 </Button>
 
                 <div className="text-center">
@@ -640,7 +929,7 @@ export function UpgradeLimitSection() {
               variant="outline"
               size="sm"
               onClick={handleResetTimer}
-              className="text-[11px] h-7.5 px-2.5 gap-1 shrink-0 rounded-lg"
+              className="text-[11px] h-7.5 px-2.5 gap-1 shrink-0 rounded-lg cursor-pointer"
             >
               <RefreshCw className="size-3" />
               <span>Reset Jam Simulasi</span>
@@ -662,7 +951,7 @@ export function UpgradeLimitSection() {
             </span>
             <span className="text-xs">•</span>
             <span>
-              Interval Cooldown: <strong className="text-foreground">24 Jam</strong>
+              Interval Cooldown: <strong className="text-foreground">5 Menit (Mode Testing) / 24 Jam (Produksi)</strong>
             </span>
           </div>
         </div>
@@ -685,46 +974,17 @@ export function UpgradeLimitSection() {
             </button>
 
             <div className="grid md:grid-cols-12 min-h-[440px]">
-              {/* SISI KIRI: Ilustrasi Fitur Terkunci */}
-              <div className="md:col-span-5 bg-gradient-to-br from-[#F1EFFF] via-[#ECE8FF] to-[#E5E0FF] dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-background p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-primary/10">
-                <div className="relative w-full max-w-[260px] rounded-2xl bg-white dark:bg-card border border-primary/20 shadow-lg p-4 space-y-3">
-                  <div className="flex items-center gap-2 border-b border-border/50 pb-2">
-                    <Table className="size-3.5 text-primary" />
-                    <span className="text-[11px] font-bold text-foreground truncate">
-                      {promoContent.previewTitle}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5 opacity-60">
-                    <div className="grid grid-cols-5 gap-1 text-[8px] font-bold text-muted-foreground pb-1 border-b border-border/40 text-center">
-                      <span>Paper</span>
-                      <span>Metode</span>
-                      <span className="text-primary font-bold">Temuan</span>
-                      <span>Keterb...</span>
-                      <span>Analisis</span>
-                    </div>
-                    {[1, 2, 3].map((r) => (
-                      <div key={r} className="grid grid-cols-5 gap-1 items-center">
-                        <div className="h-2 rounded bg-muted-foreground/20" />
-                        <div className="h-2 rounded bg-muted-foreground/20" />
-                        <div className="h-2 rounded bg-primary/30" />
-                        <div className="h-2 rounded bg-muted-foreground/20" />
-                        <div className="h-2 rounded bg-muted-foreground/20" />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="pt-2 text-center space-y-2">
-                    <div className="size-11 mx-auto rounded-2xl bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30">
-                      <Lock className="size-5" />
-                    </div>
-                    <div className="inline-block rounded-full bg-white/95 dark:bg-card px-2.5 py-0.5 shadow-2xs border border-primary/20">
-                      <span className="text-[9px] font-bold text-primary">
-                        Fitur ini hanya tersedia untuk pengguna Pro
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              {/* SISI KIRI: Ilustrasi Fitur Terkunci (Dinamis per Fitur) */}
+              <div
+                className={`md:col-span-5 p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-border/60 ${
+                  selectedPromoFeature === "matrix"
+                    ? "bg-gradient-to-br from-[#F1EFFF] via-[#ECE8FF] to-[#E5E0FF] dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-background"
+                    : selectedPromoFeature === "gap_map"
+                    ? "bg-gradient-to-br from-[#EBF8F2] via-[#E2F4EB] to-[#D5EFE3] dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-background"
+                    : "bg-gradient-to-br from-[#FFF7ED] via-[#FFEDD5] to-[#FED7AA] dark:from-amber-950/30 dark:via-orange-950/20 dark:to-background"
+                }`}
+              >
+                <FeatureThumbnailPreview feature={selectedPromoFeature} />
               </div>
 
               {/* SISI KANAN: Penawaran & Action Button */}
@@ -797,7 +1057,7 @@ export function UpgradeLimitSection() {
                       }`}
                     >
                       <span className="absolute -top-2 right-2 rounded-full bg-primary px-1.5 py-0.2 text-[8px] font-bold text-white">
-                        Most Popular
+                        Paling Populer
                       </span>
                       <div className="flex items-center gap-1.5">
                         <input
@@ -823,17 +1083,17 @@ export function UpgradeLimitSection() {
                   <Button
                     type="button"
                     onClick={() => {
+                      handleUpgradeViaWhatsApp(selectedPlanOption)
                       handleClosePromoModal()
-                      toast.success(
-                        `Simulasi upgrade berhasil! Paket ${
-                          selectedPlanOption === "14_days" ? "14 Hari" : "30 Hari"
-                        } dipilih.`
-                      )
                     }}
                     className="w-full h-10 rounded-xl text-xs font-bold gap-2 shadow-md shadow-primary/20 bg-primary hover:bg-primary-hover text-white transition-all cursor-pointer"
                   >
-                    <Crown className="size-4 text-amber-300" />
-                    <span>Upgrade ke Student Pro</span>
+                    <MessageCircle className="size-3.5" />
+                    <span>
+                      Upgrade via WhatsApp (
+                      {selectedPlanOption === "14_days" ? "14 Hari • Rp29.000" : "30 Hari • Rp49.000"}
+                      )
+                    </span>
                   </Button>
 
                   <div className="text-center">

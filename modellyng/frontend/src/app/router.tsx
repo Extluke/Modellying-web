@@ -295,6 +295,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "/matrix/overview",
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <MatrixScreen />
+          </Suspense>
+        ),
+      },
+      {
         path: ROUTES.RESEARCH.GAP_MAP,
         element: (
           <Suspense fallback={<RouteLoader />}>
@@ -304,6 +312,14 @@ export const router = createBrowserRouter([
       },
       {
         path: ROUTES.RESEARCH.GRAPH,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <KnowledgeGraphScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/knowledge-graph/overview",
         element: (
           <Suspense fallback={<RouteLoader />}>
             <KnowledgeGraphScreen />

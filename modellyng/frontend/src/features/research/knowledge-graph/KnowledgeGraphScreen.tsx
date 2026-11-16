@@ -1,6 +1,7 @@
 import { Navigate, generatePath, useNavigate, useSearchParams } from "react-router-dom"
 import { ROUTES } from "@/app/routes"
 import { KnowledgeGraphProjectPicker } from "./components/KnowledgeGraphProjectPicker"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 
 /**
  * KnowledgeGraphScreen (project selection)
@@ -23,10 +24,13 @@ export default function KnowledgeGraphScreen() {
   }
 
   return (
-    <KnowledgeGraphProjectPicker
-      onSelectProject={(projectId) =>
-        navigate(generatePath(ROUTES.PROJECTS.KNOWLEDGE_GRAPH, { projectId }))
-      }
-    />
+    <>
+      <KnowledgeGraphProjectPicker
+        onSelectProject={(projectId) =>
+          navigate(generatePath(ROUTES.PROJECTS.KNOWLEDGE_GRAPH, { projectId }))
+        }
+      />
+      <FeaturePromoModal feature="gap_map" />
+    </>
   )
 }

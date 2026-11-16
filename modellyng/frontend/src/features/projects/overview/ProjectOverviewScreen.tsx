@@ -32,6 +32,7 @@ import {
 } from "../api/projectsApi"
 import { UploadPdfModal } from "./UploadPdfModal"
 import { ExportDropdownButton } from "./ExportDropdownButton"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 import { ROUTES } from "@/app/routes"
 import { toast } from "@/lib/store/useToastStore"
 
@@ -732,6 +733,9 @@ export default function ProjectOverviewScreen() {
           </div>
         </div>
       )}
+
+      {/* Promotional Modal (Cooldown 5 Menit / 24 Jam) */}
+      <FeaturePromoModal feature="upload" />
     </div>
   )
 }

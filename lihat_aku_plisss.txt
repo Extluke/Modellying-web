@@ -210,11 +210,16 @@ src/features/
 │   │   │   └── WhatsAppPaymentModal.tsx # Modal konfirmasi pemesanan, salin template pesan, & fallback tautan WA
 │   │   └── utils/
 │   │       └── whatsappPricing.ts    # Nomor WA admin (+6281269274671), generator pesan template, & URL builder
+│   ├── promotions/                   # Modul Thumbnail Promosi Fitur & Dialog Cooldown (5 Menit Testing / 24 Jam)
+│   │   ├── promoConfig.ts            # Konfigurasi cooldown (5 menit testing, 24 jam produksi, kunci override CMS)
+│   │   └── components/
+│   │       ├── FeaturePromoModal.tsx      # Modal dialog promosi otomatis dengan pemilih paket & WhatsApp Admin
+│   │       └── FeatureThumbnailPreview.tsx # Thumbnail visual khusus (Matrix 13 parameter, Flow Gap Map, Upload 3/3)
 │   └── styleguide/                   # /styleguide (Single Source of Truth Design System & Prototipe Komponen)
 │       ├── StyleGuideScreen.tsx      # Hub Style Guide: token warna, tipografi, button, badge, input, card, pricing, & form bug
 │       └── components/
 │           ├── PricingSection.tsx     # Prototipe kartu pricing akun Free & Student Pro
-│           ├── UpgradeLimitSection.tsx# Template modal upgrade & batas limit kuota
+│           ├── UpgradeLimitSection.tsx# Template modal upgrade, limit kuota, & thumbnail promosi 24 jam interaktif (Matrix, Gap Map, Upload)
 │           └── BugReportSection.tsx   # Formulir laporan kendala teknis & bug sistem (embedded, modal, tracker)
 │
 └── admin/                            # Panel Manajemen Sistem & Tata Kelola (Fatih)
@@ -1203,9 +1208,30 @@ DETAIL FITUR & INTEGRASI SISTEM
     - Kotak pratinjau teks template pesan dengan tombol "Salin Pesan" (clipboard) sekali klik.
     - Tombol aksi utama warna hijau khas WhatsApp: "Lanjut ke WhatsApp Admin (+62 812-6927-4671)".
     - Lencana verifikasi metode bayar yang didukung (QRIS Instan & Transfer Bank).
+- Desain Visual Unik Thumbnail Promosi 1x 24 Jam (`UpgradeLimitSection.tsx`):
+  * Masing-masing fitur memiliki ilustrasi visual khusus dan ikon mandiri di sisi kiri dialog:
+    1. Comparative Paper Matrix: Ikon `TableProperties`, kisi tabel perbandingan 13 parameter (kolom Paper #1 s.d. #3), dan overlay blur sel analisis komparatif mendalam.
+    2. Research Gap Map: Ikon `GitBranch`, kanvas alur dot-matrix (Flow Canvas), simpul relasi Paper A & B, chip limitasi metodologi, serta simpul celah riset utama (Novelty Gap) bercahaya.
+    3. Batas Kuota Upload PDF: Ikon `UploadCloud`, pipeline dokumen PDF, status ekstraksi 13 parameter, meteran kuota harian 3/3 berkas, dan visual penahanan kuota harian.
+  * Terhubung langsung dengan tombol aksi WhatsApp Admin untuk mempermudah upgrade paket tanpa friksi.
 - Notifikasi Umpan Balik Seragam:
   * Dilengkapi notifikasi toast seragam durasi tepat 5 detik (5000 ms) yang memberi kepastian
     bahwa pengguna sedang dialihkan ke WhatsApp Admin.
+
+17. PENERAPAN THUMBNAIL PROMOSI OTOMATIS SAAT PROYEK & FITUR DIBUKA
+--------------------------------------------------------------------------------
+- Lokasi Penayangan Otomatis Sesuai Fitur Terkait:
+  1. Halaman Upload PDF (`/projects/:projectId/overview`):
+     - Memunculkan thumbnail promosi `upload` (Batas Kuota Dokumen & Token Harian) saat pengguna membuka ruang kerja overview proyek.
+  2. Halaman Comparative Matrix (`/matrix/overview`, `/matrix`, `/projects/:projectId/matrix`):
+     - Memunculkan thumbnail promosi `matrix` (Analisis Lengkap 13 Parameter) saat pengguna membuka overview/katalog matriks maupun ruang kerja matriks.
+  3. Halaman Graf Pengetahuan (`/knowledge-graph/overview`, `/knowledge-graph`, `/projects/:projectId/knowledge-graph`):
+     - Memunculkan thumbnail promosi `gap_map` (Relasi Antarpenelitian & Celah Novelty) saat pengguna membuka overview graf pengetahuan maupun kanvas graf.
+- Konfigurasi Timer Cooldown Fleksibel (Testing 5 Menit vs Produksi 24 Jam):
+  * Pengaturan Cooldown Testing: Ditetapkan 5 menit (`TESTING_COOLDOWN_MS = 5 * 60 * 1000`) agar tim developer/penguji dapat memverifikasi kemunculan modal secara berulang tanpa perlu menunggu 24 jam penuh.
+  * Jalur Kustomisasi CMS Admin / LocalStorage: Sistem menyediakan jalur override dinamis melalui kunci `modellyng_cms_promo_cooldown_minutes` di localStorage. Nilai ini siap dihubungkan langsung ke konfigurasi CMS Admin (`/admin/cms`).
+  * Proteksi Anti-Spam: Setiap kali modal ditutup, timestamp dicatat ke `localStorage` dengan prefix `modellyng_promo_last_shown_<feature>`, menjamin pengguna tidak terganggu oleh iklan berulang dalam rentang cooldown aktif.
+  * Aksi Langsung ke WhatsApp Admin: Pengguna dapat memilih durasi Student Pro (14 Hari Rp29.000 atau 30 Hari Rp49.000) dan mengklik tombol "Upgrade via WhatsApp" untuk dipandu instan oleh Admin Modellyng (+62 812-6927-4671).
 
 
 ================================================================================

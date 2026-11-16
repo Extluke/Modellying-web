@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { ROUTES } from "@/app/routes"
 import { useProjects, Project } from "@/features/projects/api/projectsApi"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 
 type ReadinessFilter = "all" | "ready" | "not_ready"
 
@@ -58,7 +59,12 @@ export default function MatrixScreen() {
     return <Navigate to={generatePath(ROUTES.PROJECTS.MATRIX, { projectId: legacyProjectId })} replace />
   }
 
-  return <MatrixProjectPicker />
+  return (
+    <>
+      <MatrixProjectPicker />
+      <FeaturePromoModal feature="matrix" />
+    </>
+  )
 }
 
 function MatrixProjectPicker() {

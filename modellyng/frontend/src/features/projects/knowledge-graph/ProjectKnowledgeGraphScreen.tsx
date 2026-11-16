@@ -5,7 +5,13 @@
  */
 
 import { ProjectKnowledgeGraphView } from "@/features/research/knowledge-graph/components/ProjectKnowledgeGraphView"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 
 export default function ProjectKnowledgeGraphScreen() {
-  return <ProjectKnowledgeGraphView />
+  return (
+    <>
+      <ProjectKnowledgeGraphView />
+      <FeaturePromoModal feature="gap_map" />
+    </>
+  )
 }

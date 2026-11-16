@@ -6,7 +6,13 @@
  */
 
 import MatrixDetailView from "@/features/research/matrix/MatrixDetailView"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 
 export default function ProjectMatrixDetailScreen() {
-  return <MatrixDetailView />
+  return (
+    <>
+      <MatrixDetailView />
+      <FeaturePromoModal feature="matrix" />
+    </>
+  )
 }
