@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom"
+import { NavLink, Link, useNavigate, useLocation } from "react-router-dom"
 import {
   LayoutDashboard,
   FolderKanban,
@@ -13,7 +13,10 @@ import {
   CreditCard,
   Megaphone,
   ShieldCheck,
+  Settings,
+  LogOut,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { ROUTES } from "@/app/routes"
 import { useAuthStore } from "@/features/auth/store/authStore"
@@ -37,12 +40,35 @@ const adminNavigationItems = [
 ]
 
 export function Sidebar() {
-  const user = useAuthStore((state) => state.user)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { user, logout } = useAuthStore()
   const isAdmin = user?.role === "admin"
 
+  const isSettingsActive = location.pathname === ROUTES.USER.SETTINGS
+
+  const initials = user?.full_name
+    ? user.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "MD"
+
+  const handleLogout = () => {
+    logout()
+    navigate(ROUTES.AUTH.LOGIN, { replace: true })
+  }
+
+  const roleDisplay = user?.role
+    ? user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()
+    : "Researcher"
+
   return (
-    <aside className="hidden md:flex w-64 flex-col border-r bg-card">
-      <div className="flex h-14 items-center gap-2 border-b px-6">
+    <aside className="hidden md:flex w-64 flex-col border-r bg-card h-full shrink-0 select-none">
+      {/* 1. Header Sidebar: Logo & Badge */}
+      <div className="flex h-14 items-center gap-2 border-b px-6 shrink-0">
         <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
           <BookOpenCheck className="size-4" />
         </div>
@@ -54,6 +80,7 @@ export function Sidebar() {
         </span>
       </div>
 
+      {/* 2. Scrollable Navigation List */}
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
         {navigationItems.map((item) => {
           const Icon = item.icon
@@ -107,6 +134,54 @@ export function Sidebar() {
           </div>
         )}
       </nav>
+
+      {/* 3. Permanent Sidebar Footer: User Profile & Logout Action */}
+      <div className="shrink-0 border-t border-border p-3 bg-card/60">
+        <div className="flex items-center justify-between gap-1.5">
+          <Link
+            to={ROUTES.USER.SETTINGS}
+            title={`Pengaturan Profil: ${user?.full_name || "Peneliti Modellyng"}${user?.email ? ` (${user.email})` : ""}`}
+            className={cn(
+              "flex items-center gap-2.5 rounded-xl p-1.5 transition-all cursor-pointer group flex-1 min-w-0",
+              isSettingsActive
+                ? "bg-primary/10 ring-1 ring-primary/25"
+                : "hover:bg-muted"
+            )}
+          >
+            <div
+              className={cn(
+                "size-8 rounded-full flex items-center justify-center font-bold text-xs ring-1 transition-all shrink-0",
+                isSettingsActive
+                  ? "bg-primary text-primary-foreground ring-primary"
+                  : "bg-primary/10 text-primary ring-primary/20 group-hover:ring-primary/40"
+              )}
+            >
+              {initials}
+            </div>
+            <div className="flex flex-col text-left text-xs min-w-0 flex-1">
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="font-semibold text-foreground truncate group-hover:text-primary transition-colors text-xs">
+                  {user?.full_name || "Peneliti Modellyng"}
+                </span>
+                <Settings className="size-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+              </div>
+              <span className="text-[10px] text-muted-foreground truncate">
+                {roleDisplay}
+              </span>
+            </div>
+          </Link>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            title="Keluar (Logout)"
+            className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 rounded-lg cursor-pointer"
+          >
+            <LogOut className="size-4" />
+          </Button>
+        </div>
+      </div>
     </aside>
   )
 }

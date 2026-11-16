@@ -588,7 +588,8 @@ DETAIL FITUR & INTEGRASI SISTEM
   memastikan data antar akun tidak pernah bercampur.
 - Navigasi Terpadu Bilah Atas (Navbar) & Bilah Samping (Sidebar):
   * **Notifikasi di Navbar:** Ikon lonceng di Navbar (`Header.tsx`) berfungsi sebagai trigger utama menuju halaman `/notifications`, dilengkapi indikator titik aktivitas.
-  * **Pengaturan Akun di Navbar:** Pil profil/inisial akun di Navbar dapat diklik langsung untuk menuju halaman pengaturan akun (`/settings`).
+  * **Pengaturan Akun & Profil di Footer Sidebar Permanen:** Tombol menu Akun / Pengaturan Profil dipindahkan ke bagian pojok kiri bawah Sidebar (`Sidebar.tsx`) sebagai footer permanen yang menampilkan avatar inisial pengguna, nama lengkap dengan ikon roda gigi pengaturan (`/settings`), label peran (Researcher/Admin), dan tombol keluar cepat (Logout). Bilah atas (Navbar) kini lebih bersih dan bebas distraksi.
+  * **Anti-Scroll Shell Layout (Navbar & Sidebar Tetap Diam):** `AppShell` dikunci secara presisi pada batas ketinggian layar (`h-screen h-dvh overflow-hidden flex`) dengan wadah konten utama independen (`main overflow-y-auto`). Ketika halaman yang panjang digulir ke bawah (misalnya di `/dashboard`, `/styleguide`, maupun `/settings`), Sidebar dan Navbar dijamin 100% tidak hilang atau tergulung ke luar viewport.
   * **Asisten Global di Sidebar:** Menu 'Asisten Global' diposisikan secara konsisten tepat di bawah 'Graf Pengetahuan' pada Sidebar (`/chat`).
   * **Pembersihan Sidebar:** Menu 'Kanvas Alur Riset', menu 'Chatbot' (`/chatbot`), serta footer teks 'Evidence-Centered' telah dibersihkan secara tuntas untuk tata letak bilah samping yang fokus dan rapi.
 - Halaman Pengaturan Akun & Rincian Batas Penggunaan (/settings):
