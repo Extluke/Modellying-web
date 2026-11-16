@@ -84,9 +84,11 @@ src/features/
 │   │   ├── DoiVerificationDrawer.tsx # Drawer Cek Keabsahan Sumber (DOI) meluncur dari sebelah kiri layar (Crossref & DataCite)
 │   │   ├── ComponentAiRevisionModal.tsx # Modal interaktif asisten AI pembantu revisi formulasi (draggable & guided loop)
 │   │   ├── components/               # Komponen spesifik analisis naskah
-│   │   │   └── ResearchQuestionsCardContent.tsx # Format kartu Pertanyaan Penelitian (multi-line, numbered list rapi)
+│   │   │   ├── ResearchQuestionsCardContent.tsx # Format kartu Pertanyaan Penelitian (multi-line, numbered list rapi)
+│   │   │   └── FutureWorkCardContent.tsx # Kartu Peluang Riset Mendatang (2 seksi: Agenda Penulis & Temuan AI)
 │   │   ├── utils/                    # Utilitas analisis & parsing naskah
-│   │   │   └── researchQuestionsFormatter.ts # Pemrosesan cerdas butir pertanyaan riset (preamble, questions, closing)
+│   │   │   ├── researchQuestionsFormatter.ts # Pemrosesan cerdas butir pertanyaan riset (preamble, questions, closing)
+│   │   │   └── futureWorkAugmentor.ts    # Generator sintesis AI peluang riset baru berbasis konteks ilmiah paper
 │   │   ├── pdfMatcher.ts             # Mesin pencocokan kutipan bukti fleksibel multi-tier (Tier 1-4)
 │   │   ├── PdfViewer.tsx             # Mesin penampil PDF privat, zoom, lompat halaman, & cache 10 menit TanStack Query
 │   │   ├── EvidencePanel.tsx         # Panel kutipan bukti terhubung ke koordinat PDF
@@ -716,6 +718,23 @@ DETAIL FITUR & INTEGRASI SISTEM
        - Penomoran Urut Rapi (Numbered List): Tiap butir pertanyaan disajikan dalam format `1. xxx?`, `2. xxx?`, `3. xxx?` dengan indeks angka tebal beraksen Indigo Primary (`font-mono font-bold text-primary`) dan pemisah baris baru/enter.
        - Spasi Vertikal Proporsional: Memanfaatkan `flex flex-col gap-2.5` untuk memberikan jeda baca yang proporsional dan nyaman di mata akademisi, memisahkan kalimat pengantar (preamble) dan kalimat penjelas (closing) secara rapi.
        - Integrasi Modal Revisi AI: Draf revisi dari Asisten AI juga diformat secara otomatis menjadi butir pertanyaan bernomor bertingkat sebelum disetujui dan disimpan ke basis data.
+    7. Pemisahan & Augmentasi Kartu Parameter #13 Peluang Riset Mendatang (Future Work) Menjadi 2 Kelompok (`FutureWorkCardContent.tsx` & `futureWorkAugmentor.ts`):
+       - Partisi 2 Kelompok Mandiri & Terstruktur:
+         a. Kelompok 1: Peluang yang Disadari Penulis (Agenda Riset Penulis):
+            * Menampilkan rekomendasi atau rencana studi masa depan yang ditulis secara eksplisit oleh penulis di dalam teks naskah paper.
+            * Dilengkapi kontainer bukti kutipan asli (`Evidence Container`) yang terhubung langsung ke nomor halaman kanonik PDF dengan tombol "Buka di PDF ↗".
+            * Deteksi Ketiadaan Agenda Eksplisit: Apabila naskah tidak memuat arahan masa depan (misal: "Teks naskah yang disediakan tidak memuat arahan atau rekomendasi spesifik..."), sistem menampilkan penanda visual informatif beraksen amber lembut bahwa penulis naskah tidak menyadari/menyebutkan peluang riset lanjutan.
+         b. Kelompok 2: Peluang yang Belum Disadari Penulis (Peluang Riset Baru Temuan AI):
+            * Menghasilkan 2 hingga 3 kartu rekomendasi topik peluang riset mutakhir yang belum tertulis dan belum disadari oleh penulis asli paper.
+            * Sintesis cerdas diekstrapolasi secara kontekstual berbasis domain paper (arsitektur sistem, model data spasial, lingkungan & TPB, machine learning, maupun riset empiris umum) dengan menganalisis celah metodologis, keterbatasan instrumen, dan limitasi lingkup riset.
+            * Setiap kartu temuan AI dilengkapi:
+              1) Lencana Kategori Spesifik (misal: *Skalabilitas & Big Data*, *Validasi Empiris Lanjutan*, *Generalisasi Multi-Konteks*, *Integrasi AI / ML*, dll.).
+              2) Judul Topik Peluang Riset yang tajam, provokatif, dan akademis.
+              3) Celah yang Terlewat (*Rationale*): Argumentasi ilmiah mengapa peluang ini luput dari pertimbangan penulis asli.
+              4) Potensi Nilai Kontribusi Akademik (*Thesis / Research Value*): Nilai kebaruan dan signifikansi jika topik ini diteliti oleh mahasiswa/peneliti.
+              5) Tombol Salin Cepat 1-Klik: Tombol salin interaktif dengan ikon umpan balik visual dan notifikasi toast seragam 5 detik (5000 ms).
+       - Integrasi Asisten Revisi AI (`ComponentAiRevisionModal.tsx`):
+         Menyediakan rekomendasi revisi khusus parameter #13 untuk menyempurnakan formulasi agenda penulis maupun mengeksplorasi sudut pandang peluang baru AI sebelum disetujui dan disimpan ke basis data.
   * Navigasi Tab Kontras Tinggi (High-Contrast Tabs):
     3 tab grup utama (`Konteks & Masalah`, `Metode & Data`, `Hasil & Gap`) disajikan dengan diferensiasi kontras tinggi yang tegas antara tab aktif (solid Indigo dengan teks putih tebal dan bayangan fokus) vs tab non-aktif (subdued muted).
   * Tampilan Split-Screen Interaktif (VS Code Resizable Split-Pane):
