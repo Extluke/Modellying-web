@@ -1,8 +1,6 @@
 import { useState } from "react"
 import {
   Bug,
-  AlertTriangle,
-  AlertCircle,
   CheckCircle2,
   Upload,
   Paperclip,
@@ -10,14 +8,11 @@ import {
   X,
   Send,
   Sparkles,
-  HelpCircle,
   Clock,
   Layers,
   ArrowRight,
   RotateCcw,
-  ShieldAlert,
   FileText,
-  Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,13 +21,11 @@ import { Input } from "@/components/ui/input"
 import { toast } from "@/lib/store/useToastStore"
 import { useAuthStore } from "@/features/auth/store/authStore"
 
-type SeverityLevel = "low" | "medium" | "high" | "critical"
-
 interface BugReportFormData {
   title: string
   pageUrl: string
   customPageUrl: string
-  severity: SeverityLevel
+  severity: "low" | "medium" | "high" | "critical"
   description: string
   stepsToReproduce: string
   includeEnvInfo: boolean
@@ -40,54 +33,16 @@ interface BugReportFormData {
 }
 
 const PAGE_OPTIONS = [
-  { value: "/projects/:id/overview", label: "Ruang Riset Dokumen & Upload PDF" },
-  { value: "/projects/:id/papers/:paperId", label: "Penampil PDF & Ekstraksi Komponen" },
-  { value: "/matrix", label: "Comparative Paper Matrix" },
-  { value: "/knowledge-graph", label: "Graf Pengetahuan & Peta Celah Riset" },
-  { value: "/chat", label: "Asisten Cerdas Global (Chat RAG)" },
-  { value: "/settings", label: "Pengaturan Akun & Batas Kuota" },
-  { value: "/settings/pricing", label: "Katalog Paket & Langganan Student Pro" },
-  { value: "/login", label: "Halaman Masuk / Pendaftaran Akun" },
-  { value: "custom", label: "Halaman Lainnya (Tulis URL Manual)" },
+  { value: "Dokumen & Unggah PDF", label: "Ruang Riset Dokumen & Upload PDF" },
+  { value: "Penampil PDF & Ekstraksi", label: "Penampil PDF & Ekstraksi Komponen" },
+  { value: "Comparative Matrix", label: "Comparative Paper Matrix" },
+  { value: "Graf Pengetahuan", label: "Graf Pengetahuan & Peta Celah Riset" },
+  { value: "Asisten Chat RAG", label: "Asisten Cerdas Global (Chat RAG)" },
+  { value: "Pengaturan Akun", label: "Pengaturan Akun & Batas Kuota" },
+  { value: "Katalog & Langganan", label: "Katalog Paket & Langganan Student Pro" },
+  { value: "Autentikasi", label: "Halaman Masuk / Pendaftaran Akun" },
+  { value: "custom", label: "Fitur / Halaman Lainnya" },
 ]
-
-const SEVERITY_CONFIG: Record<
-  SeverityLevel,
-  { label: string; badge: string; colorClass: string; borderClass: string; desc: string; icon: typeof AlertCircle }
-> = {
-  low: {
-    label: "Rendah (Low)",
-    badge: "Minor / Visual",
-    colorClass: "text-slate-600 dark:text-slate-400 bg-slate-500/10",
-    borderClass: "border-slate-500/30 hover:border-slate-500",
-    desc: "Masalah kosmetik, tipografi, atau pergeseran margin kecil.",
-    icon: HelpCircle,
-  },
-  medium: {
-    label: "Sedang (Medium)",
-    badge: "Fungsional Lambat",
-    colorClass: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
-    borderClass: "border-amber-500/40 hover:border-amber-500",
-    desc: "Fitur berjalan lambat, filter tidak sinkron, atau perlu muat ulang.",
-    icon: Clock,
-  },
-  high: {
-    label: "Tinggi (High)",
-    badge: "Fitur Terhambat",
-    colorClass: "text-orange-600 dark:text-orange-400 bg-orange-500/10",
-    borderClass: "border-orange-500/40 hover:border-orange-500",
-    desc: "Fitur penting tidak merespons atau tombol aksi tidak dapat diklik.",
-    icon: AlertTriangle,
-  },
-  critical: {
-    label: "Kritis (Critical)",
-    badge: "Crash / Data Hilang",
-    colorClass: "text-red-600 dark:text-red-400 bg-red-500/10",
-    borderClass: "border-red-500/50 hover:border-red-500 ring-1 ring-red-500/20",
-    desc: "Halaman crash, dokumen gagal disimpan, atau error sistem berulang.",
-    icon: ShieldAlert,
-  },
-}
 
 export function BugReportSection() {
   const { user } = useAuthStore()
@@ -101,7 +56,7 @@ export function BugReportSection() {
   // Form State
   const [formData, setFormData] = useState<BugReportFormData>({
     title: "",
-    pageUrl: "/projects/:id/papers/:paperId",
+    pageUrl: "Penampil PDF & Ekstraksi",
     customPageUrl: "",
     severity: "medium",
     description: "",
@@ -167,7 +122,7 @@ export function BugReportSection() {
     setSubmittedTicket(null)
     setFormData({
       title: "",
-      pageUrl: "/projects/:id/papers/:paperId",
+      pageUrl: "Penampil PDF & Ekstraksi",
       customPageUrl: "",
       severity: "medium",
       description: "",
@@ -324,10 +279,10 @@ export function BugReportSection() {
                     />
                   </div>
 
-                  {/* 2. Lokasi Halaman Terkait */}
+                  {/* 2. Lokasi Halaman / Fitur Terkait */}
                   <div className="space-y-1.5">
                     <label className="font-semibold text-foreground flex items-center gap-1.5">
-                      <span>Halaman Tempat Terjadinya Kendala</span>
+                      <span>Bagian / Fitur Tempat Terjadinya Kendala</span>
                     </label>
                     <select
                       value={formData.pageUrl}
@@ -336,7 +291,7 @@ export function BugReportSection() {
                     >
                       {PAGE_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
-                          {opt.label} ({opt.value})
+                          {opt.label}
                         </option>
                       ))}
                     </select>
@@ -344,7 +299,7 @@ export function BugReportSection() {
                     {formData.pageUrl === "custom" && (
                       <Input
                         type="text"
-                        placeholder="Ketik alamat URL halaman yang bermasalah (misal: /projects/xyz/custom)..."
+                        placeholder="Sebutkan fitur atau bagian yang bermasalah (misal: saat membuka riwayat, ekspor laporan, dll)..."
                         value={formData.customPageUrl}
                         onChange={(e) => setFormData({ ...formData, customPageUrl: e.target.value })}
                         className="h-9 text-xs mt-2"
@@ -352,47 +307,7 @@ export function BugReportSection() {
                     )}
                   </div>
 
-                  {/* 3. Tingkat Keparahan (Severity Grid) */}
-                  <div className="space-y-2">
-                    <label className="font-semibold text-foreground flex items-center justify-between">
-                      <span>Tingkat Dampak / Urgensi Masalah <span className="text-red-500">*</span></span>
-                      <span className="text-[10px] font-normal text-muted-foreground">Pilih sesuai dampak kendala</span>
-                    </label>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {(["low", "medium", "high", "critical"] as SeverityLevel[]).map((level) => {
-                        const cfg = SEVERITY_CONFIG[level]
-                        const isSelected = formData.severity === level
-                        const Icon = cfg.icon
-
-                        return (
-                          <div
-                            key={level}
-                            onClick={() => setFormData({ ...formData, severity: level })}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
-                              isSelected
-                                ? "bg-primary/[0.03] border-primary shadow-xs ring-1 ring-primary/20"
-                                : `${cfg.borderClass} bg-card`
-                            }`}
-                          >
-                            <div className={`size-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${cfg.colorClass}`}>
-                              <Icon className="size-4" />
-                            </div>
-
-                            <div className="space-y-0.5 flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-1">
-                                <span className="font-bold text-foreground text-xs">{cfg.label}</span>
-                                {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
-                              </div>
-                              <p className="text-[10px] text-muted-foreground leading-tight">{cfg.desc}</p>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 4. Deskripsi Detail Masalah */}
+                  {/* 3. Deskripsi Detail Masalah */}
                   <div className="space-y-1.5">
                     <label className="font-semibold text-foreground flex items-center justify-between">
                       <span>Deskripsi Rinci Masalah <span className="text-red-500">*</span></span>
@@ -408,7 +323,7 @@ export function BugReportSection() {
                     />
                   </div>
 
-                  {/* 5. Langkah Reproduksi (Opsional) */}
+                  {/* 4. Langkah Reproduksi (Opsional) */}
                   <div className="space-y-1.5">
                     <label className="font-semibold text-foreground flex items-center gap-1.5">
                       <span>Langkah-langkah untuk Mengulang Kendala (Opsional)</span>
@@ -422,7 +337,7 @@ export function BugReportSection() {
                     />
                   </div>
 
-                  {/* 6. Lampiran Tangkapan Layar / Dokumen */}
+                  {/* 5. Lampiran Tangkapan Layar / Dokumen */}
                   <div className="space-y-2">
                     <label className="font-semibold text-foreground flex items-center justify-between">
                       <span>Lampiran Tangkapan Layar / Bukti Error</span>
@@ -470,7 +385,7 @@ export function BugReportSection() {
                     )}
                   </div>
 
-                  {/* 7. Informasi Teknis Perangkat Otomatis */}
+                  {/* 6. Informasi Teknis Perangkat Otomatis */}
                   <div className="p-3 rounded-xl border bg-card/60 flex items-start gap-2.5">
                     <input
                       type="checkbox"
@@ -581,23 +496,18 @@ export function BugReportSection() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-semibold text-foreground">Tingkat Urgensi</label>
-                    <div className="grid grid-cols-4 gap-1.5 text-center">
-                      {(["low", "medium", "high", "critical"] as SeverityLevel[]).map((sev) => (
-                        <button
-                          key={sev}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, severity: sev })}
-                          className={`py-1.5 rounded-lg border text-[11px] font-semibold transition-all ${
-                            formData.severity === sev
-                              ? "bg-primary text-white border-primary"
-                              : "bg-muted/40 hover:bg-muted text-foreground border-border"
-                          }`}
-                        >
-                          {SEVERITY_CONFIG[sev].label.split(" ")[0]}
-                        </button>
+                    <label className="font-semibold text-foreground">Bagian / Fitur Terkait</label>
+                    <select
+                      value={formData.pageUrl}
+                      onChange={(e) => setFormData({ ...formData, pageUrl: e.target.value })}
+                      className="h-8 w-full rounded-md border bg-background px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      {PAGE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
                       ))}
-                    </div>
+                    </select>
                   </div>
 
                   <div className="space-y-1">
@@ -652,8 +562,7 @@ export function BugReportSection() {
               {
                 id: "BUG-2026-9102",
                 title: "Teks kutipan bukti PDF bergeser 2 baris pada dokumen 3 kolom",
-                page: "/projects/p-12/papers/pp-44",
-                severity: "medium" as SeverityLevel,
+                feature: "Penampil PDF & Ekstraksi Komponen",
                 status: "investigating",
                 statusLabel: "Sedang Ditinjau",
                 statusClass: "bg-amber-500/10 text-amber-600 border-amber-500/20",
@@ -662,8 +571,7 @@ export function BugReportSection() {
               {
                 id: "BUG-2026-8841",
                 title: "Gagal mengunduh berkas matriks sintesis format Excel XLSX",
-                page: "/projects/p-12/matrix",
-                severity: "high" as SeverityLevel,
+                feature: "Comparative Paper Matrix",
                 status: "resolved",
                 statusLabel: "Selesai Diperbaiki",
                 statusClass: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
@@ -672,16 +580,13 @@ export function BugReportSection() {
               {
                 id: "BUG-2026-7210",
                 title: "Perataan teks judul bab pada visualisasi alur riset terpotong",
-                page: "/knowledge-graph",
-                severity: "low" as SeverityLevel,
+                feature: "Graf Pengetahuan & Peta Celah Riset",
                 status: "closed",
                 statusLabel: "Tiket Ditutup",
                 statusClass: "bg-slate-500/10 text-slate-600 border-slate-500/20",
                 date: "4 hari lalu",
               },
             ].map((ticket) => {
-              const sevCfg = SEVERITY_CONFIG[ticket.severity]
-
               return (
                 <div
                   key={ticket.id}
@@ -690,16 +595,13 @@ export function BugReportSection() {
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-[11px] font-bold text-foreground">{ticket.id}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${sevCfg.colorClass} border-transparent`}>
-                        {sevCfg.badge}
-                      </span>
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${ticket.statusClass}`}>
                         {ticket.statusLabel}
                       </span>
                     </div>
 
                     <p className="font-semibold text-foreground text-xs">{ticket.title}</p>
-                    <p className="text-[11px] text-muted-foreground">Lokasi: <code className="bg-muted px-1 py-0.2 rounded text-[10px]">{ticket.page}</code> • Dilaporkan {ticket.date}</p>
+                    <p className="text-[11px] text-muted-foreground">Bagian: <span className="font-medium text-foreground">{ticket.feature}</span> • Dilaporkan {ticket.date}</p>
                   </div>
 
                   <Button variant="outline" size="sm" className="text-[11px] shrink-0 gap-1 h-8">
