@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronUp,
   FileCheck2,
-  GitBranch,
   Lightbulb,
   Compass,
   BookOpen,
@@ -16,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { toast } from "@/lib/store/useToastStore"
 import { ProjectSynthesisData } from "../utils/synthesisEngine"
+import { MethodologyDifferencesSection } from "./MethodologyDifferencesSection"
 
 export interface ProjectSynthesisCardProps {
   synthesis: ProjectSynthesisData
@@ -38,8 +38,14 @@ export function ProjectSynthesisCard({
       "## 1. Persamaan Antar Paper:",
       ...synthesis.similarities.map((s) => `- ${s}`),
       "",
-      "## 2. Perbedaan Pendekatan Metodologis:",
-      ...synthesis.approachDifferences.map((d) => `- ${d}`),
+      "## 2. Perbedaan Pendekatan Metodologis & Variabel Penelitian:",
+      ...synthesis.methodologicalApproaches.map((item) => {
+        const varList =
+          item.variables.length > 0
+            ? item.variables.map((v) => `    * [${v.categoryLabel}] ${v.name}`).join("\n")
+            : "    * (Tidak ada variabel spesifik yang dicatat)"
+        return `- ${item.citation} (${item.paperTitle}):\n  Pendekatan: "${item.methodologyFullText}"\n  Variabel:\n${varList}`
+      }),
       "",
       "## 3. Pola Riset yang Teridentifikasi:",
       ...synthesis.researchPatterns.map((p) => `- ${p}`),
@@ -176,7 +182,7 @@ export function ProjectSynthesisCard({
             </p>
           </div>
 
-          {/* 2. Grid: Persamaan & Perbedaan */}
+          {/* 2. Grid: Persamaan & Pola Riset */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Similarities */}
             <div className="rounded-card border border-border bg-card p-4 space-y-2.5">
@@ -194,25 +200,6 @@ export function ProjectSynthesisCard({
               </ul>
             </div>
 
-            {/* Approach Differences */}
-            <div className="rounded-card border border-border bg-card p-4 space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <GitBranch className="size-3.5 text-status-blue" />
-                <span>Perbedaan Pendekatan Metodologi</span>
-              </div>
-              <ul className="space-y-1.5 text-xs text-muted-foreground">
-                {synthesis.approachDifferences.map((diff, idx) => (
-                  <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                    <span className="size-1.5 rounded-full bg-status-blue mt-1.5 shrink-0" />
-                    <span>{diff}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* 3. Grid: Pola Riset & Celah / Peluang */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Research Patterns */}
             <div className="rounded-card border border-border bg-card p-4 space-y-2.5">
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
@@ -228,22 +215,27 @@ export function ProjectSynthesisCard({
                 ))}
               </ul>
             </div>
+          </div>
 
-            {/* Gaps and Opportunities */}
-            <div className="rounded-card border border-border bg-card p-4 space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Lightbulb className="size-3.5 text-status-orange" />
-                <span>Kesenjangan & Peluang Riset Terbuka</span>
-              </div>
-              <ul className="space-y-1.5 text-xs text-muted-foreground">
-                {synthesis.gapsAndOpportunities.map((gap, idx) => (
-                  <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                    <span className="size-1.5 rounded-full bg-status-orange mt-1.5 shrink-0" />
-                    <span>{gap}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* 3. Perbedaan Pendekatan Metodologi & Variabel Penelitian (Render Komprehensif Seluruh Variabel & Metodologi) */}
+          <MethodologyDifferencesSection
+            approaches={synthesis.methodologicalApproaches}
+          />
+
+          {/* 4. Gaps and Opportunities */}
+          <div className="rounded-card border border-border bg-card p-4 space-y-2.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+              <Lightbulb className="size-3.5 text-status-orange" />
+              <span>Kesenjangan &amp; Peluang Riset Terbuka</span>
             </div>
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              {synthesis.gapsAndOpportunities.map((gap, idx) => (
+                <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                  <span className="size-1.5 rounded-full bg-status-orange mt-1.5 shrink-0" />
+                  <span>{gap}</span>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* 4. Follow-up Research Ideas */}
