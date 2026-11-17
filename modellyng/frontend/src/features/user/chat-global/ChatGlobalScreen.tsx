@@ -341,11 +341,23 @@ export default function ChatGlobalScreen() {
     // Eksekusi pemanggilan AI dengan mekanisme retry 1 kali
     const attemptQuery = async (retryCount = 0): Promise<ProjectChatResponse> => {
       try {
+        const payload = {
+          message: trimmed,
+          paper_id: currentScope.paper?.id,
+          history: messages
+            .filter((m) => m.status === "sent" && m.content.trim())
+            .slice(-6)
+            .map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+        }
+
         // 1. Jika ada tag @proyek, kirim ke endpoint RAG proyek
         if (currentScope.project?.id) {
           return await apiClient.post<ProjectChatResponse>(
             `/projects/${currentScope.project.id}/chat`,
-            { message: trimmed }
+            payload
           )
         }
 
@@ -355,7 +367,7 @@ export default function ChatGlobalScreen() {
           const fallbackProj = projects[0]
           return await apiClient.post<ProjectChatResponse>(
             `/projects/${fallbackProj.id}/chat`,
-            { message: trimmed }
+            payload
           )
         }
 

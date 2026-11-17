@@ -78,6 +78,8 @@ class ComponentUpdateRequest(BaseModel):
 
 class ChatMessageRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000, description="Pertanyaan riset")
+    paper_id: Optional[str] = None
+    history: Optional[List[Dict[str, Any]]] = None
 
 class CitationItem(BaseModel):
     citation_id: str

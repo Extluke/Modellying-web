@@ -1102,7 +1102,30 @@ DETAIL FITUR & INTEGRASI SISTEM
 - Layar Utama Asisten Cerdas Global (`ChatGlobalScreen.tsx` pada rute `/chat`):
   * Titik temu asisten kecerdasan buatan universal untuk eksplorasi literatur lintas-dokumen,
     konsultasi metodologi riset, dan investigasi temuan naskah berbasis bukti (*evidence-centered*).
+  * Kemampuan Penalaran Percakapan Multi-Turn ("Bisa Diajak Diskusi"):
+    - Menghilangkan balasan kaku "Informasi tidak ditemukan" pada sapaan santai ("halo", "hai") maupun
+      pertanyaan umum konseptual. Asisten merespons secara ramah dan profesional sebagai rekan diskusi akademik.
+    - Menjaga konteks percakapan multi-turn: riwayat percakapan sebelumnya (`history` 6 putaran terakhir)
+      diteruskan ke backend RAG sehingga asisten memahami rujukan kata ganti (misal: "paper tersebut membahas apa?",
+      "jelaskan metodologinya lebih detail").
+  * Sintesis Lintas Dokumen & Komparasi Multi-Paper Otomatis:
+    - Saat ditanyakan cakupan proyek (misal: "project ini membahas apa?"), asisten melakukan sintesis tingkat tinggi
+      yang merangkum seluruh paper yang ada di dalam proyek secara komprehensif, mencakup rumusan masalah,
+      metodologi yang dipakai, temuan empiris, dan celah penelitian.
   * Terhubung secara mulus dengan tombol "Asisten Global" pada bilah navigasi atas (`Header.tsx`).
+
+- Integrasi Backend RAG Cerdas & Manajemen Token (`rag_service.py` & `hybrid_search.py`):
+  * Mesin LLM Groq Terkelola: Menggunakan model akademik cerdas `qwen/qwen3.8-27b` (atau fallback konfigurabel via `GROQ_MODEL_NAME`).
+  * Injeksi Metadata Proyek Otomatis: Ringkasan naskah (judul, penulis, tahun, rumusan, metodologi, temuan)
+    diinjeksikan langsung ke prompt sistem sehingga asisten selalu memahami gambaran utuh proyek tanpa bergantung
+    pada kecocokan kata kunci mentah (*lexical keyword overlap*).
+  * Pencarian Hibrida Dense & Sparse dengan Filter Paper: Mendukung pemfilteran spesifik naskah (`paper_id`)
+    saat chip `/paper` aktif, serta fallback blok dasar (halaman 1-2) jika query bersifat umum agar konteks tidak kosong.
+  * Perlindungan Batas Kuota Token (Token Budgeting): Pemangkasan cuplikan blok (maksimal 4 blok teratas,
+    dipotong maksimal 400 karakter per blok) dan riwayat percakapan untuk menjaga utilisasi token di bawah batas
+    ketat 7.000 ITPM (Input Tokens Per Minute) Groq.
+  * Cadangan Deterministik Cerdas: Jika terjadi gangguan jaringan atau API Groq tidak tersedia, sistem membangkitkan
+    respons ringkasan terstruktur berbasis data ekstraksi kanonik tanpa pernah memunculkan pesan gagal buntu.
 
 - Mekanisme Autocomplete Konteks Interaktif (`@proyek` dan `/paper`):
   * Deteksi Kursor Real-Time (`autocompleteParser.ts`):

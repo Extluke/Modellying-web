@@ -1267,25 +1267,93 @@ def project_chat_query(
 ):
     """
     Evidence-Centered Project RAG endpoint:
-    - Runs Hybrid Search (pgvector HNSW + BM25 Full-Text Search + RRF).
-    - Injects top 5-7 context blocks into System Prompt.
-    - Uses structured JSON mode with strict anti-hallucination validation.
+    - Runs Hybrid Search (pgvector HNSW + BM25 Full-Text Search + RRF), supporting paper_id filter.
+    - Gathers project-level paper metadata and extracted components for multi-paper synthesis.
+    - Supports conversational history for natural interactive discussion.
+    - Injects evidence context blocks into System Prompt.
+    - Uses structured JSON mode with anti-hallucination validation.
     - Stores messages in public.chat_messages for persistent history.
     """
     user_id = current_user["id"]
 
-    # 1. Verify project ownership
+    # 1. Verify project ownership & load papers and extracted components for synthesis
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT id FROM public.projects WHERE id = %s AND user_id = %s;", (project_id, user_id))
-            if not cur.fetchone():
+            cur.execute("SELECT id, name, description FROM public.projects WHERE id = %s AND user_id = %s;", (project_id, user_id))
+            proj = cur.fetchone()
+            if not proj:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyek riset tidak ditemukan.")
 
-    # 2. Perform Hybrid Search
-    search_results = perform_hybrid_search(project_id=project_id, query=req.message, top_k=6)
+            # Load all papers in this project
+            cur.execute(
+                """
+                SELECT id, title, authors, year, journal
+                FROM public.papers
+                WHERE project_id = %s
+                ORDER BY uploaded_at ASC;
+                """,
+                (project_id,)
+            )
+            papers_rows = cur.fetchall() or []
 
-    # 3. Generate Evidence-Centered RAG response
-    rag_res = generate_rag_response(query=req.message, contexts=search_results)
+            # Load extracted components for comprehensive synthesis
+            cur.execute(
+                """
+                SELECT ec.paper_id, ec.parameter_key, ec.value->>'text' AS text
+                FROM public.extracted_components ec
+                JOIN public.papers p ON p.id = ec.paper_id
+                WHERE p.project_id = %s;
+                """,
+                (project_id,)
+            )
+            comp_rows = cur.fetchall() or []
+
+    comp_map = {}
+    for r in comp_rows:
+        pid_str = str(r["paper_id"])
+        if pid_str not in comp_map:
+            comp_map[pid_str] = {}
+        comp_map[pid_str][r["parameter_key"]] = r["text"]
+
+    papers_list = []
+    paper_focus = None
+    for p in papers_rows:
+        pid_str = str(p["id"])
+        p_dict = {
+            "id": pid_str,
+            "title": p["title"],
+            "authors": p["authors"] or [],
+            "year": p["year"],
+            "journal": p.get("journal"),
+            "components": comp_map.get(pid_str, {}),
+        }
+        papers_list.append(p_dict)
+        if req.paper_id and str(req.paper_id) == pid_str:
+            paper_focus = p_dict
+
+    project_meta = {
+        "id": str(proj["id"]),
+        "name": proj["name"],
+        "description": proj.get("description"),
+        "papers": papers_list,
+    }
+
+    # 2. Perform Hybrid Search (filtered by paper_id if specified)
+    search_results = perform_hybrid_search(
+        project_id=project_id,
+        query=req.message,
+        top_k=6,
+        paper_id=req.paper_id,
+    )
+
+    # 3. Generate Evidence-Centered RAG response with multi-paper reasoning & discussion capability
+    rag_res = generate_rag_response(
+        query=req.message,
+        contexts=search_results,
+        project_meta=project_meta,
+        paper_focus=paper_focus,
+        history=req.history,
+    )
     answer = rag_res["answer"]
     citations = rag_res["citations"]
 
