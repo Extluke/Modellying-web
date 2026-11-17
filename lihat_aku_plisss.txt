@@ -1141,6 +1141,16 @@ DETAIL FITUR & INTEGRASI SISTEM
       interaktif beraksen visual di atas input bar (`@NamaProyek` berwarna Indigo, `/JudulPaper` berwarna Emerald).
     - Chip dapat dilepas kapan saja dengan tombol silang `x` tanpa merusak teks pertanyaan yang sedang diketik.
 
+- Desain Kotak Input Responsif & Bebas Scrollbar (`GlobalChatInputBar.tsx`):
+  * Pengaturan Tinggi Otomatis (Auto-Grow): Bidang pengetikan meluas secara dinamis mengikuti panjang teks
+    pertanyaan hingga batas proporsional 140 px (`max-h-36`).
+  * Eliminasi Scrollbar Bawaan Peramban (Clean Aesthetic):
+    - Menerapkan utilitas `.no-scrollbar`, `[scrollbar-width:none]`, `[-ms-overflow-style:none]`, serta
+      `[&::-webkit-scrollbar]:hidden` sehingga panah scrollbar bawaan sistem operasi (Windows/Edge/Chrome/Firefox)
+      tidak pernah muncul mengganggu estetika antarmuka.
+    - Kontrol `overflowY` otomatis disetel `hidden` saat teks pendek (1 baris) dan bertransisi mulus ke `auto`
+      saat teks melampaui 140 px tanpa memunculkan bilah geser visual.
+
 - Kebijakan Caching Lokal 24 Jam & Pemangkasan Otomatis (*Auto-Prune* via `localStorage`):
   * Sesuai spesifikasi audit fitur Modellyng (Kategori 13), riwayat percakapan asisten global disimpan
     secara privat di sisi klien pengguna (`modellyng_global_chat_history_${userId}`) dengan batas waktu 24 jam.
