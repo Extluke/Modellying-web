@@ -319,7 +319,7 @@ export function generateIntelligenceReportJson(
     report_title: `Laporan Intelijen Riset Komparatif: ${matrixData.project_name}`,
     generated_at: new Date().toISOString(),
     metrics,
-    papers: matrixData.papers.map((p) => {
+    papers: matrixData.papers.map((p, idx) => {
       const paperWithMeta = p as MatrixPaper & { journal?: string; doi?: string }
       return {
         id: p.id,
@@ -329,11 +329,11 @@ export function generateIntelligenceReportJson(
         journal: paperWithMeta.journal || null,
         total_pages: p.total_pages,
         citations: {
-          apa: formatBibliography(p, "apa"),
-          ieee: formatBibliography(p, "ieee"),
-          harvard: formatBibliography(p, "harvard"),
-          vancouver: formatBibliography(p, "vancouver"),
-          chicago: formatBibliography(p, "chicago"),
+          apa: formatBibliography(p, "apa", idx + 1),
+          ieee: formatBibliography(p, "ieee", idx + 1),
+          harvard: formatBibliography(p, "harvard", idx + 1),
+          vancouver: formatBibliography(p, "vancouver", idx + 1),
+          chicago: formatBibliography(p, "chicago", idx + 1),
         },
       }
     }),

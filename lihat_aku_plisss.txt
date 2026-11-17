@@ -126,7 +126,7 @@ src/features/
 │   │       ├── variableClassifier.ts      # Ekstraksi & taksonomi variabel (bebas, terikat, moderator, kontrol, operasional)
 │   │       ├── matrixFormatters.ts        # Label grup, status sel, warna skor keyakinan, format teks sel
 │   │       ├── exportMatrixCsv.ts         # Pembangun & pengunduh CSV UTF-8 BOM
-│   │       ├── citationFormatter.ts       # Generator sitasi APA, IEEE, Harvard, Vancouver, Chicago
+│   │       └── citationFormatter.ts       # Generator sitasi lengkap 5 format (IEEE, APA 7, Harvard, Vancouver, Chicago) mencakup seluruh metadata & pp.
 │   ├── gap-map/                      # /gap-map (Pusat pemetaan celah penelitian & novelty tesis)
 │   │   ├── GapMapScreen.tsx          # Hub dispatcher: pemilihan proyek & ruang kerja peta celah
 │   │   ├── types/
@@ -907,9 +907,17 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Kartu Laporan Intelijen & Bibliografi Riset (`IntelligenceReportCard.tsx`):
     Kartu laporan intelijen komprehensif yang menyajikan metrik statistik riset (total relasi,
     komponen terverifikasi, rata-rata skor keyakinan AI, dan jumlah klaim butuh evaluasi bukti),
-    generator sitasi 5 format standar internasional dinamis (APA 7th, IEEE, Harvard, Vancouver,
-    dan Chicago Author-Date), preview sitasi dalam teks (in-text citation), tombol salin sitasi,
+    generator sitasi 5 format standar internasional dinamis (`citationFormatter.ts`: APA 7th Edition,
+    IEEE Style, Harvard Style, Vancouver Style, dan Chicago Author-Date), preview sitasi dalam teks
+    (in-text citation), aksi salin satu-klik per-paper atau seluruh sitasi sekaligus dengan toast 5 detik,
     serta tombol "Unduh JSON" (`generateIntelligenceReportJson`).
+    - Generator Sitasi Akademik Lengkap 5 Gaya (`citationFormatter.ts`):
+      1) Penulisan Seluruh Nama Penulis Utuh: Seluruh nama penulis ditampilkan lengkap tanpa pemotongan
+         dini (`et al.`) pada daftar pustaka. Khusus gaya IEEE, nama diformat `Inisial. NamaBelakang`
+         dengan Oxford comma dan kata hubung `and` (contoh: `M. Amin, L. C. K. Panjaitan, A. Munang, B. Prayoga, H. D. Prihartanto, and A. S. Biyan`). Gaya APA/Harvard/Chicago menggunakan format `NamaBelakang, Inisial.` (`Amin, M., & Panjaitan, L. C. K.`), dan Vancouver menggunakan `NamaBelakang Inisial` (`Amin M, Panjaitan LCK`).
+      2) Judul Naskah Terenkapsulasi Tanda Petik: Judul paper diapit tanda petik ganda (`"..."`) konsisten di seluruh gaya sitasi.
+      3) Kelengkapan Metadata Publikasi: Menampilkan nama jurnal ilmiah / prosiding konferensi resmi, tahun terbit aktual (bukan `n.d.`), volume, issue/no., rentang nomor halaman eksplisit berawalan `pp.` (contoh: `pp. 112–126` atau `pp. 1–38`), serta pranala Digital Object Identifier (DOI).
+      4) Pembersih Tanda Baca Nir-Cacat (`sanitizePunctuation`): Mengeliminasi seluruh anomali titik ganda (`..` atau `n.d..`) dan merapikan spasi sebelum tanda baca sehingga sitasi terjamin bersih, elegan, dan siap dikutip ke publikasi ilmiah.
   * Modal Telaah Bukti PDF (`projects/paper-analysis/EvidencePdfModal.tsx`, dipakai bersama graf pengetahuan): Mengklik "Hal. N" pada sel tabel membuka penampil
     PDF modal (`PdfViewer.tsx`) dengan penyorotan teks kanonik. Modal ini dimuat lazy sehingga pdf.js
     baru diunduh saat bukti dibuka.
