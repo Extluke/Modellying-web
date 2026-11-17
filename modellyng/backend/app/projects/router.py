@@ -2,9 +2,12 @@ import hashlib
 import uuid
 import re
 import shutil
+import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+
+logger = logging.getLogger("modellyng.projects_router")
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
@@ -1305,23 +1308,26 @@ def global_chat_query(
     )
     answer = global_res["answer"]
 
-    # 3. Save to chat messages table (scope='global_chat', project_id=None)
-    with get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO public.chat_messages (user_id, project_id, scope, role, content, citations)
-                VALUES (%s, NULL, 'global_chat', 'user', %s, '[]'::jsonb);
-                """,
-                (user_id, req.message.strip()),
-            )
-            cur.execute(
-                """
-                INSERT INTO public.chat_messages (user_id, project_id, scope, role, content, citations)
-                VALUES (%s, NULL, 'global_chat', 'assistant', %s, '[]'::jsonb);
-                """,
-                (user_id, answer),
-            )
+    # 3. Save to chat messages table (scope='global_assistant', project_id=None)
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO public.chat_messages (user_id, project_id, scope, role, content, citations)
+                    VALUES (%s, NULL, 'global_assistant', 'user', %s, '[]'::jsonb);
+                    """,
+                    (user_id, req.message.strip()),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO public.chat_messages (user_id, project_id, scope, role, content, citations)
+                    VALUES (%s, NULL, 'global_assistant', 'assistant', %s, '[]'::jsonb);
+                    """,
+                    (user_id, answer),
+                )
+    except Exception as db_err:
+        logger.warning(f"Failed to persist global chat message: {db_err}")
 
     return ChatResponse(
         answer=answer,
