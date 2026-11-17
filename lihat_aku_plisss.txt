@@ -133,13 +133,20 @@ src/features/
 │   │   ├── types/
 │   │   │   └── flowTypes.ts              # Interface node, edges, stage alur, & rekomendasi aksi
 │   │   ├── store/
-│   │   │   └── useGapMapStore.ts         # Zustand store interaksi kanvas, fullscreen, & filter
+│   │   │   └── useGapMapStore.ts         # Zustand store interaksi kanvas, fullscreen, filter, gap terpilih (selectedGapId), & gap ringkasan (summaryGapId)
 │   │   ├── utils/
-│   │   │   └── flowDataBuilder.ts        # Pembangun graf 4 tahap, deteksi frekuensi hijau/merah
+│   │   │   ├── flowDataBuilder.ts        # Pembangun graf 4 tahap, deteksi frekuensi hijau/merah
+│   │   │   ├── gapItems.ts               # Mengambil simpul gap dari buildKnowledgeGraph(matrix), memasangkan rekomendasi, & menyusun payload sintesis AI
+│   │   │   └── gapRecommendation.ts      # 10 kasus rekomendasi tindak lanjut berbasis kata kunci & tipologi gap (port dari aplikasi mobile)
 │   │   └── components/
 │   │       ├── GapMapProjectPicker.tsx    # Katalog pemilihan proyek & validasi kesiapan celah (syarat >= 2 paper siap)
 │   │       ├── GapMapProjectCard.tsx      # Kartu proyek dengan indikator kesiapan dan callout amber solutif
-│   │       ├── ProjectGapMapView.tsx      # Ruang kerja peta celah proyek aktif & tab navigasi dual workspace
+│   │       ├── ProjectGapMapView.tsx      # Ruang kerja peta celah proyek aktif: metrik, kanvas alur riset, & bagian Research Gaps
+│   │       ├── ResearchGapsSection.tsx    # Bagian "Research Gaps" di bawah kanvas (keadaan memuat, kosong, & galat)
+│   │       ├── GapCard.tsx                # Kartu gap: "Gap 01", lencana "Ada Solusi", aksi user, & tautan "Solusi & Kelanjutan"
+│   │       ├── GapDetailPanel.tsx         # Panel samping desktop / sheet layar kecil: statement, jenis, confidence, rekomendasi, & bukti
+│   │       ├── GapRecommendationCard.tsx  # Kartu "Rekomendasi Aksi & Tindak Lanjut" (solusi, roadmap 4 tahap, usulan judul, salin)
+│   │       ├── GapSummaryDialog.tsx       # Dialog "Summary Gap & Rekomendasi" setelah tombol SELESAI
 │   │       ├── ResearchFlowCanvas.tsx     # Kanvas interaktif React Flow (@xyflow/react) dengan dot background & minimap
 │   │       ├── FlowNodeCard.tsx           # Custom node 4 tahap: hijau (>=2 paper) vs merah (celah langka)
 │   │       ├── CanvasToolbar.tsx          # Toolbar pan, zoom in/out, fit view, fullscreen, & filter keseringan
@@ -1025,12 +1032,30 @@ DETAIL FITUR & INTEGRASI SISTEM
     - Kotak Pencarian Instan: Menyaring nama dan deskripsi proyek secara langsung (*real-time*).
 - Ruang Kerja Peta Celah Proyek Terpilih (`ProjectGapMapView.tsx`):
   * Bilah Header Navigasi Cerdas: Tombol "Pilih Proyek Lain" untuk kembali ke katalog pemilihan,
-    pemilih drop-down proyek cepat, serta tombol "Sintesis Celah Baru dengan AI".
+    serta pemilih drop-down proyek cepat.
   * Metrik Celah Riset: Total Simpul 4 Tahap, Fokus Bersama (>= 2 Paper), Celah Riset Langka (Novelty),
-    dan Celah Tervalidasi (Accepted).
-  * Tab Navigasi Workspace Ganda:
-    1. Tab "Kanvas Alur Riset (React Flow)": Kanvas grafis visualisasi alur 4 tahap utama.
-    2. Tab "Daftar Kandidat Celah (List View)": Tabel & kartu telaah validasi celah ("Layak Diteliti" / "Tolak").
+    dan jumlah Research Gaps yang ditemukan.
+  * Kanvas Alur Riset (React Flow) diikuti bagian "Research Gaps" di bawahnya. Tab "Daftar Kandidat Celah"
+    beserta 3 gap contoh yang tertulis di kode sudah dihapus dan diganti data nyata proyek.
+- Bagian Research Gaps (`ResearchGapsSection.tsx`, tampil di bawah kanvas, sama seperti aplikasi mobile):
+  * Sumber data: simpul bertipe `gap` dari `buildKnowledgeGraph(matrix)` (modul knowledge-graph), yaitu hasil
+    ekstraksi Keterbatasan & Future Work paper. Setiap gap memuat label, uraian, bukti kutipan, daftar paper,
+    tipologi, dan tingkat keyakinan. Data diambil dari query matriks komparatif yang sama dengan kanvas.
+  * Kartu gap (`GapCard.tsx`): "Gap 01", lencana "Ada Solusi", kutipan gap 2 baris, "Aksi User: ...",
+    "N papers • tingkat keyakinan", dan tautan "Solusi & Kelanjutan". Ada keadaan memuat, kosong
+    ("Belum ada research gap untuk proyek ini."), dan galat dengan tombol "Coba lagi".
+  * Detail gap (`GapDetailPanel.tsx`): panel samping di desktop dan sheet bawah di layar kecil. Berisi GAP STATEMENT,
+    JENIS GAP, chip CONFIDENCE & status "Perlu ditinjau", kartu "Rekomendasi Aksi & Tindak Lanjut"
+    (`GapRecommendationCard.tsx`: solusi konkret, roadmap 4 tahap, contoh usulan judul, tombol salin), dan BUKTI PENDUKUNG.
+  * Rekomendasi (`utils/gapRecommendation.ts`): 10 kasus berbasis kata kunci (IoT/hardware, JavaScript/browser, HTML/DOM/IR,
+    kompresi/XML/biaya, benchmark, lalu fallback tipologi dataset, populasi, metodologi, empiris, dan umum).
+    Kata kunci pendek memakai batas kata agar "domain" tidak terbaca sebagai "DOM".
+  * Tombol aksi di panel:
+    - SELESAI membuka dialog "Summary Gap & Rekomendasi" (`GapSummaryDialog.tsx`) dengan tombol "OK / Tutup".
+    - SINTESIS RISET (AI) memakai `useSynthesizeGraphNodes` (`POST /projects/{id}/knowledge-graph/synthesize`)
+      dan menampilkan hasilnya di `SynthesisResultDialog` milik modul knowledge-graph.
+    - BACA PAPER SUMBER / "Lihat di PDF" membuka `EvidencePdfModal` (dimuat lazy karena membawa pdfjs-dist).
+  * Gap terpilih disimpan di `useGapMapStore` (`selectedGapId`, `summaryGapId`) dan direset saat proyek berganti.
 - Kanvas Interaktif Alur Riset 4 Tahap (`ResearchFlowCanvas.tsx` berbasis `@xyflow/react`):
   * Alur Visual 4 Tahap Terstruktur (dibaca dari kiri ke kanan):
     - Tahap 1: Topik Riset (Domain investigasi per naskah primer, koordinat X = 50)
