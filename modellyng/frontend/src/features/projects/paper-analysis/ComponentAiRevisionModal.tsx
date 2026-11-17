@@ -89,6 +89,12 @@ export function ComponentAiRevisionModal({
         component.sort_order === 13 ||
         Boolean(component.label?.id && /peluang riset|riset mendatang|future work/i.test(component.label.id))
 
+      const isLimitations =
+        component.parameter_key === "limitations" ||
+        component.parameter_key === "keterbatasan_riset" ||
+        component.sort_order === 12 ||
+        Boolean(component.label?.id && /keterbatasan/i.test(component.label.id))
+
       const formattedCurrentText = isResearchQuestions
         ? formatQuestionsAsNumberedText(parseResearchQuestions(currentText))
         : currentText
@@ -97,6 +103,8 @@ export function ComponentAiRevisionModal({
         ? `*"ubah menjadi 2 pertanyaan lebih spesifik"*, *"perjelas variabel yang diteliti"*`
         : isFutureWork
         ? `*"tambahkan peluang riset berbasis AI/LLM"*, *"pertajam peluang yang belum disadari penulis"*, *"rumuskan 2 ide kebaruan untuk tesis"*`
+        : isLimitations
+        ? `*"pertajam keterbatasan yang belum disadari penulis"*, *"tambahkan evaluasi validitas eksternal dan bias metodologi"*, *"buat 2 poin keterbatasan terstruktur"*`
         : `*"ubah menjadi 2 paragraf"*, *"buat lebih ringkas"*, atau *"pertegas kontribusinya"*`
 
       const initialGreeting: ChatTurn = {

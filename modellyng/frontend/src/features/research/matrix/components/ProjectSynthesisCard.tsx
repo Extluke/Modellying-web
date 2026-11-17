@@ -59,7 +59,7 @@ export function ProjectSynthesisCard({
       ),
       "",
       "## 6. Posisi Spesifik Tiap Paper:",
-      ...synthesis.paperPositions.map((pos) => `- ${pos.positionSummary}`),
+      ...synthesis.paperPositions.map((pos) => `- ${pos.citation}: ${pos.positionSummary}`),
     ]
 
     try {
@@ -202,17 +202,37 @@ export function ProjectSynthesisCard({
 
             {/* Research Patterns */}
             <div className="rounded-card border border-border bg-card p-4 space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Compass className="size-3.5 text-primary" />
-                <span>Pola Riset yang Teridentifikasi</span>
+              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                  <Compass className="size-3.5 text-primary" />
+                  <span>Pola Riset yang Teridentifikasi</span>
+                </div>
+                <span className="text-[10px] font-semibold text-primary font-mono px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+                  Data Riil Paper Proyek
+                </span>
               </div>
-              <ul className="space-y-1.5 text-xs text-muted-foreground">
-                {synthesis.researchPatterns.map((pat, idx) => (
-                  <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                    <span className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                    <span>{pat}</span>
-                  </li>
-                ))}
+              <ul className="space-y-2 text-xs text-muted-foreground">
+                {synthesis.researchPatterns.map((pat, idx) => {
+                  const colonIndex = pat.indexOf(":")
+                  const hasPrefix = colonIndex > 0 && colonIndex < 45
+                  return (
+                    <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                      <span className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                      <span>
+                        {hasPrefix ? (
+                          <>
+                            <strong className="font-semibold text-foreground">
+                              {pat.slice(0, colonIndex + 1)}
+                            </strong>{" "}
+                            {pat.slice(colonIndex + 1).trim()}
+                          </>
+                        ) : (
+                          pat
+                        )}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           </div>
@@ -228,13 +248,28 @@ export function ProjectSynthesisCard({
               <Lightbulb className="size-3.5 text-status-orange" />
               <span>Kesenjangan &amp; Peluang Riset Terbuka</span>
             </div>
-            <ul className="space-y-1.5 text-xs text-muted-foreground">
-              {synthesis.gapsAndOpportunities.map((gap, idx) => (
-                <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                  <span className="size-1.5 rounded-full bg-status-orange mt-1.5 shrink-0" />
-                  <span>{gap}</span>
-                </li>
-              ))}
+            <ul className="space-y-2 text-xs text-muted-foreground">
+              {synthesis.gapsAndOpportunities.map((gap, idx) => {
+                const colonIndex = gap.indexOf(":")
+                const hasPrefix = colonIndex > 0 && colonIndex < 80
+                return (
+                  <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                    <span className="size-1.5 rounded-full bg-status-orange mt-1.5 shrink-0" />
+                    <span>
+                      {hasPrefix ? (
+                        <>
+                          <strong className="font-semibold text-foreground">
+                            {gap.slice(0, colonIndex + 1)}
+                          </strong>{" "}
+                          {gap.slice(colonIndex + 1).trim()}
+                        </>
+                      ) : (
+                        gap
+                      )}
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
           </div>
 
@@ -252,17 +287,17 @@ export function ProjectSynthesisCard({
               {synthesis.followUpIdeas.map((idea) => (
                 <div
                   key={idea.rank}
-                  className="rounded-lg border bg-secondary/20 p-3 space-y-1.5 text-xs flex flex-col justify-between"
+                  className="rounded-lg border bg-secondary/20 p-3.5 space-y-2 text-xs flex flex-col justify-between"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <span className="inline-flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold">
                       {idea.rank}
                     </span>
-                    <h5 className="font-bold text-foreground leading-snug line-clamp-2">
+                    <h5 className="font-bold text-foreground leading-snug">
                       {idea.title}
                     </h5>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed pt-1">
+                  <p className="text-xs text-muted-foreground leading-relaxed pt-1.5 border-t border-border/40">
                     {idea.rationale}
                   </p>
                 </div>

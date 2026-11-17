@@ -229,8 +229,14 @@ export interface MatrixPaper {
   title: string
   authors: string[]
   year?: number | null
+  journal?: string | null
+  doi?: string | null
+  volume?: string | number | null
+  issue?: string | number | null
+  pages?: string | null
   status: string
   total_pages: number
+  source_verification?: Record<string, unknown> | null
 }
 
 export interface ComparativeMatrixResponse {

@@ -1383,7 +1383,7 @@ def get_comparative_matrix(
             # 2. Get papers in this project
             cur.execute(
                 """
-                SELECT id, title, authors, year, journal, status, total_pages, uploaded_at
+                SELECT id, title, authors, year, journal, doi, status, total_pages, uploaded_at
                 FROM public.papers
                 WHERE project_id = %s
                 ORDER BY uploaded_at ASC;
@@ -1453,6 +1453,8 @@ def get_comparative_matrix(
                         "title": pa["title"],
                         "authors": pa["authors"] or [],
                         "year": pa.get("year"),
+                        "journal": pa.get("journal"),
+                        "doi": pa.get("doi"),
                         "status": pa["status"],
                         "total_pages": int(pa["total_pages"]),
                     }

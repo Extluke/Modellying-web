@@ -85,10 +85,12 @@ src/features/
 │   │   ├── ComponentAiRevisionModal.tsx # Modal interaktif asisten AI pembantu revisi formulasi (draggable & guided loop)
 │   │   ├── components/               # Komponen spesifik analisis naskah
 │   │   │   ├── ResearchQuestionsCardContent.tsx # Format kartu Pertanyaan Penelitian (multi-line, numbered list rapi)
-│   │   │   └── FutureWorkCardContent.tsx # Kartu Peluang Riset Mendatang (2 seksi: Agenda Penulis & Temuan AI)
+│   │   │   ├── FutureWorkCardContent.tsx # Kartu Peluang Riset Mendatang (2 seksi: Agenda Penulis & Temuan AI)
+│   │   │   └── LimitationsCardContent.tsx # Kartu Keterbatasan Riset (2 seksi: Keterbatasan Penulis & Temuan Kritis AI)
 │   │   ├── utils/                    # Utilitas analisis & parsing naskah
 │   │   │   ├── researchQuestionsFormatter.ts # Pemrosesan cerdas butir pertanyaan riset (preamble, questions, closing)
-│   │   │   └── futureWorkAugmentor.ts    # Generator sintesis AI peluang riset baru berbasis konteks ilmiah paper
+│   │   │   ├── futureWorkAugmentor.ts    # Generator sintesis AI peluang riset baru berbasis konteks ilmiah paper
+│   │   │   └── limitationsAugmentor.ts   # Evaluator kritis AI keterbatasan metodologis, validitas, & bias riset
 │   │   ├── pdfMatcher.ts             # Mesin pencocokan kutipan bukti fleksibel multi-tier (Tier 1-4)
 │   │   ├── PdfViewer.tsx             # Mesin penampil PDF privat, zoom, lompat halaman, & cache 10 menit TanStack Query
 │   │   ├── EvidencePanel.tsx         # Panel kutipan bukti terhubung ke koordinat PDF
@@ -120,10 +122,12 @@ src/features/
 │   │   │   └── IntelligenceReportCard.tsx # Kartu laporan intelijen & 5 gaya sitasi (APA, IEEE, dll)
 │   │   └── utils/
 │   │       ├── synthesisEngine.ts         # Mesin kalkulator & penyusun sintesis komparatif multi-paper
+│   │       ├── followUpIdeaBuilder.ts     # Pembangun 3 ide riset lanjutan berperingkat & rasional berbasis fakta celah paper
+│   │       ├── researchPatternBuilder.ts  # Generator pola riset teridentifikasi berbasis ekstraksi riil & sitasi paper
 │   │       ├── variableClassifier.ts      # Ekstraksi & taksonomi variabel (bebas, terikat, moderator, kontrol, operasional)
 │   │       ├── matrixFormatters.ts        # Label grup, status sel, warna skor keyakinan, format teks sel
 │   │       ├── exportMatrixCsv.ts         # Pembangun & pengunduh CSV UTF-8 BOM
-│   │       ├── citationFormatter.ts       # Generator sitasi APA, IEEE, Harvard, Vancouver, Chicago
+│   │       └── citationFormatter.ts       # Generator sitasi lengkap 5 format (IEEE, APA 7, Harvard, Vancouver, Chicago) mencakup seluruh metadata & pp.
 │   ├── gap-map/                      # /gap-map (Pusat pemetaan celah penelitian & novelty tesis)
 │   │   ├── GapMapScreen.tsx          # Hub dispatcher: pemilihan proyek & ruang kerja peta celah
 │   │   ├── types/
@@ -743,6 +747,23 @@ DETAIL FITUR & INTEGRASI SISTEM
               5) Tombol Salin Cepat 1-Klik: Tombol salin interaktif dengan ikon umpan balik visual dan notifikasi toast seragam 5 detik (5000 ms).
        - Integrasi Asisten Revisi AI (`ComponentAiRevisionModal.tsx`):
          Menyediakan rekomendasi revisi khusus parameter #13 untuk menyempurnakan formulasi agenda penulis maupun mengeksplorasi sudut pandang peluang baru AI sebelum disetujui dan disimpan ke basis data.
+    8. Pemisahan & Augmentasi Kartu Parameter #12 Keterbatasan Riset Menjadi 2 Kelompok (`LimitationsCardContent.tsx` & `limitationsAugmentor.ts`):
+       - Partisi 2 Kelompok Mandiri & Terstruktur:
+         a. Kelompok 1: Keterbatasan yang Disadari Penulis (Keterbatasan Eksplisit Paper):
+            * Menyajikan batasan riset atau limitasi metodologis yang ditulis secara eksplisit oleh penulis di dalam teks naskah paper.
+            * Dilengkapi kontainer bukti kutipan asli (`Evidence Container`) yang terhubung langsung ke nomor halaman kanonik PDF dengan tombol "Buka di PDF ↗".
+            * Deteksi Ketiadaan Limitasi Eksplisit: Apabila naskah tidak menyatakan batasan secara eksplisit (misal: "Teks naskah yang disediakan tidak memuat pernyataan keterbatasan penelitian secara eksplisit..."), sistem menampilkan penanda visual informatif beraksen netral lembut bahwa penulis naskah tidak menyatakan keterbatasan eksplisit.
+         b. Kelompok 2: Keterbatasan yang Belum Disadari Penulis (Keterbatasan Implisit Temuan Kritis AI):
+            * Menghasilkan 2 hingga 3 kartu evaluasi kritis metodologis, validitas, dan batasan operasional yang belum disadari atau luput dari pengakuan penulis asli paper.
+            * Sintesis cerdas diekstrapolasi secara kontekstual berbasis domain paper (arsitektur sistem basis data, survei TPB & perilaku lingkungan, model machine learning/AI, maupun studi empiris umum) dengan menganalisis celah metodologis, instrumen pengukuran, dan asumsi dasar riset.
+            * Setiap kartu evaluasi kritis AI dilengkapi:
+              1) Lencana Kategori Spesifik (misal: *Validitas Internal & Kausalitas*, *Validitas Eksternal & Konkurensi*, *Portabilitas & Dependensi Arsitektur*, *Batas Robustness Algoritma*, dll.).
+              2) Judul Keterbatasan Implisit yang tajam, objektif, dan akademis.
+              3) Celah yang Luput dari Penulis (*Blind Spot*): Penjelasan mendalam mengenai aspek metodologis atau operasional yang tidak disadari penulis.
+              4) Implikasi terhadap Validitas (*Academic Impact*): Pengaruh keterbatasan ini terhadap reliabilitas, generalisasi, dan replikasi temuan riset.
+              5) Tombol Salin Cepat 1-Klik: Tombol salin interaktif dengan ikon umpan balik visual dan notifikasi toast seragam 5 detik (5000 ms).
+       - Integrasi Asisten Revisi AI (`ComponentAiRevisionModal.tsx`):
+         Menyediakan contoh prompt terpandu khusus parameter #12 untuk memperkaya pernyataan keterbatasan penulis maupun merumuskan variasi sudut pandang evaluasi kritis AI baru sebelum disetujui dan disimpan ke basis data.
   * Navigasi Tab Kontras Tinggi (High-Contrast Tabs):
     3 tab grup utama (`Konteks & Masalah`, `Metode & Data`, `Hasil & Gap`) disajikan dengan diferensiasi kontras tinggi yang tegas antara tab aktif (solid Indigo dengan teks putih tebal dan bayangan fokus) vs tab non-aktif (subdued muted).
   * Tampilan Split-Screen Interaktif (VS Code Resizable Split-Pane):
@@ -879,13 +900,34 @@ DETAIL FITUR & INTEGRASI SISTEM
       Variabel Kontrol, dan Konsep Operasional. Setiap variabel dirender dalam tag badge interaktif tanpa pemotongan
       teks (whitespace-normal), dilengkapi filter kategori cepat, tooltip definisi taksonomi, dan aksi salin satu-klik
       dengan notifikasi toast 5 detik. Pendekatan metodologi ditampilkan utuh tanpa pemotongan teks (.slice/ellipsis).
+    - Seksi Pola Riset yang Teridentifikasi Berbasis Data Riil Paper Proyek (`researchPatternBuilder.ts`):
+      Mengeliminasi keluaran AI generik di luar paper. Seluruh butir pola riset disintesis secara ketat dari komponen ekstraksi riil paper-paper di dalam proyek aktif (metodologi, korpus dataset/sampel, temuan kunci, dan rumusan masalah). Setiap butir pola wajib menyertakan sitasi resmi penulis-tahun (in-text citation seperti `(Grycuk dkk., 2015)`, `(Gray dkk., 2005)`, atau `(Panjaitan dkk., 2024)`, `(Amin dkk., 2024)`) dan kutipan data naskah. Mencakup 4 pilar komparasi:
+      1) Pola Desain Metodologis Lintas-Paper: Sintesis konvergensi atau divergensi metodologi riset (kuantitatif potong lintang / TPB, rekayasa arsitektur sistem/basis data, atau eksperimen komplementer).
+      2) Pola Karakteristik Korpus Data & Subjek Riset: Pola pemilihan korpus uji (dataset citra, spasial publik, atau sampel kuesioner warga).
+      3) Pola Konvergensi Temuan & Evaluasi Kinerja: Pola pembuktian hasil (metrik kuantitatif presisi/recall/latensi atau signifikansi hubungan antarvariabel).
+      4) Pola Titik Temu Permasalahan & Fokus Investigasi: Benang merah tantangan ilmiah yang melatarbelakangi seluruh paper dalam proyek.
+      Dilengkapi lencana penanda `Data Riil Paper Proyek` dan penegasan label kategori tebal (`font-semibold`) di awal tiap butir pola.
+    - Seksi Kesenjangan & Peluang Riset Terbuka (`gapsAndOpportunities`):
+      Menyajikan teks keterbatasan riset dan arah eksplorasi masa depan secara utuh tanpa pemotongan string kasar (`.slice()`/ellipsis `...`), mengeliminasi seluruh kalimat template generic halusinasi ("Peluang riset terbuka pada generalisasi algoritma ke domain berskala lebih luas"), dan menyajikan sitasi penulis-tahun dinamis dengan label prefix tebal (`font-semibold`).
+    - Seksi 3 Rekomendasi Ide Penelitian Lanjutan (Berperingkat & Rasional) (`followUpIdeaBuilder.ts`):
+      Pengetatan dasar rujukan 100% berbasis faktual pada celah (gap), limitasi metodologis, dan arahan eksplorasi masa depan yang tertulis di dalam paper-paper proyek aktif. Menghilangkan seluruh halusinasi ide abstrak generic AI di luar korpus paper. Setiap rekomendasi menyajikan judul terarah, peringkat prioritas 1-3 (Peluang Tesis/Disertasi), serta rasional ilmiah mendalam yang mengutip nama penulis, tahun, dan limitasi/temuan spesifik.
+    - Seksi Posisi Spesifik Tiap Dokumen dalam Peta Literatur (`paperPositions`):
+      Menyajikan posisi kontribusi dan kebaruan setiap dokumen secara utuh tanpa pemotongan string (`.slice()`/ellipsis `...`), dinarasikan alami dalam bahasa akademis baku, serta bebas dari tabrakan titik ganda maupun duplikasi sitasi di dalam kartu.
     Dilengkapi tombol "Salin Poin" dan "Salin Paragraf Akademik" dengan feedback toast 5 detik.
   * Kartu Laporan Intelijen & Bibliografi Riset (`IntelligenceReportCard.tsx`):
     Kartu laporan intelijen komprehensif yang menyajikan metrik statistik riset (total relasi,
     komponen terverifikasi, rata-rata skor keyakinan AI, dan jumlah klaim butuh evaluasi bukti),
-    generator sitasi 5 format standar internasional dinamis (APA 7th, IEEE, Harvard, Vancouver,
-    dan Chicago Author-Date), preview sitasi dalam teks (in-text citation), tombol salin sitasi,
+    generator sitasi 5 format standar internasional dinamis (`citationFormatter.ts`: APA 7th Edition,
+    IEEE Style, Harvard Style, Vancouver Style, dan Chicago Author-Date), preview sitasi dalam teks
+    (in-text citation), aksi salin satu-klik per-paper atau seluruh sitasi sekaligus dengan toast 5 detik,
     serta tombol "Unduh JSON" (`generateIntelligenceReportJson`).
+    - Generator Sitasi Akademik Lengkap 5 Gaya (`citationFormatter.ts`):
+      1) Penulisan Seluruh Nama Penulis Utuh: Seluruh nama penulis ditampilkan lengkap tanpa pemotongan
+         dini (`et al.`) pada daftar pustaka. Khusus gaya IEEE, nama diformat `Inisial. NamaBelakang`
+         dengan Oxford comma dan kata hubung `and` (contoh: `M. Amin, L. C. K. Panjaitan, A. Munang, B. Prayoga, H. D. Prihartanto, and A. S. Biyan`). Gaya APA/Harvard/Chicago menggunakan format `NamaBelakang, Inisial.` (`Amin, M., & Panjaitan, L. C. K.`), dan Vancouver menggunakan `NamaBelakang Inisial` (`Amin M, Panjaitan LCK`).
+      2) Judul Naskah Terenkapsulasi Tanda Petik: Judul paper diapit tanda petik ganda (`"..."`) konsisten di seluruh gaya sitasi.
+      3) Kelengkapan Metadata Publikasi: Menampilkan nama jurnal ilmiah / prosiding konferensi resmi, tahun terbit aktual (bukan `n.d.`), volume, issue/no., rentang nomor halaman eksplisit berawalan `pp.` (contoh: `pp. 112–126` atau `pp. 1–38`), serta pranala Digital Object Identifier (DOI).
+      4) Pembersih Tanda Baca Nir-Cacat (`sanitizePunctuation`): Mengeliminasi seluruh anomali titik ganda (`..` atau `n.d..`) dan merapikan spasi sebelum tanda baca sehingga sitasi terjamin bersih, elegan, dan siap dikutip ke publikasi ilmiah.
   * Modal Telaah Bukti PDF (`projects/paper-analysis/EvidencePdfModal.tsx`, dipakai bersama graf pengetahuan): Mengklik "Hal. N" pada sel tabel membuka penampil
     PDF modal (`PdfViewer.tsx`) dengan penyorotan teks kanonik. Modal ini dimuat lazy sehingga pdf.js
     baru diunduh saat bukti dibuka.

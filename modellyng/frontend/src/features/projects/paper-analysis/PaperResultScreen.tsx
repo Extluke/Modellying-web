@@ -21,6 +21,7 @@ import { ComponentAiRevisionModal } from "./ComponentAiRevisionModal"
 import { DoiVerificationDrawer } from "./DoiVerificationDrawer"
 import { ResearchQuestionsCardContent } from "./components/ResearchQuestionsCardContent"
 import { FutureWorkCardContent } from "./components/FutureWorkCardContent"
+import { LimitationsCardContent } from "./components/LimitationsCardContent"
 import type { PaperAnalysisContext } from "./utils/futureWorkAugmentor"
 import {
   ArrowLeft,
@@ -674,6 +675,12 @@ function ComponentCard({
     comp.sort_order === 13 ||
     Boolean(comp.label?.id && /peluang riset|riset mendatang|future work/i.test(comp.label.id))
 
+  const isLimitations =
+    comp.parameter_key === "limitations" ||
+    comp.parameter_key === "keterbatasan_riset" ||
+    comp.sort_order === 12 ||
+    Boolean(comp.label?.id && /keterbatasan/i.test(comp.label.id))
+
   const title = comp.label.id || comp.parameter_key
   const primaryEvidence = comp.evidence && comp.evidence.length > 0 ? comp.evidence[0] : null
   const evidenceQuote = primaryEvidence?.quote || ""
@@ -743,6 +750,11 @@ function ComponentCard({
           <ResearchQuestionsCardContent text={comp.value?.text} />
         ) : isFutureWork ? (
           <FutureWorkCardContent
+            text={comp.value?.text}
+            paperContext={paperContext}
+          />
+        ) : isLimitations ? (
+          <LimitationsCardContent
             text={comp.value?.text}
             paperContext={paperContext}
           />
