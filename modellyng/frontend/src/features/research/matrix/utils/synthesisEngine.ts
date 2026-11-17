@@ -5,12 +5,9 @@ import {
   buildMethodologicalApproaches,
 } from "./variableClassifier"
 import { buildGroundedResearchPatterns } from "./researchPatternBuilder"
+import { buildGroundedFollowUpIdeas, FollowUpIdea } from "./followUpIdeaBuilder"
 
-export interface FollowUpIdea {
-  rank: number
-  title: string
-  rationale: string
-}
+export type { FollowUpIdea }
 
 export interface PaperPositionItem {
   paperId: string
@@ -137,64 +134,93 @@ export function generateProjectSynthesis(
   // 4. Pola Riset (Research Patterns) - Terikat 100% pada ekstraksi paper proyek
   const researchPatterns: string[] = buildGroundedResearchPatterns(papers, matrix)
 
-  // 5. Celah Riset & Peluang (Gaps and Opportunities)
+  // 5. Celah Riset & Peluang (Gaps and Opportunities) - 100% data riil paper tanpa pemotongan teks
   const gapsAndOpportunities: string[] = []
   if (limitations.length > 0) {
     limitations.forEach((lim) => {
       const cite = formatInTextCitation(lim.paper)
-      gapsAndOpportunities.push(
-        `Keterbatasan pada ${cite}: ${lim.text.slice(0, 150)}${lim.text.length > 150 ? "..." : ""}. Peluang riset terbuka pada generalisasi algoritma ke domain berskala lebih luas.`
-      )
+      const cleanLim = lim.text.trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/\s+/g, " ")
+      if (!cleanLim) return
+
+      const isUnspecified =
+        cleanLim.toLowerCase().includes("tidak secara eksplisit") ||
+        cleanLim.toLowerCase().includes("tidak memuat pernyataan") ||
+        cleanLim.toLowerCase().includes("tidak merinci batasan")
+
+      if (isUnspecified) {
+        gapsAndOpportunities.push(`Catatan batas eksplorasi pada ${cite}: ${cleanLim}`)
+      } else {
+        gapsAndOpportunities.push(`Keterbatasan pada ${cite}: ${cleanLim}`)
+      }
     })
   }
 
   if (futureWorks.length > 0) {
     futureWorks.forEach((fw) => {
       const cite = formatInTextCitation(fw.paper)
-      gapsAndOpportunities.push(
-        `Arah eksplorasi masa depan menurut ${cite}: ${fw.text.slice(0, 140)}${fw.text.length > 140 ? "..." : ""}.`
-      )
+      const cleanFw = fw.text.trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/\s+/g, " ")
+      if (!cleanFw) return
+
+      const isUnspecified =
+        cleanFw.toLowerCase().includes("tidak memberikan rekomendasi") ||
+        cleanFw.toLowerCase().includes("tidak memuat arahan")
+
+      if (isUnspecified) {
+        gapsAndOpportunities.push(`Kebutuhan perumusan agenda lanjutan untuk ${cite}: ${cleanFw}`)
+      } else {
+        gapsAndOpportunities.push(`Arah eksplorasi masa depan menurut ${cite}: ${cleanFw}`)
+      }
     })
   } else if (gapsAndOpportunities.length === 0) {
     gapsAndOpportunities.push(
-      `Peluang pengujian lintas korpus data independen untuk mengukur ketahanan generalisasi model terhadap kasus ekstrem (edge cases).`
+      `Peluang pengujian komparatif lintas korpus data independen untuk mengukur ketahanan dan validitas eksternal temuan naskah.`
     )
   }
 
-  // 6. Ide Penelitian Lanjutan (Follow-up Ideas)
-  const followUpIdeas: FollowUpIdea[] = [
-    {
-      rank: 1,
-      title: `Integrasi Komparatif Arsitektur Hibrida untuk Mengatasi Limitasi Konvergensi Data Multi-Modal`,
-      rationale: `Menggabungkan kekuatan metodologi dari paper yang dianalisis untuk memitigasi kelemahan generalisasi sampel yang dilaporkan dalam tinjauan keterbatasan.`,
-    },
-    {
-      rank: 2,
-      title: `Eksplorasi Algoritma Optimasi Adaptif pada Skala Korpus Besar dengan Pengawasan Ketat`,
-      rationale: `Mengisi celah penelitian mengenai degradasi efisiensi komputasi pada volume data masukan yang melampaui kapasitas pengujian awal.`,
-    },
-    {
-      rank: 3,
-      title: `Kerangka Kerja Evaluasi Keandalan dan Verifikasi Bukti Deterministik Berbasis Entropi Informasi`,
-      rationale: `Menjawab kebutuhan standardisasi metrik penilaian reliabilitas hasil ekstraksi ilmiah lintas instrumen penelitian.`,
-    },
-  ]
+  // 6. Ide Penelitian Lanjutan (Follow-up Ideas) - 100% Berakar Faktual pada Celah & Limitasi Paper Proyek
+  const followUpIdeas: FollowUpIdea[] = buildGroundedFollowUpIdeas(
+    papers,
+    matrix,
+    matrixData.project_name
+  )
 
-  // 7. Posisi Tiap Paper (Paper Positions)
+  // 7. Posisi Tiap Paper (Paper Positions) - 100% Teks Utuh Tanpa Ellipsis (...)
   const paperPositions: PaperPositionItem[] = papers.map((p) => {
     const citation = formatInTextCitation(p)
-    const noveltyText =
+    let noveltyText =
       matrix["novelty"]?.[p.id]?.value?.text ||
       matrix["contribution"]?.[p.id]?.value?.text ||
       matrix["novelty_kebaruan"]?.[p.id]?.value?.text ||
       matrix["results_findings"]?.[p.id]?.value?.text ||
       "Memberikan kontribusi empiris pada evaluasi parameter riset terkait."
 
+    noveltyText = noveltyText.trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/\s+/g, " ")
+
+    let positionSummary = ""
+    const lowerNov = noveltyText.toLowerCase()
+    if (lowerNov.startsWith("kebaruan penelitian ini terletak pada ")) {
+      const rest = noveltyText.slice("kebaruan penelitian ini terletak pada ".length)
+      positionSummary = `Memfokuskan kontribusi kebaruannya pada ${rest}`
+    } else if (lowerNov.startsWith("kebaruan utama dari penelitian ini terletak pada ")) {
+      const rest = noveltyText.slice("kebaruan utama dari penelitian ini terletak pada ".length)
+      positionSummary = `Memfokuskan kontribusi kebaruannya pada ${rest}`
+    } else if (lowerNov.startsWith("penelitian ini menghadirkan kebaruan teknis sebagai ")) {
+      const rest = noveltyText.slice("penelitian ini menghadirkan kebaruan teknis sebagai ".length)
+      positionSummary = `Menghadirkan kebaruan teknis sebagai ${rest}`
+    } else {
+      positionSummary = `Memposisikan kontribusinya pada ${noveltyText}`
+    }
+
+    if (!positionSummary.endsWith(".")) {
+      positionSummary += "."
+    }
+    positionSummary = positionSummary.replace(/\.+/g, ".").replace(/\s+\./g, ".")
+
     return {
       paperId: p.id,
       paperTitle: p.title,
       citation,
-      positionSummary: `${citation} memposisikan kontribusinya pada ${noveltyText.slice(0, 180)}${noveltyText.length > 180 ? "..." : ""}.`,
+      positionSummary,
     }
   })
 
@@ -206,10 +232,16 @@ export function generateProjectSynthesis(
     `Berdasarkan penelaahan komparatif sistematis terhadap literatur dalam proyek "${matrixData.project_name}" (${citationsInText}), penelitian-penelitian terdahulu telah menggarisbawahi urgensi pemecahan masalah empiris melalui rancangan metodologis yang bervariasi.`
   )
 
+  const extractCleanSentence = (text: string): string => {
+    const clean = text.trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/\s+/g, " ")
+    const match = clean.match(/^([^.!?]+[.!?])/)
+    return (match && match[1] ? match[1].trim() : clean).replace(/\.+$/, "")
+  }
+
   if (methods.length > 0) {
     const methodMentions = methods
       .slice(0, 3)
-      .map((m) => `${formatInTextCitation(m.paper, true)} mengembangkan pendekatan ${m.text.slice(0, 90)}`)
+      .map((m) => `${formatInTextCitation(m.paper, true)} mengembangkan pendekatan ${extractCleanSentence(m.text)}`)
       .join(", sedangkan ")
     narrativeParts.push(
       `Dalam ranah metodologis, ${methodMentions}. Perbedaan orientasi desain eksperimental ini memperkaya perspektif penanganan tantangan teknis yang dihadapi.`
@@ -219,7 +251,7 @@ export function generateProjectSynthesis(
   if (findings.length > 0) {
     const findingsMentions = findings
       .slice(0, 2)
-      .map((f) => `${formatInTextCitation(f.paper)} membuktikan bahwa ${f.text.slice(0, 110)}`)
+      .map((f) => `${formatInTextCitation(f.paper)} membuktikan bahwa ${extractCleanSentence(f.text)}`)
       .join(". Di sisi lain, ")
     narrativeParts.push(
       `Temuan kunci mengonfirmasi keunggulan implementasi terukur, di mana ${findingsMentions}. Kendati demikian, sejumlah limitasi yang diidentifikasi membuka horizon baru bagi penelitian masa depan untuk memperluas jangkauan uji coba pada skenario operasional yang lebih kompleks.`
