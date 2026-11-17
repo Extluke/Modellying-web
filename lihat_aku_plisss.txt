@@ -85,10 +85,12 @@ src/features/
 │   │   ├── ComponentAiRevisionModal.tsx # Modal interaktif asisten AI pembantu revisi formulasi (draggable & guided loop)
 │   │   ├── components/               # Komponen spesifik analisis naskah
 │   │   │   ├── ResearchQuestionsCardContent.tsx # Format kartu Pertanyaan Penelitian (multi-line, numbered list rapi)
-│   │   │   └── FutureWorkCardContent.tsx # Kartu Peluang Riset Mendatang (2 seksi: Agenda Penulis & Temuan AI)
+│   │   │   ├── FutureWorkCardContent.tsx # Kartu Peluang Riset Mendatang (2 seksi: Agenda Penulis & Temuan AI)
+│   │   │   └── LimitationsCardContent.tsx # Kartu Keterbatasan Riset (2 seksi: Keterbatasan Penulis & Temuan Kritis AI)
 │   │   ├── utils/                    # Utilitas analisis & parsing naskah
 │   │   │   ├── researchQuestionsFormatter.ts # Pemrosesan cerdas butir pertanyaan riset (preamble, questions, closing)
-│   │   │   └── futureWorkAugmentor.ts    # Generator sintesis AI peluang riset baru berbasis konteks ilmiah paper
+│   │   │   ├── futureWorkAugmentor.ts    # Generator sintesis AI peluang riset baru berbasis konteks ilmiah paper
+│   │   │   └── limitationsAugmentor.ts   # Evaluator kritis AI keterbatasan metodologis, validitas, & bias riset
 │   │   ├── pdfMatcher.ts             # Mesin pencocokan kutipan bukti fleksibel multi-tier (Tier 1-4)
 │   │   ├── PdfViewer.tsx             # Mesin penampil PDF privat, zoom, lompat halaman, & cache 10 menit TanStack Query
 │   │   ├── EvidencePanel.tsx         # Panel kutipan bukti terhubung ke koordinat PDF
@@ -740,6 +742,23 @@ DETAIL FITUR & INTEGRASI SISTEM
               5) Tombol Salin Cepat 1-Klik: Tombol salin interaktif dengan ikon umpan balik visual dan notifikasi toast seragam 5 detik (5000 ms).
        - Integrasi Asisten Revisi AI (`ComponentAiRevisionModal.tsx`):
          Menyediakan rekomendasi revisi khusus parameter #13 untuk menyempurnakan formulasi agenda penulis maupun mengeksplorasi sudut pandang peluang baru AI sebelum disetujui dan disimpan ke basis data.
+    8. Pemisahan & Augmentasi Kartu Parameter #12 Keterbatasan Riset Menjadi 2 Kelompok (`LimitationsCardContent.tsx` & `limitationsAugmentor.ts`):
+       - Partisi 2 Kelompok Mandiri & Terstruktur:
+         a. Kelompok 1: Keterbatasan yang Disadari Penulis (Keterbatasan Eksplisit Paper):
+            * Menyajikan batasan riset atau limitasi metodologis yang ditulis secara eksplisit oleh penulis di dalam teks naskah paper.
+            * Dilengkapi kontainer bukti kutipan asli (`Evidence Container`) yang terhubung langsung ke nomor halaman kanonik PDF dengan tombol "Buka di PDF ↗".
+            * Deteksi Ketiadaan Limitasi Eksplisit: Apabila naskah tidak menyatakan batasan secara eksplisit (misal: "Teks naskah yang disediakan tidak memuat pernyataan keterbatasan penelitian secara eksplisit..."), sistem menampilkan penanda visual informatif beraksen netral lembut bahwa penulis naskah tidak menyatakan keterbatasan eksplisit.
+         b. Kelompok 2: Keterbatasan yang Belum Disadari Penulis (Keterbatasan Implisit Temuan Kritis AI):
+            * Menghasilkan 2 hingga 3 kartu evaluasi kritis metodologis, validitas, dan batasan operasional yang belum disadari atau luput dari pengakuan penulis asli paper.
+            * Sintesis cerdas diekstrapolasi secara kontekstual berbasis domain paper (arsitektur sistem basis data, survei TPB & perilaku lingkungan, model machine learning/AI, maupun studi empiris umum) dengan menganalisis celah metodologis, instrumen pengukuran, dan asumsi dasar riset.
+            * Setiap kartu evaluasi kritis AI dilengkapi:
+              1) Lencana Kategori Spesifik (misal: *Validitas Internal & Kausalitas*, *Validitas Eksternal & Konkurensi*, *Portabilitas & Dependensi Arsitektur*, *Batas Robustness Algoritma*, dll.).
+              2) Judul Keterbatasan Implisit yang tajam, objektif, dan akademis.
+              3) Celah yang Luput dari Penulis (*Blind Spot*): Penjelasan mendalam mengenai aspek metodologis atau operasional yang tidak disadari penulis.
+              4) Implikasi terhadap Validitas (*Academic Impact*): Pengaruh keterbatasan ini terhadap reliabilitas, generalisasi, dan replikasi temuan riset.
+              5) Tombol Salin Cepat 1-Klik: Tombol salin interaktif dengan ikon umpan balik visual dan notifikasi toast seragam 5 detik (5000 ms).
+       - Integrasi Asisten Revisi AI (`ComponentAiRevisionModal.tsx`):
+         Menyediakan contoh prompt terpandu khusus parameter #12 untuk memperkaya pernyataan keterbatasan penulis maupun merumuskan variasi sudut pandang evaluasi kritis AI baru sebelum disetujui dan disimpan ke basis data.
   * Navigasi Tab Kontras Tinggi (High-Contrast Tabs):
     3 tab grup utama (`Konteks & Masalah`, `Metode & Data`, `Hasil & Gap`) disajikan dengan diferensiasi kontras tinggi yang tegas antara tab aktif (solid Indigo dengan teks putih tebal dan bayangan fokus) vs tab non-aktif (subdued muted).
   * Tampilan Split-Screen Interaktif (VS Code Resizable Split-Pane):
