@@ -55,6 +55,7 @@ export default function ChatGlobalScreen() {
     activeContextScope,
     setContextProject,
     setContextPaper,
+    clearContextScope,
     setClearHistoryModalOpen,
     isGenerating,
     setIsGenerating,
@@ -353,7 +354,7 @@ export default function ChatGlobalScreen() {
             })),
         }
 
-        // 1. Jika ada tag @proyek, kirim ke endpoint RAG proyek
+        // 1. Jika ada tag @proyek, kirim ke endpoint RAG proyek tertaut
         if (currentScope.project?.id) {
           return await apiClient.post<ProjectChatResponse>(
             `/projects/${currentScope.project.id}/chat`,
@@ -361,22 +362,11 @@ export default function ChatGlobalScreen() {
           )
         }
 
-        // 2. Jika tidak ada tag proyek, gunakan asisten akademik global
-        // Cek apakah ada proyek aktif pertama pengguna untuk dijadikan referensi RAG fallback
-        if (projects.length > 0) {
-          const fallbackProj = projects[0]
-          return await apiClient.post<ProjectChatResponse>(
-            `/projects/${fallbackProj.id}/chat`,
-            payload
-          )
-        }
-
-        // 3. Fallback jika user belum memiliki proyek sama sekali
-        return {
-          answer:
-            "Halo! Saya adalah **Asisten Cerdas Global Modellyng**. Saat ini Anda belum memiliki proyek riset aktif. Untuk mendapatkan analisis berbasis bukti kutipan empiris (*evidence quotes*), silakan buat proyek baru dan unggah dokumen PDF, atau ketikkan `@` untuk memilih proyek.",
-          citations: [],
-        }
+        // 2. Jika tidak ada tag proyek, gunakan asisten akademik global universal
+        return await apiClient.post<ProjectChatResponse>(
+          "/projects/chat/global",
+          payload
+        )
       } catch (err: unknown) {
         if (retryCount < 1) {
           // Retry otomatis 1 kali
@@ -429,11 +419,15 @@ export default function ChatGlobalScreen() {
     }
   }
 
-  // Handler Pembersihan Riwayat Lokal
+  // Handler Pembersihan Riwayat Lokal & Reset Konteks
   const handleConfirmClearHistory = () => {
     clearCachedMessages(userId)
     setMessages([])
-    toast.info("Riwayat percakapan lokal berhasil dibersihkan.")
+    clearContextScope()
+    setInputText("")
+    clearChatDraft(userId)
+    setAutocompleteState((prev) => ({ ...prev, isOpen: false }))
+    toast.info("Riwayat percakapan dan fokus konteks berhasil dibersihkan.")
   }
 
   // Handler Memilih Saran Pertanyaan Cepat

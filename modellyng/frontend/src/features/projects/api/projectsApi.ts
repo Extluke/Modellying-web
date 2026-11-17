@@ -537,6 +537,15 @@ export function useSendProjectChatMessage(projectId: string) {
   })
 }
 
+export function useSendGlobalChatMessage() {
+  return useMutation({
+    mutationFn: (params: string | SendChatMessageParams) => {
+      const payload = typeof params === "string" ? { message: params } : params
+      return apiClient.post<ChatResponse>("/projects/chat/global", payload)
+    },
+  })
+}
+
 export function useComparativeMatrix(projectId: string | undefined) {
   const user = useAuthStore((state) => state.user)
   const userId = user?.id

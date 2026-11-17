@@ -1102,6 +1102,13 @@ DETAIL FITUR & INTEGRASI SISTEM
 - Layar Utama Asisten Cerdas Global (`ChatGlobalScreen.tsx` pada rute `/chat`):
   * Titik temu asisten kecerdasan buatan universal untuk eksplorasi literatur lintas-dokumen,
     konsultasi metodologi riset, dan investigasi temuan naskah berbasis bukti (*evidence-centered*).
+  * Arsitektur Dual-Mode Chat (Pemisahan Mode Konteks Tertaut & Mode Universal Global):
+    - **Mode Konteks Tertaut (*Scoped Mode*):** Aktif saat pengguna menyematkan tag `@proyek` atau `/paper`.
+      Kueri dikirim ke `POST /api/v1/projects/{project_id}/chat` untuk mendapatkan analisis mendalam berbasis
+      bukti kutipan naskah dokumen fisik (*evidence quotes* `[S1]`, `[S2]`).
+    - **Mode Asisten Universal (*Unscoped Global Mode*):** Aktif saat tidak ada tag `@proyek` yang dipilih.
+      Kueri dikirim ke endpoint baru `POST /api/v1/projects/chat/global` tanpa mengunci diri pada satu proyek
+      manapun secara sepihak (menghapus fallback otomatis `projects[0]`).
   * Kemampuan Penalaran Percakapan Multi-Turn ("Bisa Diajak Diskusi"):
     - Menghilangkan balasan kaku "Informasi tidak ditemukan" pada sapaan santai ("halo", "hai") maupun
       pertanyaan umum konseptual. Asisten merespons secara ramah dan profesional sebagai rekan diskusi akademik.
@@ -1160,9 +1167,14 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Penyimpanan Draf Pertanyaan (*Draft Auto-Save*):
     - Teks pertanyaan yang belum terkirim otomatis tersimpan di `localStorage` (`modellyng_global_chat_draft_${userId}`)
       sehingga ketikan pengguna tidak akan pernah hilang saat beralih tab atau me-refresh peramban.
-  * Tombol Bersihkan Riwayat Manual:
-    - Tombol "Bersihkan Riwayat" pada bilah atas memunculkan dialog konfirmasi (`ClearHistoryConfirmModal.tsx`)
-      dan membersihkan seluruh cache percakapan seketika dengan umpan balik toast seragam 5000 ms.
+  * Tombol Bersihkan Riwayat Manual & Reset Konteks Total (*Zero-Leakage State Reset*):
+    - Tombol "Bersihkan Riwayat" pada bilah atas memunculkan dialog konfirmasi (`ClearHistoryConfirmModal.tsx`).
+    - Saat dikonfirmasi, sistem membersihkan seluruh pesan di tampilan (`setMessages([])`), menghapus cache lokal
+      (`clearCachedMessages`), memanggil `clearContextScope()` untuk mencopot seluruh chip konteks (`@proyek` dan `/paper`),
+      mengosongkan draf ketikan (`clearChatDraft` & `setInputText("")`), serta mereset popover autocomplete dengan
+      umpan balik toast seragam 5000 ms.
+    - Menjamin bahwa obrolan berikutnya dimulai dari kondisi bersih (*fresh universal state*) tanpa ada konteks
+      yang tertinggal atau bocor dari percakapan sebelumnya.
 
 - Perenderan Respon Kaya Markdown & Sitasi Naskah Interaktif (`GlobalChatMessageItem.tsx`):
   * Ditenagai oleh `react-markdown` dan `remark-gfm` untuk memformat heading, bullet points, tabel komparasi,

@@ -45,7 +45,7 @@ from .export_service import (
 )
 from .graph_synthesis_service import GraphSynthesisError, synthesize_graph_nodes
 from .hybrid_search import perform_hybrid_search
-from .rag_service import generate_rag_response
+from .rag_service import generate_rag_response, generate_global_chat_response
 from .revision_service import generate_component_ai_revision
 
 projects_router = APIRouter(prefix="/projects", tags=["Projects & Papers"])
@@ -1258,6 +1258,76 @@ def verify_paper_source_endpoint(
 # ==============================================================================
 # EVIDENCE-CENTERED RAG CHAT ENDPOINTS
 # ==============================================================================
+
+@projects_router.post("/chat/global", response_model=ChatResponse)
+def global_chat_query(
+    req: ChatMessageRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Universal Academic AI Assistant endpoint for Global Chat (/chat):
+    - Independent of any single project scope.
+    - Handles general methodology consultation, hypothesis formulation, academic inquiries.
+    - Can list available user projects and guide user to tag @project or /paper.
+    - Saves history in public.chat_messages with scope='global_chat' and project_id=None.
+    """
+    user_id = current_user["id"]
+
+    # 1. Load user's projects summary
+    user_projects = []
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT p.id, p.name, p.description, COUNT(pa.id) AS paper_count
+                FROM public.projects p
+                LEFT JOIN public.papers pa ON pa.project_id = p.id
+                WHERE p.user_id = %s
+                GROUP BY p.id, p.name, p.description, p.created_at
+                ORDER BY p.created_at DESC;
+                """,
+                (user_id,)
+            )
+            rows = cur.fetchall() or []
+            for r in rows:
+                user_projects.append({
+                    "id": str(r["id"]),
+                    "name": r["name"],
+                    "description": r.get("description") or "",
+                    "paper_count": int(r["paper_count"] or 0),
+                })
+
+    # 2. Generate universal academic response
+    global_res = generate_global_chat_response(
+        query=req.message,
+        user_projects=user_projects,
+        history=req.history,
+    )
+    answer = global_res["answer"]
+
+    # 3. Save to chat messages table (scope='global_chat', project_id=None)
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO public.chat_messages (user_id, project_id, scope, role, content, citations)
+                VALUES (%s, NULL, 'global_chat', 'user', %s, '[]'::jsonb);
+                """,
+                (user_id, req.message.strip()),
+            )
+            cur.execute(
+                """
+                INSERT INTO public.chat_messages (user_id, project_id, scope, role, content, citations)
+                VALUES (%s, NULL, 'global_chat', 'assistant', %s, '[]'::jsonb);
+                """,
+                (user_id, answer),
+            )
+
+    return ChatResponse(
+        answer=answer,
+        citations=[],
+    )
+
 
 @projects_router.post("/{project_id}/chat", response_model=ChatResponse)
 def project_chat_query(

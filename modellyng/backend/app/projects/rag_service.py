@@ -79,6 +79,203 @@ def is_paper_overview_query(query: str) -> bool:
     return any(p in q for p in patterns)
 
 
+def is_project_list_query(query: str) -> bool:
+    """Mendeteksi apakah pertanyaan menanyakan daftar proyek yang dimiliki pengguna."""
+    q = query.strip().lower()
+    patterns = [
+        "proyek apa saja", "daftar proyek", "proyek saya", "apa saja proyek",
+        "ada proyek apa", "list proyek", "project apa saja", "daftar project",
+        "proyek yang saya miliki", "sebutkan proyek"
+    ]
+    return any(p in q for p in patterns)
+
+
+GLOBAL_CHAT_SYSTEM_PROMPT = """Anda adalah Asisten Cerdas Global Modellyng (Universal Evidence-Centered Academic AI).
+Peran Anda adalah sebagai mitra diskusi riset, konsultan metodologi ilmiah, dan pembimbing akademik tepercaya bagi para dosen, peneliti, dan mahasiswa pascasarjana.
+
+PEDOMAN UTAMA PENALARAN & PERCAKAPAN:
+1. IDENTITAS & CAKUPAN:
+   - Anda berada di ruang Asisten Global Modellyng (bebas dari penguncian proyek tunggal).
+   - Anda ahli dalam metodologi riset (kuantitatif, kualitatif, mixed methods), statistika inferensial (PLS-SEM, CB-SEM, regresi linier/logistik, ANOVA), perumusan masalah penelitian, grand theory, novelty (kebaruan riset), telaah literatur sistematis (SLR/PRISMA), dan penyusunan draf publikasi ilmiah bereputasi.
+2. SALAM & SAPAAN AWAL:
+   - Jika pengguna menyapa ("halo", "hai", "selamat pagi"), sambutlah secara hangat, santun, dan profesional.
+   - Jelaskan bahwa Anda dapat membantu konsultasi metodologi riset, formulasi hipotesis, perumusan gap riset, atau menelaah naskah proyek pengguna.
+   - Informasikan dengan ramah bahwa pengguna dapat mengetikkan `@` untuk memilih proyek riset tertentu, atau `/` untuk menelaah naskah paper spesifik.
+3. TIDAK MENGUNCI DIRI PADA SATU PROYEK TERTENTU:
+   - JANGAN PERNAH mengasumsikan atau mengklaim Anda sedang menelaah suatu proyek tertentu kecuali pengguna secara eksplisit menanyakannya atau menyematkan chip konteks.
+   - Jika pengguna bertanya mengenai proyek apa saja yang mereka miliki, paparkan daftar proyek yang tersedia secara informatif dan undang mereka untuk memilihnya dengan mengetik `@`.
+4. BAHASA & FORMAT:
+   - Seluruh jawaban WAJIB ditulis dalam Bahasa Indonesia baku yang santun, elegan, objektif, dan akademis.
+   - Gunakan format Markdown yang rapi: heading (###), bullet points (-), dan cetak tebal (**...**).
+5. FORMAT KELUARAN JSON:
+   Kembalikan respons HANYA dalam format JSON valid dengan skema:
+   {
+     "answer": "Teks jawaban lengkap dalam format Markdown Bahasa Indonesia..."
+   }
+"""
+
+
+def generate_global_chat_response(
+    query: str,
+    user_projects: Optional[List[Dict[str, Any]]] = None,
+    history: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """
+    Menghasilkan respons akademik universal pada ruang Asisten Global Modellyng
+    tanpa mengunci diri pada satu proyek manapun secara sepihak.
+    """
+    projects = user_projects or []
+
+    # 1. Penanganan Sapaan Awal
+    if is_greeting(query):
+        answer_text = (
+            "Halo! Selamat datang di **Asisten Cerdas Global Modellyng**.\n\n"
+            "Saya adalah rekan riset akademik berbasis bukti yang siap mendampingi Anda dalam merancang, menelaah, dan menyempurnakan penelitian ilmiah.\n\n"
+            "Berikut adalah beberapa hal yang dapat kita diskusikan bersama:\n"
+            "- **Konsultasi Metodologi:** Desain penelitian kuantitatif (misalnya PLS-SEM, CB-SEM, Regresi), kualitatif, maupun *mixed methods*.\n"
+            "- **Formulasi Riset:** Perumusan hipotesis, operasionalisasi variabel, identifikasi *research gap*, dan penentuan kebaruan (*novelty*).\n"
+            "- **Eksplorasi Naskah & Proyek:**\n"
+            "  - Ketik `@` pada kolom input untuk memilih proyek riset aktif Anda.\n"
+            "  - Ketik `/` untuk langsung menelaah naskah paper spesifik berbasis bukti kutipan fisik (*evidence quotes*).\n\n"
+            "Ada topik metodologi, ide penelitian, atau analisis naskah yang ingin Anda diskusikan hari ini?"
+        )
+        return {"answer": answer_text, "citations": []}
+
+    # 2. Penanganan Pertanyaan Daftar Proyek Pengguna
+    if is_project_list_query(query):
+        if not projects:
+            answer_text = (
+                "Saat ini Anda belum memiliki proyek riset yang terdaftar. "
+                "Silakan buat proyek baru melalui menu **Proyek Riset** dan unggah berkas PDF naskah Anda untuk memulai analisis berbasis bukti."
+            )
+        else:
+            proj_items = []
+            for idx, p in enumerate(projects):
+                desc = p.get("description") or "Tidak ada deskripsi."
+                papers_cnt = p.get("paper_count", 0)
+                proj_items.append(f"{idx + 1}. **{p.get('name')}** ({papers_cnt} paper)\n   - *Deskripsi:* {desc}")
+            answer_text = (
+                f"Berikut adalah daftar proyek riset aktif yang terdaftar pada akun Anda:\n\n"
+                + "\n".join(proj_items) +
+                "\n\nUntuk memulai analisis mendalam pada salah satu proyek di atas, cukup ketikkan `@` pada kolom obrolan di bawah untuk menyematkan fokus proyek."
+            )
+        return {"answer": answer_text, "citations": []}
+
+    # 3. Format Ringkasan Proyek Pengguna untuk Konteks LLM
+    if projects:
+        proj_lines = [
+            f"- Proyek \"{p.get('name')}\": {p.get('description') or 'Tanpa deskripsi'} ({p.get('paper_count', 0)} paper)"
+            for p in projects
+        ]
+        projects_context = "DAFTAR PROYEK TERDAFTAR MILIK PENGGUNA:\n" + "\n".join(proj_lines)
+    else:
+        projects_context = "PENGGUNA BELUM MEMILIKI PROYEK TERDAFTAR."
+
+    user_prompt = f"""{projects_context}
+
+CATATAN: Pengguna berada di Asisten Global tanpa memilih proyek tertentu. Jawablah pertanyaan berikut secara ilmiah, solutif, dan komprehensif.
+
+PERTANYAAN PENELITI:
+{query}
+
+Kembalikan jawaban dalam format JSON valid:
+{{"answer": "Teks jawaban lengkap..."}}"""
+
+    # 4. Bangun Riwayat Obrolan Multi-Turn
+    chat_messages = [{"role": "system", "content": GLOBAL_CHAT_SYSTEM_PROMPT}]
+    if history and isinstance(history, list):
+        for h in history[-2:]:
+            role = "user" if h.get("role") == "user" else "assistant"
+            content = h.get("content", "").strip()
+            if role == "assistant" and len(content) > 300:
+                content = content[:300] + "..."
+            if content and not content.startswith("{"):
+                chat_messages.append({"role": role, "content": content})
+
+    chat_messages.append({"role": "user", "content": user_prompt})
+
+    # 5. Eksekusi Groq API
+    groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+    groq_model = os.getenv("GROQ_MODEL_NAME", "qwen/qwen3.8-27b")
+
+    if groq_api_key and not groq_api_key.startswith("masukkan_"):
+        try:
+            from groq import Groq
+            client = Groq(api_key=groq_api_key)
+            completion = client.chat.completions.create(
+                model=groq_model,
+                messages=chat_messages,
+                temperature=0.3,
+                response_format={"type": "json_object"},
+                max_tokens=1800,
+            )
+            raw_content = completion.choices[0].message.content or "{}"
+            parsed = json.loads(raw_content)
+            answer_text = parsed.get("answer", "").strip()
+            if answer_text:
+                return {"answer": answer_text, "citations": []}
+        except Exception as e:
+            logger.warning(f"Groq Global Chat failed: {e}. Trying Gemini or deterministic fallback.")
+
+    # 6. Eksekusi Gemini API Fallback
+    gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if gemini_api_key and not gemini_api_key.startswith("masukkan_"):
+        try:
+            import httpx
+            gemini_model = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash").replace("models/", "")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_api_key}"
+            payload = {
+                "contents": [
+                    {"role": "user", "parts": [{"text": f"{GLOBAL_CHAT_SYSTEM_PROMPT}\n\n{user_prompt}"}]}
+                ],
+                "generationConfig": {
+                    "response_mime_type": "application/json",
+                    "temperature": 0.3,
+                },
+            }
+            resp = httpx.post(url, json=payload, timeout=15.0)
+            if resp.status_code == 200:
+                res_json = resp.json()
+                text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                parsed = json.loads(text)
+                answer_text = parsed.get("answer", "").strip()
+                if answer_text:
+                    return {"answer": answer_text, "citations": []}
+        except Exception as e:
+            logger.warning(f"Gemini Global Chat failed: {e}. Using deterministic synthesis.")
+
+    # 7. Cadangan Deterministik Berbasis Topik Akademik
+    q_lower = query.lower()
+    if any(k in q_lower for k in ["sem", "pls", "smartpls", "inner model", "outer model"]):
+        answer_text = (
+            "### Pendekatan Partial Least Squares Structural Equation Modeling (PLS-SEM)\n\n"
+            "PLS-SEM merupakan teknik pemodelan persamaan struktural berbasis varians (*variance-based*) yang dirancang untuk memprediksi konstruk laten target serta mengembangkan teori baru (*exploratory research*).\n\n"
+            "**Dua Tahap Utama Pengujian PLS-SEM:**\n"
+            "1. **Model Pengukuran (*Outer Model*):**\n"
+            "   - *Convergent Validity:* Nilai *outer loading* > 0.708 dan *Average Variance Extracted* (AVE) > 0.50.\n"
+            "   - *Discriminant Validity:* Kriteria Fornell-Larcker, Cross-Loading, dan rasio *Heterotrait-Monotrait* (HTMT) < 0.90.\n"
+            "   - *Internal Consistency Reliability:* Nilai *Composite Reliability* (CR) dan Cronbach's Alpha > 0.70.\n\n"
+            "2. **Model Struktural (*Inner Model*):**\n"
+            "   - Evaluasi nilai koefisien determinasi ($R^2$), relevansi prediktif ($Q^2$), dan signifikansi koefisien jalur (*path coefficients*) melalui prosedur *bootstrapping* (t-statistik > 1.96, p-value < 0.05 pada tingkat signifikansi 5%).\n\n"
+            "Bila Anda ingin menguji hipotesis dari dokumen paper tertentu di proyek Anda, silakan ketik `@` untuk memilih proyek terkait."
+        )
+    elif any(k in q_lower for k in ["sampling", "sampel", "slovin", "populasi"]):
+        answer_text = (
+            "### Panduan Penentuan Sampel Penelitian\n\n"
+            "Dalam penelitian ilmiah, pemilihan ukuran dan teknik pengambilan sampel harus diselaraskan dengan tujuan riset dan karakteristik populasi:\n\n"
+            "- **Teknik Probability Sampling:** Cocok untuk riset kuantitatif yang mengutamakan generalisasi (misal: *Simple Random Sampling*, *Stratified Random Sampling*, atau *Cluster Sampling*).\n"
+            "- **Teknik Non-Probability Sampling:** Cocok untuk riset dengan kriteria khusus (misal: *Purposive Sampling*, *Snowball Sampling*, atau *Quota Sampling*).\n"
+            "- **Penentuan Ukuran Sampel:** Dapat menggunakan rumus Slovin (bila varians tidak diketahui), tabel Krejcie-Morgan, atau analisis *Power Analysis* (G*Power) untuk pengujian berbasis statistik multivariate seperti PLS-SEM (metode *10-times rule* atau *inverse square root method*)."
+        )
+    else:
+        answer_text = (
+            "Terima kasih atas pertanyaan Anda. Sebagai **Asisten Cerdas Global Modellyng**, saya siap mendiskusikan topik riset, telaah teori, maupun desain analisis data tersebut.\n\n"
+            "Untuk analisis yang langsung tertuju pada dokumen naskah PDF Anda, Anda dapat menyematkan tag `@` untuk memilih proyek riset atau `/` untuk memilih naskah spesifik sehingga jawaban dapat diperkuat dengan bukti kutipan dokumen (*evidence quotes*)."
+        )
+
+    return {"answer": answer_text, "citations": []}
+
+
 def generate_rag_response(
     query: str,
     contexts: List[Dict[str, Any]],
