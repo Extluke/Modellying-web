@@ -48,6 +48,17 @@ async function request<T>(
       errorDetail = await response.text()
     }
 
+    if (response.status === 403) {
+      const code = errorDetail?.detail?.code || errorDetail?.code
+      if (code === "DAILY_QUOTA_EXCEEDED") {
+        window.dispatchEvent(
+          new CustomEvent("quota:exceeded", {
+            detail: errorDetail?.detail || errorDetail,
+          })
+        )
+      }
+    }
+
     const formatIndonesianError = (raw: string): string => {
       const lower = (raw || "").toLowerCase()
       if (lower.includes("at least 2 characters") || lower.includes("min_length")) {
@@ -130,6 +141,18 @@ export function uploadFileWithProgress<T>(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(data as T)
       } else {
+        if (xhr.status === 403) {
+          const code = (typeof data === "object" && data !== null)
+            ? (data?.detail?.code || data?.code)
+            : null
+          if (code === "DAILY_QUOTA_EXCEEDED") {
+            window.dispatchEvent(
+              new CustomEvent("quota:exceeded", {
+                detail: data?.detail || data,
+              })
+            )
+          }
+        }
         const message =
           (typeof data === "object" && data !== null && data.detail)
             ? (typeof data.detail === "string"

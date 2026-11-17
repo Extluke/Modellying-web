@@ -518,6 +518,9 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 | DELETE | /api/v1/admin/admins/{id}                                   | Hapus akun admin dengan proteksi perlindungan diri  |
 | GET    | /api/v1/admin/audit-logs                                    | Rekam jejak audit aktivitas administratif sistem    |
 | GET    | /api/v1/admin/models/quotas                                 | Monitoring kuota batas laju Gemini & Groq AI        |
+| GET    | /api/v1/subscription/quota-status                           | Cek sisa kuota paper & status langganan harian real-time |
+| GET    | /api/v1/subscription/plans                                  | Daftar katalog paket publik (Free, Student 14 & 30 Hari) |
+| GET    | /api/v1/subscription/usage-logs                             | Riwayat jejak audit transaksi kuota & token real-time    |
 +--------+-------------------------------------------------------------+------------------------------------+
 
 
@@ -1327,5 +1330,21 @@ tipe data TypeScript pada frontend dengan menjalankan perintah:
   kutipan pada seluruh halaman dokumen (`relocateEvidence` pada `pdfMatcher.ts`).
 - Bila kutipan tidak ditemukan pada halaman mana pun, penampil hanya membuka halaman yang tercatat tanpa
   sorotan. Perbaikan data dilakukan dengan memproses ulang paper dari ikhtisar proyek.
+
+8. PANDUAN PENEGAKAN KUOTA LANGGANAN & TROUBLESHOOTING KUOTA
+--------------------------------------------------------------------------------
+- Batasan Tingkat Akun (Subscription Tiers):
+  * Developer (admin@modellyng.ac.id): Tanpa batasan kuota upload (999.999 dokumen).
+  * Student Pro 30 Hari (cahayu@modellyng.ac.id): Kuota 15 unggahan/ekstraksi dokumen per hari, akses penuh seluruh fitur analitik.
+  * Free Plan (lawren@modellyng.ac.id): Batas 3 unggahan dokumen per hari (reset pukul 00:00 WIB), ukuran maks. 15 MB.
+- Mekanisme Keamanan Anti-Race Condition:
+  * Pemotongan kuota dikawal oleh stored procedure `public.fn_consume_daily_quota` dengan klausa `FOR UPDATE` pada baris `user_daily_usage`.
+  * Pengunggahan paralel dari berbagai tab browser tidak dapat melebihi kuota harian yang ditetapkan.
+- Mekanisme Auto-Refund Kuota:
+  * Jika ekstraksi PDF oleh worker Celery mengalami kegagalan teknis (misal file PDF korup atau crash), stored procedure `public.fn_refund_daily_quota` dipanggil secara otomatis untuk mengembalikan kuota harian pengguna.
+  * Seluruh mutasi kuota terekam di tabel audit `public.token_usage_logs`.
+- Mengapa Muncul Pesan "Batas Kuota Harian Tercapai"?
+  * Pengguna pada Free Plan telah mengunggah 3 dokumen dalam hari berjalan.
+  * Kuota otomatis direset pada pukul 00:00 WIB (Asia/Jakarta). Pengguna dapat meningkatkan paket ke Student Pro melalui tautan WhatsApp admin di halaman `/settings/pricing`.
 
 ================================================================================

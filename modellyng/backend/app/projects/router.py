@@ -36,6 +36,7 @@ from app.pipeline.storage import STORAGE_ROOT, get_paper_file_path
 from app.pipeline.pdf_parser import inspect_pdf_metadata, PDFParseError, extract_canonical_blocks_and_coverage
 from app.pipeline.tasks import process_paper_pipeline, generate_paper_embeddings_task
 from app.pipeline.source_verification import verify_paper_doi
+from app.subscription.service import consume_user_quota, refund_user_quota, get_user_quota_status
 from .export_service import (
     fetch_project_export_data,
     generate_csv_export,
@@ -422,34 +423,64 @@ async def upload_paper(
     if has_duplicate_name:
         initial_warnings.append("duplicate_filename")
 
+    # 6.5 Atomic Daily Quota Check & Consumption
+    quota_res = consume_user_quota(
+        user_id=user_id,
+        quota_type="paper_upload",
+        amount=1,
+        reference_id=paper_id,
+        notes=f"Upload paper: {clean_filename}",
+    )
+    if not quota_res["success"]:
+        abs_storage_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "DAILY_QUOTA_EXCEEDED",
+                "message": quota_res["message"],
+                "current_used": quota_res["current_used"],
+                "daily_limit": quota_res["daily_limit"],
+                "remaining": quota_res["remaining"],
+            },
+        )
+
     # 7. Insert paper into PostgreSQL
-    with get_db() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                INSERT INTO public.papers (
-                    id, project_id, title, storage_path, file_name, file_size_bytes,
-                    total_pages, sha256, status, stage, warnings, uploaded_at, updated_at
+    try:
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO public.papers (
+                        id, project_id, title, storage_path, file_name, file_size_bytes,
+                        total_pages, sha256, status, stage, warnings, uploaded_at, updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'processing', 'queued', %s, NOW(), NOW())
+                    RETURNING 
+                        id, title, file_name, file_size_bytes, status, total_pages, sha256,
+                        stage, stage_detail, error, warnings, coverage, doc_type, run,
+                        uploaded_at, updated_at;
+                    """,
+                    (
+                        paper_id,
+                        project_id,
+                        title[:250],
+                        rel_storage_path,
+                        clean_filename,
+                        total_bytes,
+                        total_pages,
+                        hex_digest,
+                        Json(initial_warnings),
+                    ),
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'processing', 'queued', %s, NOW(), NOW())
-                RETURNING 
-                    id, title, file_name, file_size_bytes, status, total_pages, sha256,
-                    stage, stage_detail, error, warnings, coverage, doc_type, run,
-                    uploaded_at, updated_at;
-                """,
-                (
-                    paper_id,
-                    project_id,
-                    title[:250],
-                    rel_storage_path,
-                    clean_filename,
-                    total_bytes,
-                    total_pages,
-                    hex_digest,
-                    Json(initial_warnings),
-                ),
-            )
-            pr = cur.fetchone()
+                pr = cur.fetchone()
+    except Exception as db_exc:
+        # Rollback quota and delete file if DB insertion fails
+        refund_user_quota(user_id=user_id, quota_type="paper_upload", amount=1, reference_id=paper_id, notes="Rollback DB insert failure")
+        abs_storage_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "database_error", "message": f"Gagal menyimpan metadata dokumen: {str(db_exc)}"},
+        )
 
     # 8. Dispatch Celery task
     if auto_process:

@@ -7,11 +7,33 @@ from psycopg2.extras import RealDictCursor, Json
 
 from app.celery_app import celery_app
 from app.database import get_db
+from app.subscription.service import refund_user_quota
 from .pdf_parser import extract_canonical_blocks_and_coverage, PDFParseError
 from .llm_gatekeeper import classify_document_gatekeeper, extract_parameters_with_llm, extract_paper_title_and_authors
 from .storage import STORAGE_ROOT
 
 logger = logging.getLogger("modellyng.pipeline")
+
+def get_paper_owner_id(paper_id: str):
+    """Retrieves the owner user_id of the project that owns this paper."""
+    try:
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT pr.user_id 
+                    FROM public.papers p
+                    JOIN public.projects pr ON pr.id = p.project_id
+                    WHERE p.id = %s;
+                    """,
+                    (paper_id,),
+                )
+                row = cur.fetchone()
+                return str(row["user_id"]) if row else None
+    except Exception as e:
+        logger.warning(f"Failed to lookup owner for paper {paper_id}: {e}")
+        return None
+
 
 def update_paper_stage(
     paper_id: str,
@@ -309,6 +331,9 @@ def process_paper_pipeline(self, paper_id: str, force: bool = False):
             status="failed",
             error={"code": e.code, "user_message": e.user_message},
         )
+        owner_id = get_paper_owner_id(paper_id)
+        if owner_id:
+            refund_user_quota(user_id=owner_id, quota_type="paper_upload", amount=1, reference_id=paper_id, notes=f"Refund: PDFParseError ({e.code})")
         return {"status": "failed", "error": e.code}
 
     except Exception as e:
@@ -319,6 +344,9 @@ def process_paper_pipeline(self, paper_id: str, force: bool = False):
             status="failed",
             error={"code": "internal", "user_message": f"Terjadi kesalahan internal pemrosesan: {str(e)}"},
         )
+        owner_id = get_paper_owner_id(paper_id)
+        if owner_id:
+            refund_user_quota(user_id=owner_id, quota_type="paper_upload", amount=1, reference_id=paper_id, notes=f"Refund: Pipeline failure ({str(e)[:50]})")
         return {"status": "failed", "error": "internal"}
 
 

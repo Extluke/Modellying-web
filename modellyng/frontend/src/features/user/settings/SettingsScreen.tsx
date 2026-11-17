@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Lock,
+  RefreshCw,
+  History,
 } from "lucide-react"
 import { useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -19,10 +21,49 @@ import { Badge } from "@/components/ui/badge"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import { ROUTES } from "@/app/routes"
 import { formatSubscriptionTierName } from "@/features/user/pricing/utils/whatsappPricing"
+import { useUserQuota, useUserUsageLogs } from "@/features/user/pricing/hooks/useUserQuota"
+import { toast } from "@/lib/store/useToastStore"
 
 export default function SettingsScreen() {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
+  const { quota, isLoading: isQuotaLoading, invalidateQuota } = useUserQuota()
+  const { data: usageLogs, isLoading: isLogsLoading } = useUserUsageLogs(5)
+
+  const isDev = quota?.is_developer ?? (user?.subscription_tier === "developer")
+  const isPro =
+    quota?.tier_category === "student" ||
+    user?.subscription_tier === "student_30" ||
+    user?.subscription_tier === "student_14"
+
+  const activeTierCode = quota?.tier || user?.subscription_tier || "free"
+  const activeTierName = quota?.tier_name || formatSubscriptionTierName(activeTierCode)
+
+  const usedFiles = quota?.files_uploaded_today ?? 0
+  const dailyLimit = quota?.daily_file_limit ?? (isDev ? 999999 : isPro ? 15 : 3)
+  const remainingFiles = quota?.remaining_files ?? (isDev ? 999999 : Math.max(0, dailyLimit - usedFiles))
+
+  const progressPercent = isDev
+    ? 100
+    : Math.min(100, Math.round((usedFiles / (dailyLimit || 1)) * 100))
+
+  const getRemainingTimeDisplay = (resetsAtIso?: string): string => {
+    if (!resetsAtIso) return "Pukul 00:00 WIB"
+    try {
+      const diffMs = new Date(resetsAtIso).getTime() - Date.now()
+      if (diffMs <= 0) return "segera di-reset"
+      const hours = Math.floor(diffMs / (1000 * 60 * 60))
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+      return `${hours}j ${minutes}m lagi`
+    } catch {
+      return "Pukul 00:00 WIB"
+    }
+  }
+
+  const handleRefreshQuota = () => {
+    invalidateQuota()
+    toast.info("Status kuota harian berhasil disinkronkan dengan basis data.", 5000)
+  }
 
   const handleLogout = () => {
     logout()
@@ -70,94 +111,124 @@ export default function SettingsScreen() {
           </div>
         </div>
 
-        {/* Subscription Plan & Upgrade Access Card */}
-        {(() => {
-          const isDev = user?.subscription_tier === "developer"
-          const isPro =
-            user?.subscription_tier === "student_30" ||
-            user?.subscription_tier === "student_14"
-
-          return (
-            <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-card via-card to-primary/[0.04] p-5 shadow-xs space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Crown className="size-4 text-primary" />
-                    <span className="text-xs font-bold text-foreground">Status Paket Akun</span>
-                    <Badge
-                      variant={isDev ? "primary" : isPro ? "ready" : "muted"}
-                      className="text-[10px] font-semibold px-2 py-0.2"
-                    >
-                      {formatSubscriptionTierName(user?.subscription_tier)} (Aktif)
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {isDev ? (
-                      <>
-                        Anda menggunakan akun <strong className="text-foreground">Developer</strong> dengan akses penuh ke seluruh fitur dan tanpa batasan kuota.
-                      </>
-                    ) : isPro ? (
-                      <>
-                        Anda saat ini menggunakan paket <strong className="text-primary">{formatSubscriptionTierName(user?.subscription_tier)}</strong> dengan kuota <span className="font-semibold text-primary">15 token setiap hari</span>, akses penuh Comparative Matrix, dan Research Gap Map interaktif.
-                      </>
-                    ) : (
-                      <>
-                        Anda saat ini menggunakan paket gratis dengan batas <span className="font-semibold text-foreground">3 upload per hari</span>.
-                        Upgrade ke Student Pro untuk mendapatkan <span className="font-semibold text-primary">15 token setiap hari</span>, akses penuh Comparative Matrix, dan Research Gap Map interaktif.
-                      </>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-border/50">
-                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                  <Sparkles className="size-3.5 text-primary shrink-0" />
-                  <span>
-                    Tersedia paket <strong>Student Pro 14 Hari</strong> (Rp29.000) dan <strong>30 Hari</strong> (Rp49.000) via WhatsApp Admin
+        {/* Subscription Plan & Upgrade Access Card (Real-time data) */}
+        <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-card via-card to-primary/[0.04] p-5 shadow-xs space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Crown className="size-4 text-primary" />
+                <span className="text-xs font-bold text-foreground">Status Paket Akun</span>
+                <Badge
+                  variant={isDev ? "primary" : isPro ? "ready" : "muted"}
+                  className="text-[10px] font-semibold px-2 py-0.2"
+                >
+                  {activeTierName} (Aktif)
+                </Badge>
+                {quota?.days_remaining != null && quota.days_remaining > 0 && (
+                  <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    Sisa {quota.days_remaining} Hari
                   </span>
-                </div>
-
-                <Button asChild size="sm" className="gap-2 text-xs font-semibold rounded-lg shadow-sm shadow-primary/20 shrink-0">
-                  <Link to={ROUTES.USER.PRICING}>
-                    <Crown className="size-3.5 text-amber-300" />
-                    <span>{isPro ? "Kelola / Perpanjang Paket" : "Lihat Pilihan Paket & Upgrade"}</span>
-                    <ArrowRight className="size-3.5" />
-                  </Link>
-                </Button>
+                )}
               </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {isDev ? (
+                  <>
+                    Anda menggunakan akun <strong className="text-foreground">Developer</strong> dengan hak akses administratif penuh dan tanpa batasan kuota.
+                  </>
+                ) : isPro ? (
+                  <>
+                    Anda saat ini aktif pada paket <strong className="text-primary">{activeTierName}</strong> dengan kuota <span className="font-semibold text-primary">{dailyLimit} token setiap hari</span>, akses penuh Comparative Matrix, dan Research Gap Map interaktif.
+                  </>
+                ) : (
+                  <>
+                    Anda saat ini menggunakan paket <strong className="text-foreground">Free Plan</strong> dengan batas <span className="font-semibold text-foreground">{dailyLimit} upload per hari</span>.
+                    Upgrade ke Student Pro untuk mendapatkan <span className="font-semibold text-primary">15 token setiap hari</span>, akses penuh Comparative Matrix, dan Research Gap Map interaktif.
+                  </>
+                )}
+              </p>
             </div>
-          )
-        })()}
+          </div>
 
-        {/* Usage Limits Card (Dummy Frontend Data) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-border/50">
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <Sparkles className="size-3.5 text-primary shrink-0" />
+              <span>
+                {isPro
+                  ? "Dukungan prioritas & perpanjangan paket via WhatsApp Admin"
+                  : "Tersedia paket Student Pro 14 Hari (Rp29.000) dan 30 Hari (Rp49.000) via WhatsApp Admin"}
+              </span>
+            </div>
+
+            <Button asChild size="sm" className="gap-2 text-xs font-semibold rounded-lg shadow-sm shadow-primary/20 shrink-0">
+              <Link to={ROUTES.USER.PRICING}>
+                <Crown className="size-3.5 text-amber-300" />
+                <span>{isPro ? "Kelola / Perpanjang Paket" : "Lihat Pilihan Paket & Upgrade"}</span>
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Real-Time Usage Limits Card */}
         <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
               <BarChart3 className="size-4 text-primary" />
-              <span>Batas Penggunaan & Kuota Harian (Usage Limit)</span>
+              <span>Batas Penggunaan & Kuota Harian (Real-Time Tracking)</span>
             </h3>
-            <Badge variant="outline" className="text-[10px] font-medium border-muted-foreground/30">
-              {formatSubscriptionTierName(user?.subscription_tier)}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshQuota}
+                disabled={isQuotaLoading}
+                className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1"
+                title="Sinkronkan kuota dengan basis data"
+              >
+                <RefreshCw className={`size-3 ${isQuotaLoading ? "animate-spin text-primary" : ""}`} />
+                <span>Sinkron</span>
+              </Button>
+              <Badge variant="outline" className="text-[10px] font-medium border-muted-foreground/30">
+                {activeTierName}
+              </Badge>
+            </div>
           </div>
 
-          {/* Upload File Progress */}
+          {/* Upload File Progress (Real Data) */}
           <div className="p-3.5 rounded-lg border bg-muted/30 space-y-2.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-foreground flex items-center gap-1.5">
                 <FileText className="size-3.5 text-primary" />
-                <span>Kuota Upload PDF Hari Ini</span>
+                <span>Kuota Upload PDF & Ekstraksi Hari Ini</span>
               </span>
               <span className="font-semibold text-foreground">
-                1 / 3 File <span className="text-[11px] font-normal text-muted-foreground">(Sisa 2 file)</span>
+                {isDev ? (
+                  <span className="text-purple-600 dark:text-purple-400 font-bold">
+                    Tanpa Batas <span className="text-[11px] font-normal text-muted-foreground">(Akses Developer)</span>
+                  </span>
+                ) : (
+                  <>
+                    <span className={remainingFiles <= 0 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-primary font-bold"}>
+                      {usedFiles} / {dailyLimit} File
+                    </span>{" "}
+                    <span className="text-[11px] font-normal text-muted-foreground">
+                      (Sisa {remainingFiles} file)
+                    </span>
+                  </>
+                )}
               </span>
             </div>
 
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full bg-primary rounded-full transition-all duration-500"
-                style={{ width: "33.3%" }}
+                className={`h-full rounded-full transition-all duration-500 ${isDev
+                    ? "bg-purple-600"
+                    : remainingFiles <= 0
+                      ? "bg-amber-500"
+                      : "bg-primary"
+                  }`}
+                style={{ width: `${progressPercent}%` }}
               />
             </div>
 
@@ -167,16 +238,24 @@ export default function SettingsScreen() {
                 Reset berkala: <strong>Setiap 24 Jam (Pukul 00:00 WIB)</strong>
               </span>
               <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                Reset kuota dalam 8j 21m
+                Reset kuota dalam {getRemainingTimeDisplay(quota?.resets_at)}
               </span>
             </div>
           </div>
 
-          {/* Feature Access Limitations List */}
+          {/* Feature Access Matrix based on Real Tier */}
           <div className="space-y-2 pt-1">
-            <label className="text-[11px] font-medium text-muted-foreground block">
-              Status Akses Fitur Akun Gratis:
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-medium text-muted-foreground block">
+                Hak Akses Fitur untuk Paket {activeTierName}:
+              </label>
+              {remainingFiles <= 0 && !isDev && (
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                  Batas Harian Tercapai
+                </span>
+              )}
+            </div>
+
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-xs">
               <div className="flex items-start gap-2 p-2.5 rounded-lg border bg-background/50">
                 <CheckCircle2 className="size-4 text-emerald-500 shrink-0 mt-0.5" />
@@ -189,35 +268,127 @@ export default function SettingsScreen() {
               </div>
 
               <div className="flex items-start gap-2 p-2.5 rounded-lg border bg-background/50">
-                <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                {isDev || isPro ? (
+                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                )}
                 <div className="space-y-0.5">
                   <p className="font-medium text-foreground text-[11px]">Comparative Paper Matrix</p>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    Tabel dasar terlihat, analisis mendalam dikunci.
+                    {isDev || isPro
+                      ? "Akses penuh multi-paper, ekspor & perbandingan mendalam."
+                      : "Tabel dasar terlihat, perbandingan antar-paper dikunci."}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-2 p-2.5 rounded-lg border bg-background/50">
-                <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                {isDev || isPro ? (
+                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                )}
                 <div className="space-y-0.5">
                   <p className="font-medium text-foreground text-[11px]">Research Gap Map</p>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    Preview terbatas, visualisasi flow map dibuat blur.
+                    {isDev || isPro
+                      ? "Visualisasi alur riset interaktif terbuka penuh."
+                      : "Preview terbatas, visualisasi flow map dibuat blur."}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-2 p-2.5 rounded-lg border bg-background/50">
-                <Lock className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+                {isDev || isPro ? (
+                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0 mt-0.5" />
+                ) : (
+                  <Lock className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+                )}
                 <div className="space-y-0.5">
-                  <p className="font-medium text-foreground text-[11px]">AI Editing & Perumusan Solusi</p>
+                  <p className="font-medium text-foreground text-[11px]">AI Editing & Rumusan Masalah</p>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    Terkunci penuh, khusus pengguna Student Pro.
+                    {isDev || isPro
+                      ? "Bantuan AI untuk merevisi formulasi komponen aktif."
+                      : "Terkunci penuh, khusus pengguna Student Pro."}
                   </p>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Audit Ledger / Real-time Token Usage History */}
+          <div className="pt-2 border-t border-border/50 space-y-2">
+            <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-foreground font-semibold">
+                <History className="size-3.5 text-primary" />
+                <span>Riwayat Transaksi Token & Kuota Terbaru</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                Tercatat di PostgreSQL Ledger
+              </span>
+            </div>
+
+            {isLogsLoading ? (
+              <div className="p-3 text-center text-xs text-muted-foreground">
+                Memuat riwayat transaksi...
+              </div>
+            ) : !usageLogs || usageLogs.length === 0 ? (
+              <div className="p-3 rounded-lg border border-dashed bg-muted/20 text-center text-[11px] text-muted-foreground">
+                Belum ada aktivitas pemotongan kuota hari ini. Unggah dokumen PDF untuk mulai analisis.
+              </div>
+            ) : (
+              <div className="divide-y rounded-lg border bg-background/60 overflow-hidden">
+                {usageLogs.map((log) => {
+                  const isRefund = log.action_type === "quota_refund"
+                  return (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between p-2.5 text-xs hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`size-2 rounded-full shrink-0 ${isRefund ? "bg-amber-500" : "bg-primary"
+                            }`}
+                        />
+                        <div className="space-y-0.5">
+                          <p className="font-medium text-foreground text-[11px] flex items-center gap-1.5">
+                            <span>
+                              {isRefund
+                                ? "Pengembalian Kuota (Auto-Refund)"
+                                : "Konsumsi Kuota Unggah Dokumen"}
+                            </span>
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${isRefund
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                                  : "bg-primary/10 text-primary"
+                                }`}
+                            >
+                              {isRefund ? `+${log.amount}` : `-${log.amount}`} Kuota
+                            </span>
+                          </p>
+                          {log.notes && (
+                            <p className="text-[10px] text-muted-foreground line-clamp-1">
+                              {log.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right text-[10px] text-muted-foreground shrink-0 font-mono">
+                        {log.created_at
+                          ? new Date(log.created_at).toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            timeZone: "Asia/Jakarta",
+                          }) + " WIB"
+                          : "-"}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
 

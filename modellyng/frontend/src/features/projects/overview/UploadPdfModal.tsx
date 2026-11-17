@@ -12,10 +12,14 @@ import {
   PauseCircle,
   PlayCircle,
   AlertTriangle,
+  Crown,
+  Sparkles,
 } from "lucide-react"
 import { uploadFileWithProgress } from "@/lib/api/client"
 import { projectKeys, Paper } from "../api/projectsApi"
 import { useAuthStore } from "@/features/auth/store/authStore"
+import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
+import { toast } from "@/lib/store/useToastStore"
 
 interface UploadFileItem {
   id: string
@@ -48,6 +52,7 @@ export function UploadPdfModal({
   const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
   const userId = user?.id
+  const { quota, invalidateQuota } = useUserQuota()
 
   const [queue, setQueue] = useState<UploadFileItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -99,7 +104,17 @@ export function UploadPdfModal({
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return
 
-      const remainingSlots = MAX_FILES - queue.length
+      if (quota && !quota.is_developer && quota.remaining_files <= 0) {
+        toast.warning(
+          `Batas kuota harian (${quota.daily_file_limit} dokumen) telah tercapai. Kuota akan direset pada pukul 00:00 WIB.`,
+          5000
+        )
+        return
+      }
+
+      const remainingSlots = quota && !quota.is_developer
+        ? Math.min(MAX_FILES - queue.length, quota.remaining_files)
+        : MAX_FILES - queue.length
       if (remainingSlots <= 0) {
         return
       }
@@ -156,7 +171,7 @@ export function UploadPdfModal({
         )
       }
     },
-    [queue.length]
+    [queue.length, quota]
   )
 
   // Upload Worker Loop (Concurrency 2-3)
@@ -207,6 +222,7 @@ export function UploadPdfModal({
           // Targeted TanStack Query invalidation
           queryClient.invalidateQueries({ queryKey: projectKeys.detail(userId, projectId) })
           queryClient.invalidateQueries({ queryKey: projectKeys.lists(userId) })
+          invalidateQuota()
         })
         .catch((err: any) => {
           if (err.name === "AbortError") {
@@ -229,7 +245,7 @@ export function UploadPdfModal({
           )
         })
     })
-  }, [queue, isPaused, projectId, queryClient, userId])
+  }, [queue, isPaused, projectId, queryClient, userId, invalidateQuota])
 
   const handleCancelItem = (id: string) => {
     setQueue((prev) => {
@@ -317,6 +333,93 @@ export function UploadPdfModal({
           </div>
         )}
 
+        {/* Realtime Quota Status Banner */}
+        {quota && (
+          <div
+            className={`rounded-xl border p-3 text-xs transition-colors ${
+              quota.is_developer
+                ? "border-purple-200/80 bg-purple-500/10 text-purple-900 dark:border-purple-900/60 dark:text-purple-200"
+                : quota.remaining_files <= 0
+                ? "border-amber-300/80 bg-amber-500/10 text-amber-950 dark:border-amber-900/60 dark:text-amber-200"
+                : "border-primary/20 bg-primary/5 text-foreground"
+            }`}
+          >
+            {quota.is_developer ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <span className="font-semibold">Akun Developer / Testing:</span>
+                  <span>Akses tanpa batas kuota unggahan naskah.</span>
+                </div>
+                <span className="text-[10px] font-bold bg-purple-200/70 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded-full shrink-0">
+                  Unlimited
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    {quota.tier_category === "student" ? (
+                      <Crown className="size-3.5 text-amber-500 shrink-0" />
+                    ) : (
+                      <FileText className="size-3.5 text-primary shrink-0" />
+                    )}
+                    <span>Kuota Unggahan Hari Ini:</span>
+                    <span
+                      className={
+                        quota.remaining_files <= 0
+                          ? "text-amber-600 dark:text-amber-400 font-bold"
+                          : "text-primary font-bold"
+                      }
+                    >
+                      {quota.files_uploaded_today} dari {quota.daily_file_limit} Dokumen
+                    </span>
+                    {quota.remaining_files > 0 && (
+                      <span className="text-[11px] text-muted-foreground font-normal">
+                        (Sisa {quota.remaining_files})
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    Reset 00:00 WIB
+                  </span>
+                </div>
+
+                <div className="h-1.5 w-full bg-muted/80 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-500 ${
+                      quota.remaining_files <= 0 ? "bg-amber-500" : "bg-primary"
+                    }`}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          (quota.files_uploaded_today / (quota.daily_file_limit || 1)) * 100
+                        )
+                      )}%`,
+                    }}
+                  />
+                </div>
+
+                {quota.remaining_files <= 0 && (
+                  <div className="flex items-center justify-between pt-1 text-[11px]">
+                    <span className="text-amber-800 dark:text-amber-300 font-medium">
+                      Batas kuota tercapai. Ingin kuota 15 dokumen per hari?
+                    </span>
+                    <a
+                      href="/settings/pricing"
+                      className="font-bold text-primary hover:underline ml-2 shrink-0 inline-flex items-center gap-1"
+                    >
+                      <span>Tingkatkan Paket</span>
+                      <span>→</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Drag and Drop Zone */}
         <div
           onDragOver={(e) => {
@@ -329,7 +432,16 @@ export function UploadPdfModal({
             setIsDragging(false)
             handleAddFiles(e.dataTransfer.files)
           }}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if (quota && !quota.is_developer && quota.remaining_files <= 0) {
+              toast.warning(
+                "Batas kuota harian telah tercapai (3 dokumen). Tingkatkan paket untuk melanjutkan unggahan.",
+                5000
+              )
+              return
+            }
+            fileInputRef.current?.click()
+          }}
           className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center cursor-pointer transition-all ${
             isDragging
               ? "border-primary bg-primary/5 scale-[0.99]"
