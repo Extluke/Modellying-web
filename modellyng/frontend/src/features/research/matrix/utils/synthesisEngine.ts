@@ -4,6 +4,7 @@ import {
   type MethodologicalApproachItem,
   buildMethodologicalApproaches,
 } from "./variableClassifier"
+import { buildGroundedResearchPatterns } from "./researchPatternBuilder"
 
 export interface FollowUpIdea {
   rank: number
@@ -133,12 +134,8 @@ export function generateProjectSynthesis(
     }
   })
 
-  // 4. Pola Riset (Research Patterns)
-  const researchPatterns: string[] = [
-    `Tren pergeseran metodologi dari model statis berbasis aturan menuju arsitektur komputasi cerdas yang adaptif terhadap variasi data masukan.`,
-    `Tingginya ketergantungan validitas hasil pada tahap pra-pemrosesan data dan eliminasi ambiguitas fitur.`,
-    `Peningkatan kesadaran terhadap verifikasi sumber bukti kanonik guna meminimalisasi bias komputasi.`,
-  ]
+  // 4. Pola Riset (Research Patterns) - Terikat 100% pada ekstraksi paper proyek
+  const researchPatterns: string[] = buildGroundedResearchPatterns(papers, matrix)
 
   // 5. Celah Riset & Peluang (Gaps and Opportunities)
   const gapsAndOpportunities: string[] = []

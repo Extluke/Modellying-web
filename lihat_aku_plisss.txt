@@ -122,6 +122,7 @@ src/features/
 │   │   │   └── IntelligenceReportCard.tsx # Kartu laporan intelijen & 5 gaya sitasi (APA, IEEE, dll)
 │   │   └── utils/
 │   │       ├── synthesisEngine.ts         # Mesin kalkulator & penyusun sintesis komparatif multi-paper
+│   │       ├── researchPatternBuilder.ts  # Generator pola riset teridentifikasi berbasis ekstraksi riil & sitasi paper
 │   │       ├── variableClassifier.ts      # Ekstraksi & taksonomi variabel (bebas, terikat, moderator, kontrol, operasional)
 │   │       ├── matrixFormatters.ts        # Label grup, status sel, warna skor keyakinan, format teks sel
 │   │       ├── exportMatrixCsv.ts         # Pembangun & pengunduh CSV UTF-8 BOM
@@ -895,6 +896,13 @@ DETAIL FITUR & INTEGRASI SISTEM
       Variabel Kontrol, dan Konsep Operasional. Setiap variabel dirender dalam tag badge interaktif tanpa pemotongan
       teks (whitespace-normal), dilengkapi filter kategori cepat, tooltip definisi taksonomi, dan aksi salin satu-klik
       dengan notifikasi toast 5 detik. Pendekatan metodologi ditampilkan utuh tanpa pemotongan teks (.slice/ellipsis).
+    - Seksi Pola Riset yang Teridentifikasi Berbasis Data Riil Paper Proyek (`researchPatternBuilder.ts`):
+      Mengeliminasi keluaran AI generik di luar paper. Seluruh butir pola riset disintesis secara ketat dari komponen ekstraksi riil paper-paper di dalam proyek aktif (metodologi, korpus dataset/sampel, temuan kunci, dan rumusan masalah). Setiap butir pola wajib menyertakan sitasi resmi penulis-tahun (in-text citation seperti `(Grycuk dkk., n.d.)`, `(Gray dkk., n.d.)`, atau `(Panjaitan dkk., n.d.)`, `(Amin dkk., n.d.)`) dan kutipan data naskah. Mencakup 4 pilar komparasi:
+      1) Pola Desain Metodologis Lintas-Paper: Sintesis konvergensi atau divergensi metodologi riset (kuantitatif potong lintang / TPB, rekayasa arsitektur sistem/basis data, atau eksperimen komplementer).
+      2) Pola Karakteristik Korpus Data & Subjek Riset: Pola pemilihan korpus uji (dataset citra, spasial publik, atau sampel kuesioner warga).
+      3) Pola Konvergensi Temuan & Evaluasi Kinerja: Pola pembuktian hasil (metrik kuantitatif presisi/recall/latensi atau signifikansi hubungan antarvariabel).
+      4) Pola Titik Temu Permasalahan & Fokus Investigasi: Benang merah tantangan ilmiah yang melatarbelakangi seluruh paper dalam proyek.
+      Dilengkapi lencana penanda `Data Riil Paper Proyek` dan penegasan label kategori tebal (`font-semibold`) di awal tiap butir pola.
     Dilengkapi tombol "Salin Poin" dan "Salin Paragraf Akademik" dengan feedback toast 5 detik.
   * Kartu Laporan Intelijen & Bibliografi Riset (`IntelligenceReportCard.tsx`):
     Kartu laporan intelijen komprehensif yang menyajikan metrik statistik riset (total relasi,

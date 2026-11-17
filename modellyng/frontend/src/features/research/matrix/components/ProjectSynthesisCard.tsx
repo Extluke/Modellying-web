@@ -202,17 +202,37 @@ export function ProjectSynthesisCard({
 
             {/* Research Patterns */}
             <div className="rounded-card border border-border bg-card p-4 space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Compass className="size-3.5 text-primary" />
-                <span>Pola Riset yang Teridentifikasi</span>
+              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                  <Compass className="size-3.5 text-primary" />
+                  <span>Pola Riset yang Teridentifikasi</span>
+                </div>
+                <span className="text-[10px] font-semibold text-primary font-mono px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+                  Data Riil Paper Proyek
+                </span>
               </div>
-              <ul className="space-y-1.5 text-xs text-muted-foreground">
-                {synthesis.researchPatterns.map((pat, idx) => (
-                  <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                    <span className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                    <span>{pat}</span>
-                  </li>
-                ))}
+              <ul className="space-y-2 text-xs text-muted-foreground">
+                {synthesis.researchPatterns.map((pat, idx) => {
+                  const colonIndex = pat.indexOf(":")
+                  const hasPrefix = colonIndex > 0 && colonIndex < 45
+                  return (
+                    <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                      <span className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                      <span>
+                        {hasPrefix ? (
+                          <>
+                            <strong className="font-semibold text-foreground">
+                              {pat.slice(0, colonIndex + 1)}
+                            </strong>{" "}
+                            {pat.slice(colonIndex + 1).trim()}
+                          </>
+                        ) : (
+                          pat
+                        )}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           </div>
