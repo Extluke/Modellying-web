@@ -1367,6 +1367,62 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Proteksi Anti-Spam: Setiap kali modal ditutup, timestamp dicatat ke `localStorage` dengan prefix `modellyng_promo_last_shown_<feature>`, menjamin pengguna tidak terganggu oleh iklan berulang dalam rentang cooldown aktif.
   * Aksi Langsung ke WhatsApp Admin: Pengguna dapat memilih durasi Student Pro (14 Hari Rp29.000 atau 30 Hari Rp49.000) dan mengklik tombol "Upgrade via WhatsApp" untuk dipandu instan oleh Admin Modellyng (+62 812-6927-4671).
 
+18. FITUR DASBOR MONITORING TOKEN PENGGUNA & REKAP HARIAN PER VENDOR AI
+--------------------------------------------------------------------------------
+- Layar Konfigurasi API & Model Switching Dinamis (`ApiConfigScreen.tsx` pada rute `/admin/api-config`):
+  * Merupakan pusat kendali API Key model AI secara terpusat di basis data (`public.api_configurations`) tanpa hardcode kredensial di kode repositori.
+  * Menampilkan 2 penyedia AI resmi Modellyng: Google Gemini AI (Core Provider #1) dan Groq Cloud AI (Backup Provider #2).
+  * Kartu Penyedia AI (Elevated Brand Cards):
+    - Aksen visual dan ikon khas vendor (Gemini Indigo Sparkle untuk Core Provider & Groq Amber Flame untuk Backup Provider).
+    - Lencana status operasional real-time dengan indikator titik berdenyut (*pulsing dot*).
+    - Indikator penggunaan kuota token (*Token Utilization Gauge Progress Bar*) yang memantau persentase beban TPM model.
+    - Metrik ringkas langsung pada kartu: Total Token Bulan Ini, Total Permintaan API, dan Latensi Terakhir (ms).
+    - Tombol primer terkemuka: "Buka Dasbor Token & Analitik Pengguna" (serta dapat dibuka langsung dengan mengklik area kartu AI).
+    - Tombol utilitas: "Uji Latensi Ping" (uji latensi dinamis) dan "Ubah Kunci & Kuota" (modal pergantian kunci API, model, RPM/TPM, dan prioritas failover).
+
+- Dasbor Analitik Token Per Vendor AI (Interactive Drill-Down Dashboard):
+  * Bilah Navigasi & Breadcrumb:
+    - Tombol kembali `← Kembali ke Semua Vendor Kunci API`.
+    - Lencana model ID, status operasional SLA 99.9%, tombol sakelar vendor cepat (GEMINI & GROQ), tombol "Segarkan" data, dan tombol "Ekspor CSV".
+  * 4 Kartu KPI Metrik Utama:
+    1. Total Token Terpakai Bulan Ini: Dilengkapi bilah proporsi visual (*stacked proportion bar*) antara Input/Prompt Token vs Output/Completion Token serta estimasi biaya dalam USD.
+    2. Total Permintaan (Requests): Jumlah panggilan API akumulatif dengan rata-rata latensi ms dan status stabilitas respon.
+    3. Peneliti Aktif: Total peneliti terdaftar yang menggunakan kunci model ini beserta informasi kontributor terbesar.
+    4. Beban Kuota Puncak (TPM): Persentase utilisasi batas TPM model (misal 48.2% dari 2.000.000 TPM) dengan indikator batas aman.
+  * Bagian 1: Rekapitulasi Konsumsi Token Harian (Daily Usage Recap):
+    - Grafik Batang Bertumpuk Interaktif (Interactive Stacked Bar Chart):
+      * Memetakan volume token harian per tanggal dengan ketinggian proporsional.
+      * Segmen ungu primer untuk Prompt (Input) Tokens dan segmen ungu violet untuk Completion (Output) Tokens.
+      * Efek tooltip melayang saat kursor diarahkan ke batang grafik: Menampilkan tanggal lengkap, hari, total token, rincian input, rincian output, jumlah permintaan, dan rata-rata latensi.
+    - Tabel Rincian Rekap Harian:
+      * Menyajikan kolom Tanggal & Hari, Prompt Tokens, Completion Tokens, Total Token Harian (teks tebal), Jumlah Permintaan, Rata-rata Latensi, dan Status Operasional (Optimal).
+      * Filter rentang periode instan: 7 Hari Terakhir, 14 Hari Terakhir, dan 30 Hari Terakhir.
+      * Tombol Ekspor CSV: Mengunduh data tabel harian dalam format CSV (`rekap_token_<vendor>_<periode>.csv`) dengan umpan balik toast seragam 5000 ms.
+  * Bagian 2: Monitoring Token Per Pengguna (Diurutkan Terbanyak - Descending):
+    - Sistem secara otomatis mengurutkan daftar peneliti berdasarkan **konsumsi token terbanyak (Peringkat #1 s.d. Terendah)**.
+    - Lencana Trofi Juara:
+      * Juara #1: Lencana piala emas (`#1 Terbanyak`).
+      * Juara #2: Lencana medali perak (`#2`).
+      * Juara #3: Lencana perunggu (`#3`).
+      * Peringkat selanjutnya: Nomor urut rapi (`#4`, `#5`, dst.).
+    - Informasi Lengkap Profil Peneliti:
+      * Avatar inisial dengan palet warna terpadu.
+      * Nama lengkap peneliti dan alamat email resmi.
+      * Lencana Perguruan Tinggi / Lembaga (Telkom University, ITB, UI, UGM, BRIN, Unpad, dll.).
+      * Lencana Peran Peneliti (Lead Researcher, Dosen / Peneliti, AI Engineer, Guru Besar, Peneliti Muda, Mahasiswa Pascasarjana).
+      * Token Input (Prompt) dan Token Output (Completion).
+      * Total Token Terpakai dengan angka ribuan tebal, lencana persentase kontribusi (% share terhadap total vendor), dan bilah kemajuan (*mini progress bar*).
+      * Jumlah dokumen paper ilmiah yang telah dianalisis pengguna.
+      * Waktu aktivitas terakhir (misal: "Baru saja", "12 menit lalu", "1 jam lalu").
+    - Bilah Alat Filter & Pencarian:
+      * Kotak pencarian instan: Menyaring peneliti berdasarkan nama, email, atau kampus secara real-time.
+      * Dropdown filter lembaga/kampus: Menyaring berdasarkan perguruan tinggi spesifik.
+      * Tombol pengalihan arah urutan: "Urutkan: Terbanyak" (default) dan "Urutkan: Tersedikit".
+
+- Layanan Endpoint Backend:
+  * `GET /admin/api-config/{provider}/token-usage`: Mengembalikan agregasi metrik token, rekap harian 14 hari terakhir, serta daftar peringkat pengguna terurut *descending* dengan data gabungan dari `public.users` dan `public.papers`.
+
+
 
 ================================================================================
 CATATAN TEKNIS & PEMECAHAN MASALAH (TROUBLESHOOTING)

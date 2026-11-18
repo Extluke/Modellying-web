@@ -182,7 +182,7 @@ class AnnouncementUpdateRequest(BaseModel):
 # ==============================================================================
 class ApiConfigItem(BaseModel):
     id: str
-    provider: str  # gemini, groq, openai, anthropic
+    provider: str  # gemini (Core) | groq (Backup)
     display_name: str
     model_name: str
     api_key_masked: str
@@ -210,6 +210,49 @@ class ApiConfigTestResult(BaseModel):
     latency_ms: int
     status: str
     message: str
+
+
+class DailyTokenUsageItem(BaseModel):
+    date: str
+    day_name: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    request_count: int
+    avg_latency_ms: int
+
+
+class UserTokenUsageItem(BaseModel):
+    user_id: str
+    user_name: str
+    user_email: str
+    institution: str
+    role: str
+    avatar_url: Optional[str] = None
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    request_count: int
+    papers_analyzed: int
+    percent_share: float
+    last_active: str
+
+
+class VendorTokenDashboardResponse(BaseModel):
+    provider: str
+    display_name: str
+    model_name: str
+    total_tokens_month: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_requests: int
+    active_users_count: int
+    avg_latency_ms: int
+    estimated_cost_usd: float
+    quota_tpm: int
+    quota_used_percent: float
+    daily_usage: List[DailyTokenUsageItem]
+    users_usage: List[UserTokenUsageItem]
 
 
 # ==============================================================================

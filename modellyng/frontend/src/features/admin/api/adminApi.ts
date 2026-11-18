@@ -144,7 +144,7 @@ export interface AnnouncementCreateData {
 // --- JOB 5: DYNAMIC API CONFIGURATION ---
 export interface ApiConfigItem {
   id: string
-  provider: "gemini" | "groq" | "openai" | "anthropic"
+  provider: "gemini" | "groq"
   display_name: string
   model_name: string
   api_key_masked: string
@@ -174,6 +174,49 @@ export interface ApiConfigTestResult {
   latency_ms: number
   status: string
   message: string
+}
+
+export interface DailyTokenUsageItem {
+  date: string
+  day_name: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  request_count: number
+  avg_latency_ms: number
+}
+
+export interface UserTokenUsageItem {
+  user_id: string
+  user_name: string
+  user_email: string
+  institution: string
+  role: string
+  avatar_url?: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  request_count: number
+  papers_analyzed: number
+  percent_share: number
+  last_active: string
+}
+
+export interface VendorTokenDashboardData {
+  provider: string
+  display_name: string
+  model_name: string
+  total_tokens_month: number
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  total_requests: number
+  active_users_count: number
+  avg_latency_ms: number
+  estimated_cost_usd: number
+  quota_tpm: number
+  quota_used_percent: number
+  daily_usage: DailyTokenUsageItem[]
+  users_usage: UserTokenUsageItem[]
 }
 
 // --- JOB 6: MULTI-ADMIN & AUDIT LOGS ---
@@ -296,6 +339,9 @@ export const adminApi = {
 
   testApiConfig: (provider: string) =>
     apiClient.post<ApiConfigTestResult>(`/admin/api-config/${provider}/test`),
+
+  getVendorTokenUsage: (provider: string) =>
+    apiClient.get<VendorTokenDashboardData>(`/admin/api-config/${provider}/token-usage`),
 
   // Job 6
   getAdminAccounts: () =>
