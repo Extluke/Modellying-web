@@ -87,10 +87,15 @@ export interface SubscriptionPlanItem {
   description: string | null
   price: number
   currency: string
-  billing_period: "free" | "monthly" | "annual" | "lifetime"
-  paper_limit_per_month: number
-  ai_query_limit_per_day: number
-  features: string[]
+  billing_period: "free" | "monthly" | "annual" | "lifetime" | "fixed_days"
+  paper_limit_per_month?: number
+  ai_query_limit_per_day?: number
+  duration_days?: number
+  daily_file_limit?: number | null
+  daily_token_limit?: number
+  total_tokens_max?: number
+  tier_category?: "free" | "student" | "enterprise"
+  features: Array<string | { text: string; is_available?: boolean; status_badge?: string; is_limited?: boolean }>
   is_active: boolean
   is_popular: boolean
   sort_order: number
@@ -108,7 +113,12 @@ export interface SubscriptionPlanCreateData {
   billing_period?: string
   paper_limit_per_month?: number
   ai_query_limit_per_day?: number
-  features: string[]
+  duration_days?: number
+  daily_file_limit?: number | null
+  daily_token_limit?: number
+  total_tokens_max?: number
+  tier_category?: string
+  features: Array<string | { text: string; is_available?: boolean; status_badge?: string; is_limited?: boolean }>
   is_active?: boolean
   is_popular?: boolean
   sort_order?: number

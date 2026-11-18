@@ -67,21 +67,30 @@ function getStatusBadge(status: string) {
 
 function getTierInfo(tier?: string) {
   switch (tier?.toLowerCase()) {
+    case "student_30":
+    case "pro_30":
+    case "pro":
+      return {
+        label: "Student Pro 30 Hari",
+        badgeClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-300/40",
+        icon: Sparkles,
+      }
+    case "student_14":
+    case "pro_14":
+      return {
+        label: "Student Pro 14 Hari",
+        badgeClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300/40",
+        icon: Sparkles,
+      }
     case "enterprise":
       return {
         label: "Lab Enterprise",
         badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300/40",
         icon: Crown,
       }
-    case "pro":
-      return {
-        label: "Pro Scholar",
-        badgeClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-300/40",
-        icon: Sparkles,
-      }
     default:
       return {
-        label: "Free Explorer",
+        label: "Free Plan",
         badgeClass: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200",
         icon: BookOpen,
       }
@@ -113,7 +122,7 @@ export default function UserManagementScreen() {
   // Modal State for Subscription Change
   const [isSubModalOpen, setIsSubModalOpen] = useState(false)
   const [selectedUserForSub, setSelectedUserForSub] = useState<AdminUserItem | null>(null)
-  const [targetSubTier, setTargetSubTier] = useState<string>("pro")
+  const [targetSubTier, setTargetSubTier] = useState<string>("student_30")
   const [targetSubStatus, setTargetSubStatus] = useState<"active" | "pending_approval" | "rejected">("active")
 
   // Email Inbox Bug states (Gmail Style)
@@ -162,6 +171,12 @@ export default function UserManagementScreen() {
       let matchSubscription = true
       if (subscriptionFilter === "pending_approval") {
         matchSubscription = u.subscription_status === "pending_approval"
+      } else if (subscriptionFilter === "student_30") {
+        matchSubscription = u.subscription_tier === "student_30" || u.subscription_tier === "pro"
+      } else if (subscriptionFilter === "student_14") {
+        matchSubscription = u.subscription_tier === "student_14"
+      } else if (subscriptionFilter === "free") {
+        matchSubscription = !u.subscription_tier || u.subscription_tier === "free"
       } else if (subscriptionFilter) {
         matchSubscription = u.subscription_tier === subscriptionFilter
       }
@@ -532,9 +547,9 @@ export default function UserManagementScreen() {
               >
                 <option value="">Semua Paket Langganan</option>
                 <option value="pending_approval">⏳ Menunggu Persetujuan (Pending ACC)</option>
-                <option value="pro">Pro Scholar</option>
-                <option value="enterprise">Lab Enterprise</option>
-                <option value="free">Free Explorer</option>
+                <option value="student_30">Student Pro – 30 Hari (Rp49.000)</option>
+                <option value="student_14">Student Pro – 14 Hari (Rp29.000)</option>
+                <option value="free">Free Plan (Rp0)</option>
               </select>
 
               <select
@@ -1353,9 +1368,9 @@ export default function UserManagementScreen() {
                   onChange={(e) => setTargetSubTier(e.target.value)}
                   className="w-full rounded-md border bg-card p-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="free">Free Explorer (Peneliti Pemula)</option>
-                  <option value="pro">Pro Scholar (Riset Individu Lanjutan)</option>
-                  <option value="enterprise">Lab Enterprise (Kolaborasi Laboratorium & Kampus)</option>
+                  <option value="student_30">Student Pro – 30 Hari (Rp49.000 / Paling Populer & Ekonomis)</option>
+                  <option value="student_14">Student Pro – 14 Hari (Rp29.000 / Periode Cepat)</option>
+                  <option value="free">Free Plan (Rp0 / Akun Dasar Gratis)</option>
                 </select>
               </div>
 

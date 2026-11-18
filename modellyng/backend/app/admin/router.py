@@ -592,17 +592,25 @@ async def list_subscription_plans(admin: dict = Depends(require_admin)):
             cur.execute("""
                 SELECT 
                     sp.id, sp.code, sp.name, sp.description, sp.price, sp.currency,
-                    sp.billing_period, sp.paper_limit_per_month, sp.ai_query_limit_per_day,
+                    sp.billing_period,
+                    COALESCE(sp.paper_limit_per_month, sp.daily_file_limit, 3) AS paper_limit_per_month,
+                    COALESCE(sp.ai_query_limit_per_day, sp.daily_token_limit, 15) AS ai_query_limit_per_day,
+                    COALESCE(sp.duration_days, 0) AS duration_days,
+                    sp.daily_file_limit,
+                    COALESCE(sp.daily_token_limit, 0) AS daily_token_limit,
+                    COALESCE(sp.total_tokens_max, 0) AS total_tokens_max,
+                    COALESCE(sp.tier_category, 'student') AS tier_category,
                     sp.features, sp.is_active, sp.is_popular, sp.sort_order,
                     sp.created_at, sp.updated_at,
                     COUNT(us.id) AS active_subscribers
                 FROM public.subscription_plans sp
                 LEFT JOIN public.user_subscriptions us ON us.plan_id = sp.id AND us.status = 'active'
+                WHERE sp.is_active = true
                 GROUP BY sp.id
                 ORDER BY sp.sort_order ASC;
             """)
             for r in cur.fetchall():
-                features_list = r["features"] if isinstance(r["features"], list) else []
+                features_raw = r["features"] if isinstance(r["features"], list) else []
                 plans.append(
                     SubscriptionPlanItem(
                         id=str(r["id"]),
@@ -614,7 +622,12 @@ async def list_subscription_plans(admin: dict = Depends(require_admin)):
                         billing_period=r["billing_period"],
                         paper_limit_per_month=r["paper_limit_per_month"],
                         ai_query_limit_per_day=r["ai_query_limit_per_day"],
-                        features=features_list,
+                        duration_days=r["duration_days"],
+                        daily_file_limit=r.get("daily_file_limit"),
+                        daily_token_limit=r["daily_token_limit"],
+                        total_tokens_max=r["total_tokens_max"],
+                        tier_category=r["tier_category"],
+                        features=features_raw,
                         is_active=r["is_active"],
                         is_popular=r["is_popular"],
                         sort_order=r["sort_order"],

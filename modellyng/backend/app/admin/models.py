@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 from pydantic import BaseModel, Field
 
 # ==============================================================================
@@ -103,10 +103,15 @@ class SubscriptionPlanItem(BaseModel):
     description: Optional[str] = None
     price: float
     currency: str = "IDR"
-    billing_period: str = "monthly"
-    paper_limit_per_month: int = 50
-    ai_query_limit_per_day: int = 100
-    features: List[str] = Field(default_factory=list)
+    billing_period: str = "fixed_days"
+    paper_limit_per_month: Optional[int] = 50
+    ai_query_limit_per_day: Optional[int] = 100
+    duration_days: Optional[int] = 0
+    daily_file_limit: Optional[int] = None
+    daily_token_limit: Optional[int] = 0
+    total_tokens_max: Optional[int] = 0
+    tier_category: Optional[str] = "student"
+    features: List[Union[str, Dict[str, Any]]] = Field(default_factory=list)
     is_active: bool = True
     is_popular: bool = False
     sort_order: int = 1

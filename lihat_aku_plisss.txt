@@ -1281,13 +1281,13 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Dukungan Sinkronisasi Real-Time: Tombol "Segarkan Data" dan interval otomatis 30 detik via TanStack Query.
 
 - JOB 2: Konfigurasi Pengguna, Solusi Login, Pelanggaran, Approval Langganan & Tiket Bug (`/admin/users`):
-  * Pencarian & Filter Multi-Kriteria: Menyaring pengguna berdasarkan kata kunci nama/email/institusi, filter peran (`researcher`/`admin`), status akun (`active`, `suspended`, `deactivated`), serta filter baru Tipe Paket Langganan (`Semua Paket Langganan`, `Menunggu Persetujuan (Pending ACC)`, `Pro Scholar`, `Lab Enterprise`, `Free Explorer`).
+  * Pencarian & Filter Multi-Kriteria: Menyaring pengguna berdasarkan kata kunci nama/email/institusi, filter peran (`researcher`/`admin`), status akun (`active`, `suspended`, `deactivated`), serta filter baru Tipe Paket Langganan (`Semua Paket Langganan`, `Menunggu Persetujuan (Pending ACC)`, `Student Pro – 30 Hari (Rp49.000)`, `Student Pro – 14 Hari (Rp29.000)`, `Free Plan (Rp0)`).
   * Spanduk Notifikasi Permohonan Langganan Pending ACC: Menampilkan kartu peringatan interaktif di atas tabel pengguna saat ada pendaftar baru yang menunggu persetujuan admin (`pending_approval`), dilengkapi counter real-time dan tombol filter 1-klik untuk langsung mengisolasi permohonan yang belum di-ACC.
-  * Kolom Tabel Khusus: Tipe Langganan & Status ACC: Menampilkan lencana tingkatan paket berikon visual (Sparkles untuk Pro Scholar, Crown untuk Lab Enterprise, BookOpen untuk Free Explorer) serta status persetujuan yang tegas (`Menunggu ACC Admin` dengan animasi titik denyut/ping dan stempel waktu pengajuan, `Aktif Disetujui`, atau `Ditolak`).
+  * Kolom Tabel Khusus: Tipe Langganan & Status ACC: Menampilkan lencana tingkatan paket berikon visual (Sparkles untuk Student Pro 30 Hari / Student Pro 14 Hari, BookOpen untuk Free Plan) serta status persetujuan yang tegas (`Menunggu ACC Admin` dengan animasi titik denyut/ping dan stempel waktu pengajuan, `Aktif Disetujui`, atau `Ditolak`).
   * Mekanisme Persetujuan Langganan (ACC Admin 1-Klik):
     - Tombol "ACC Langganan": Tombol cepat beraksen emerald hijau pada baris tabel untuk menyetujui aktivasi kuota dan paket akademik pengguna baru secara instan dengan notifikasi toast seragam 5 detik (5000 ms).
-    - Tombol "Tolak": Mengembalikan status langganan ke Free Explorer.
-    - Modal "Ubah Paket": Memungkinkan admin mengalihkan tingkatan langganan dan status persetujuan akun pengguna kapan saja secara fleksibel.
+    - Tombol "Tolak": Mengembalikan status langganan ke Free Plan.
+    - Modal "Ubah Paket": Memungkinkan admin mengalihkan tingkatan langganan (Student Pro 30 Hari Rp49.000, Student Pro 14 Hari Rp29.000, atau Free Plan Rp0) dan status persetujuan akun pengguna kapan saja secara fleksibel.
   * Penanganan Kesulitan Login Pengguna: Fitur "Reset Sandi" instan oleh Administrator yang mengenkripsi kata sandi baru menggunakan hashing standar militer Argon2id di backend tanpa menunggu token email.
   * Sanksi Pelanggaran Tertentu (Penangguhan Akun): Modal penangguhan akun dengan kolom input alasan pelanggaran (`suspension_reason`), serta tombol aktivasi kembali untuk memulihkan akses pengguna yang sudah ditangguhkan.
   * Manajemen Tiket Laporan Bug Format Kotak Masuk Email (Gmail-Style Interface):
@@ -1295,11 +1295,15 @@ DETAIL FITUR & INTEGRASI SISTEM
     - Aksi Masal Cepat (*Bulk Action Toolbar*): Tombol ubah status serentak untuk tiket-tiket yang dicentang (Terselesaikan, Investigasi, Ditutup).
     - Tampilan Detail Percakapan Email (*Email Conversation Detail*): Membuka panel rincian korespondensi resmi, alamat email pengguna, URL halaman asal kendala, balasan tanggapan admin dengan textarea interaktif, tombol kirim tanggapan, dan tombol pintas pengubah status.
 
-- JOB 3: Konfigurasi Paket Langganan CMS (`/admin/subscriptions` & `/api/v1/admin/subscriptions/plans`):
-  * Manajemen Paket Berbasis CMS: Menampilkan kartu harga interaktif untuk seluruh tingkatan langganan dengan lencana rekomendasi ("Paling Diminati") dan status aktif.
-  * Buat Paket Langganan Baru: Modal CMS untuk menentukan kode paket, nama paket, deskripsi, harga dalam Rupiah (IDR), periode tagihan (Free, Bulanan, Tahunan, Lifetime), batas unggah paper per bulan, batas kueri AI per hari, dan daftar butir fasilitas unggulan (*features checklist*).
-  * Modifikasi Paket & Fleksibilitas Kuota: Mengubah tarif langganan, memperbarui batas kuota dokumen/tanya AI, menambah/menghapus butir fitur, dan mengalihkan status aktif/nonaktif.
-  * Penghapusan Aman (*Safe Archiving*): Jika paket sudah memiliki relasi langganan pengguna aktif, sistem secara otomatis melakukan pengarsipan aman (*soft-deactivation*) demi melindungi integritas jejak audit finansial.
+- JOB 3: Konfigurasi Paket Langganan CMS Langsung dari Database (`/admin/subscriptions` & `/api/v1/admin/subscriptions/plans`):
+  * Sinkronisasi Otomatis Database PostgreSQL: Mengambil data langsung dari tabel `public.subscription_plans` (port 28022) dengan fallback dummy terpadu. Dilengkapi lencana status "Database Terhubung" dan tombol "Segarkan" data real-time via TanStack Query.
+  * 3 Paket Kanonik Mahasiswa Berbiaya Terjangkau:
+    1. Free Plan (`free`): Rp0 (Gratis Selamanya), kuota batas 3 file/hari dengan reset otomatis setiap 24 jam.
+    2. Student Pro – 14 Hari (`student_14`): Rp29.000 / 14 hari (Setara Rp2.071 per hari), kuota 15 token/hari (total akumulasi hingga 210 token), akses penuh matriks komparasi, research gap map & AI editing.
+    3. Student Pro – 30 Hari (`student_30`): Rp49.000 / 30 hari penuh (Setara Rp1.633 per hari - Hemat 21%, Paling Populer & Ekonomis), kuota 15 token/hari (total akumulasi hingga 450 token), akses penuh seluruh fitur kanonik.
+  * Manajemen Paket Berbasis CMS: Menampilkan kartu harga interaktif (grid 3 kolom) dengan lencana rekomendasi ("Paling Populer & Ekonomis" / "Paket Tugas & Kajian Cepat"), rincian hemat per hari, badge kuota harian, dan daftar butir fasilitas terstruktur.
+  * Buat & Modifikasi Paket Mahasiswa: Modal CMS untuk mengatur kode paket, nama, deskripsi target mahasiswa, tarif IDR, periode tagihan (Fixed Days / Free / Bulanan / Tahunan), masa aktif dalam hari (`duration_days`), kuota token harian (`daily_token_limit`), batas total token (`total_tokens_max`), batas dokumen (`daily_file_limit`), dan fitur unggulan.
+  * Penghapusan Aman (*Safe Archiving*): Jika paket dinonaktifkan, sistem menerapkan soft-deactivation (`is_active = false`) demi melindungi integritas finansial dan riwayat langganan pengguna.
 
 - JOB 4: CMS Berita, Promo Diskon, Perubahan Ketentuan & Jadwal Kirim (`/admin/cms`):
   * Manajemen Konten Pengumuman Beragam: Mengelola siaran promosi diskon, rilis fitur algoritma ekstraksi v2.0, pembaruan syarat & ketentuan, jadwal pemeliharaan server, dan program kemitraan kampus.

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict NL8WxayaNWpPNTdNTsLliM4buH5IPKHDtcN6yRvuH6rqWGMaAv02W87KPpHf5OS
+\restrict l9hag2FlP6mTZZkBq9tfE6VY3laudT1er4gThrOJXuT8DVQw1s4e9UX06LAbVbZ
 
 -- Dumped from database version 17.11
 -- Dumped by pg_dump version 17.11
@@ -19,163 +19,6 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
-DROP PUBLICATION IF EXISTS supabase_realtime;
-DROP POLICY IF EXISTS "Users can view evidence quotes in their papers" ON public.evidence_spans;
-DROP POLICY IF EXISTS "Users can view blocks in their papers" ON public.paper_blocks;
-DROP POLICY IF EXISTS "Users can view and update matrix cells in their projects" ON public.comparative_matrix_cells;
-DROP POLICY IF EXISTS "Users can view and send their own chat messages" ON public.chat_messages;
-DROP POLICY IF EXISTS "Users can view and review components in their papers" ON public.paper_components;
-DROP POLICY IF EXISTS "Users can view and edit their own profile" ON public.users;
-DROP POLICY IF EXISTS "Users can query embeddings within their own papers" ON public.paper_embeddings;
-DROP POLICY IF EXISTS "Users can manage their own projects" ON public.projects;
-DROP POLICY IF EXISTS "Users can manage papers within their own projects" ON public.papers;
-DROP POLICY IF EXISTS "Users can manage canvas nodes in their projects" ON public.research_canvas_nodes;
-DROP POLICY IF EXISTS "Users can manage canvas edges in their projects" ON public.research_canvas_edges;
-DROP POLICY IF EXISTS "Users can access synthesis records in their projects" ON public.research_syntheses;
-DROP POLICY IF EXISTS "Users can access knowledge graph concepts in their projects" ON public.knowledge_graph_concepts;
-ALTER TABLE IF EXISTS ONLY public.user_subscriptions DROP CONSTRAINT IF EXISTS user_subscriptions_user_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.user_subscriptions DROP CONSTRAINT IF EXISTS user_subscriptions_plan_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.user_notifications DROP CONSTRAINT IF EXISTS user_notifications_user_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.user_notifications DROP CONSTRAINT IF EXISTS user_notifications_announcement_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.research_syntheses DROP CONSTRAINT IF EXISTS research_syntheses_project_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.research_canvas_nodes DROP CONSTRAINT IF EXISTS research_canvas_nodes_project_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.research_canvas_edges DROP CONSTRAINT IF EXISTS research_canvas_edges_target_node_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.research_canvas_edges DROP CONSTRAINT IF EXISTS research_canvas_edges_source_node_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.research_canvas_edges DROP CONSTRAINT IF EXISTS research_canvas_edges_project_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.projects DROP CONSTRAINT IF EXISTS projects_user_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.password_reset_tokens DROP CONSTRAINT IF EXISTS password_reset_tokens_user_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.papers DROP CONSTRAINT IF EXISTS papers_project_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.paper_embeddings DROP CONSTRAINT IF EXISTS paper_embeddings_paper_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.paper_components DROP CONSTRAINT IF EXISTS paper_components_paper_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.paper_blocks DROP CONSTRAINT IF EXISTS paper_blocks_paper_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.knowledge_graph_concepts DROP CONSTRAINT IF EXISTS knowledge_graph_concepts_project_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.extracted_components DROP CONSTRAINT IF EXISTS extracted_components_parameter_key_fkey;
-ALTER TABLE IF EXISTS ONLY public.extracted_components DROP CONSTRAINT IF EXISTS extracted_components_paper_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.evidence_spans DROP CONSTRAINT IF EXISTS evidence_spans_paper_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.evidence_spans DROP CONSTRAINT IF EXISTS evidence_spans_component_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.comparative_matrix_cells DROP CONSTRAINT IF EXISTS comparative_matrix_cells_project_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.comparative_matrix_cells DROP CONSTRAINT IF EXISTS comparative_matrix_cells_paper_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.comparative_matrix_cells DROP CONSTRAINT IF EXISTS comparative_matrix_cells_evidence_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.chat_messages DROP CONSTRAINT IF EXISTS chat_messages_user_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.chat_messages DROP CONSTRAINT IF EXISTS chat_messages_project_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.bug_reports DROP CONSTRAINT IF EXISTS bug_reports_user_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.bug_reports DROP CONSTRAINT IF EXISTS bug_reports_resolved_by_fkey;
-ALTER TABLE IF EXISTS ONLY public.api_configurations DROP CONSTRAINT IF EXISTS api_configurations_updated_by_fkey;
-ALTER TABLE IF EXISTS ONLY public.announcements DROP CONSTRAINT IF EXISTS announcements_created_by_fkey;
-ALTER TABLE IF EXISTS ONLY public.admin_audit_logs DROP CONSTRAINT IF EXISTS admin_audit_logs_admin_id_fkey;
-DROP TRIGGER IF EXISTS trg_papers_updated_at ON public.papers;
-DROP TRIGGER IF EXISTS trg_extracted_components_updated_at ON public.extracted_components;
-DROP TRIGGER IF EXISTS trg_ext_params_updated_at ON public.extraction_parameters;
-DROP TRIGGER IF EXISTS set_users_updated_at ON public.users;
-DROP TRIGGER IF EXISTS set_projects_updated_at ON public.projects;
-DROP INDEX IF EXISTS public.idx_users_subscription_tier;
-DROP INDEX IF EXISTS public.idx_users_status;
-DROP INDEX IF EXISTS public.idx_user_subscriptions_user;
-DROP INDEX IF EXISTS public.idx_user_subscriptions_status;
-DROP INDEX IF EXISTS public.idx_user_notifications_user;
-DROP INDEX IF EXISTS public.idx_subscription_plans_active;
-DROP INDEX IF EXISTS public.idx_reset_tokens_user;
-DROP INDEX IF EXISTS public.idx_reset_tokens_expires;
-DROP INDEX IF EXISTS public.idx_projects_user_id;
-DROP INDEX IF EXISTS public.idx_papers_updated_at;
-DROP INDEX IF EXISTS public.idx_papers_status;
-DROP INDEX IF EXISTS public.idx_papers_stage;
-DROP INDEX IF EXISTS public.idx_papers_source_verification;
-DROP INDEX IF EXISTS public.idx_papers_sha256;
-DROP INDEX IF EXISTS public.idx_papers_project_sha256;
-DROP INDEX IF EXISTS public.idx_papers_project_id;
-DROP INDEX IF EXISTS public.idx_paper_embeddings_hnsw;
-DROP INDEX IF EXISTS public.idx_paper_blocks_paper_id;
-DROP INDEX IF EXISTS public.idx_paper_blocks_page;
-DROP INDEX IF EXISTS public.idx_paper_blocks_fts;
-DROP INDEX IF EXISTS public.idx_matrix_project;
-DROP INDEX IF EXISTS public.idx_extracted_status;
-DROP INDEX IF EXISTS public.idx_extracted_state;
-DROP INDEX IF EXISTS public.idx_extracted_param_key;
-DROP INDEX IF EXISTS public.idx_extracted_paper_id;
-DROP INDEX IF EXISTS public.idx_ext_params_tab_group;
-DROP INDEX IF EXISTS public.idx_ext_params_status;
-DROP INDEX IF EXISTS public.idx_ext_params_sort;
-DROP INDEX IF EXISTS public.idx_evidence_paper_page;
-DROP INDEX IF EXISTS public.idx_evidence_component_id;
-DROP INDEX IF EXISTS public.idx_embeddings_paper_id;
-DROP INDEX IF EXISTS public.idx_components_type;
-DROP INDEX IF EXISTS public.idx_components_status;
-DROP INDEX IF EXISTS public.idx_components_paper_id;
-DROP INDEX IF EXISTS public.idx_chat_user_id;
-DROP INDEX IF EXISTS public.idx_chat_project_id;
-DROP INDEX IF EXISTS public.idx_bug_reports_user;
-DROP INDEX IF EXISTS public.idx_bug_reports_status;
-DROP INDEX IF EXISTS public.idx_announcements_status;
-DROP INDEX IF EXISTS public.idx_announcements_scheduled;
-DROP INDEX IF EXISTS public.idx_admin_audit_logs_time;
-ALTER TABLE IF EXISTS ONLY public.users DROP CONSTRAINT IF EXISTS users_pkey;
-ALTER TABLE IF EXISTS ONLY public.users DROP CONSTRAINT IF EXISTS users_email_key;
-ALTER TABLE IF EXISTS ONLY public.user_subscriptions DROP CONSTRAINT IF EXISTS user_subscriptions_pkey;
-ALTER TABLE IF EXISTS ONLY public.user_notifications DROP CONSTRAINT IF EXISTS user_notifications_pkey;
-ALTER TABLE IF EXISTS ONLY public.extracted_components DROP CONSTRAINT IF EXISTS uq_paper_parameter;
-ALTER TABLE IF EXISTS ONLY public.paper_blocks DROP CONSTRAINT IF EXISTS uq_paper_block;
-ALTER TABLE IF EXISTS ONLY public.subscription_plans DROP CONSTRAINT IF EXISTS subscription_plans_pkey;
-ALTER TABLE IF EXISTS ONLY public.subscription_plans DROP CONSTRAINT IF EXISTS subscription_plans_code_key;
-ALTER TABLE IF EXISTS ONLY public.research_syntheses DROP CONSTRAINT IF EXISTS research_syntheses_pkey;
-ALTER TABLE IF EXISTS ONLY public.research_canvas_nodes DROP CONSTRAINT IF EXISTS research_canvas_nodes_pkey;
-ALTER TABLE IF EXISTS ONLY public.research_canvas_edges DROP CONSTRAINT IF EXISTS research_canvas_edges_pkey;
-ALTER TABLE IF EXISTS ONLY public.projects DROP CONSTRAINT IF EXISTS projects_pkey;
-ALTER TABLE IF EXISTS ONLY public.password_reset_tokens DROP CONSTRAINT IF EXISTS password_reset_tokens_pkey;
-ALTER TABLE IF EXISTS ONLY public.papers DROP CONSTRAINT IF EXISTS papers_pkey;
-ALTER TABLE IF EXISTS ONLY public.paper_embeddings DROP CONSTRAINT IF EXISTS paper_embeddings_pkey;
-ALTER TABLE IF EXISTS ONLY public.paper_components DROP CONSTRAINT IF EXISTS paper_components_pkey;
-ALTER TABLE IF EXISTS ONLY public.paper_blocks DROP CONSTRAINT IF EXISTS paper_blocks_pkey;
-ALTER TABLE IF EXISTS ONLY public.knowledge_graph_concepts DROP CONSTRAINT IF EXISTS knowledge_graph_concepts_project_id_concept_name_key;
-ALTER TABLE IF EXISTS ONLY public.knowledge_graph_concepts DROP CONSTRAINT IF EXISTS knowledge_graph_concepts_pkey;
-ALTER TABLE IF EXISTS ONLY public.extraction_parameters DROP CONSTRAINT IF EXISTS extraction_parameters_pkey;
-ALTER TABLE IF EXISTS ONLY public.extraction_parameters DROP CONSTRAINT IF EXISTS extraction_parameters_key_key;
-ALTER TABLE IF EXISTS ONLY public.extracted_components DROP CONSTRAINT IF EXISTS extracted_components_pkey;
-ALTER TABLE IF EXISTS ONLY public.evidence_spans DROP CONSTRAINT IF EXISTS evidence_spans_pkey;
-ALTER TABLE IF EXISTS ONLY public.comparative_matrix_cells DROP CONSTRAINT IF EXISTS comparative_matrix_cells_project_id_paper_id_parameter_key_key;
-ALTER TABLE IF EXISTS ONLY public.comparative_matrix_cells DROP CONSTRAINT IF EXISTS comparative_matrix_cells_pkey;
-ALTER TABLE IF EXISTS ONLY public.chat_messages DROP CONSTRAINT IF EXISTS chat_messages_pkey;
-ALTER TABLE IF EXISTS ONLY public.bug_reports DROP CONSTRAINT IF EXISTS bug_reports_pkey;
-ALTER TABLE IF EXISTS ONLY public.api_configurations DROP CONSTRAINT IF EXISTS api_configurations_provider_key;
-ALTER TABLE IF EXISTS ONLY public.api_configurations DROP CONSTRAINT IF EXISTS api_configurations_pkey;
-ALTER TABLE IF EXISTS ONLY public.announcements DROP CONSTRAINT IF EXISTS announcements_pkey;
-ALTER TABLE IF EXISTS ONLY public.admin_audit_logs DROP CONSTRAINT IF EXISTS admin_audit_logs_pkey;
-ALTER TABLE IF EXISTS ONLY auth.users DROP CONSTRAINT IF EXISTS users_pkey;
-ALTER TABLE IF EXISTS ONLY auth.users DROP CONSTRAINT IF EXISTS users_email_key;
-DROP TABLE IF EXISTS public.users;
-DROP TABLE IF EXISTS public.user_subscriptions;
-DROP TABLE IF EXISTS public.user_notifications;
-DROP TABLE IF EXISTS public.subscription_plans;
-DROP TABLE IF EXISTS public.research_syntheses;
-DROP TABLE IF EXISTS public.research_canvas_nodes;
-DROP TABLE IF EXISTS public.research_canvas_edges;
-DROP TABLE IF EXISTS public.projects;
-DROP TABLE IF EXISTS public.password_reset_tokens;
-DROP TABLE IF EXISTS public.papers;
-DROP TABLE IF EXISTS public.paper_embeddings;
-DROP TABLE IF EXISTS public.paper_components;
-DROP TABLE IF EXISTS public.paper_blocks;
-DROP TABLE IF EXISTS public.knowledge_graph_concepts;
-DROP TABLE IF EXISTS public.extraction_parameters;
-DROP TABLE IF EXISTS public.extracted_components;
-DROP TABLE IF EXISTS public.evidence_spans;
-DROP TABLE IF EXISTS public.comparative_matrix_cells;
-DROP TABLE IF EXISTS public.chat_messages;
-DROP TABLE IF EXISTS public.bug_reports;
-DROP TABLE IF EXISTS public.api_configurations;
-DROP TABLE IF EXISTS public.announcements;
-DROP TABLE IF EXISTS public.admin_audit_logs;
-DROP TABLE IF EXISTS auth.users;
-DROP FUNCTION IF EXISTS public.update_timestamp_column();
-DROP FUNCTION IF EXISTS pgbouncer.get_auth(p_usename text);
-DROP FUNCTION IF EXISTS auth.uid();
-DROP EXTENSION IF EXISTS vector;
-DROP EXTENSION IF EXISTS "uuid-ossp";
-DROP EXTENSION IF EXISTS pgcrypto;
-DROP EXTENSION IF EXISTS pg_trgm;
-DROP SCHEMA IF EXISTS pgbouncer;
-DROP SCHEMA IF EXISTS extensions;
-DROP SCHEMA IF EXISTS auth;
 --
 -- Name: auth; Type: SCHEMA; Schema: -; Owner: postgres
 --
@@ -732,6 +575,31 @@ CREATE TABLE public.research_syntheses (
 ALTER TABLE public.research_syntheses OWNER TO postgres;
 
 --
+-- Name: subscription_invoices; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.subscription_invoices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    plan_id uuid NOT NULL,
+    invoice_number text NOT NULL,
+    amount numeric(12,2) DEFAULT 0.00 NOT NULL,
+    currency text DEFAULT 'IDR'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    payment_method text DEFAULT 'qris_manual'::text NOT NULL,
+    payment_details jsonb DEFAULT '{}'::jsonb NOT NULL,
+    paid_at timestamp with time zone,
+    expires_at timestamp with time zone DEFAULT (now() + '24:00:00'::interval) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT subscription_invoices_payment_method_check CHECK ((payment_method = ANY (ARRAY['qris_manual'::text, 'qris_simulated'::text, 'bank_transfer'::text, 'va_bca'::text, 'va_mandiri'::text, 'free_activation'::text]))),
+    CONSTRAINT subscription_invoices_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'paid'::text, 'expired'::text, 'failed'::text, 'cancelled'::text])))
+);
+
+
+ALTER TABLE public.subscription_invoices OWNER TO postgres;
+
+--
 -- Name: subscription_plans; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -751,11 +619,37 @@ CREATE TABLE public.subscription_plans (
     sort_order integer DEFAULT 1 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT subscription_plans_billing_period_check CHECK ((billing_period = ANY (ARRAY['free'::text, 'monthly'::text, 'annual'::text, 'lifetime'::text])))
+    duration_days integer DEFAULT 0 NOT NULL,
+    daily_file_limit integer,
+    daily_token_limit integer DEFAULT 0 NOT NULL,
+    total_tokens_max integer DEFAULT 0 NOT NULL,
+    tier_category text DEFAULT 'student'::text NOT NULL,
+    CONSTRAINT subscription_plans_billing_period_check CHECK ((billing_period = ANY (ARRAY['free'::text, 'monthly'::text, 'annual'::text, 'lifetime'::text, 'fixed_days'::text]))),
+    CONSTRAINT subscription_plans_tier_category_check CHECK ((tier_category = ANY (ARRAY['free'::text, 'student'::text, 'enterprise'::text])))
 );
 
 
 ALTER TABLE public.subscription_plans OWNER TO postgres;
+
+--
+-- Name: user_daily_usage; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.user_daily_usage (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    usage_date date DEFAULT CURRENT_DATE NOT NULL,
+    files_uploaded_count integer DEFAULT 0 NOT NULL,
+    tokens_used_count integer DEFAULT 0 NOT NULL,
+    last_activity_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT user_daily_usage_files_uploaded_count_check CHECK ((files_uploaded_count >= 0)),
+    CONSTRAINT user_daily_usage_tokens_used_count_check CHECK ((tokens_used_count >= 0))
+);
+
+
+ALTER TABLE public.user_daily_usage OWNER TO postgres;
 
 --
 -- Name: user_notifications; Type: TABLE; Schema: public; Owner: postgres
@@ -789,6 +683,8 @@ CREATE TABLE public.user_subscriptions (
     amount_paid numeric(12,2) DEFAULT 0.00 NOT NULL,
     payment_method text DEFAULT 'qris_manual'::text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    invoice_id uuid,
+    tokens_accumulated_total integer DEFAULT 0 NOT NULL,
     CONSTRAINT user_subscriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'expired'::text, 'cancelled'::text, 'trial'::text])))
 );
 
@@ -820,11 +716,82 @@ CREATE TABLE public.users (
     CONSTRAINT users_citation_format_check CHECK ((citation_format = ANY (ARRAY['APA'::text, 'IEEE'::text, 'Harvard'::text, 'Chicago'::text, 'MLA'::text]))),
     CONSTRAINT users_role_check CHECK ((role = ANY (ARRAY['researcher'::text, 'admin'::text]))),
     CONSTRAINT users_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deactivated'::text]))),
-    CONSTRAINT users_subscription_tier_check CHECK ((subscription_tier = ANY (ARRAY['free'::text, 'pro'::text, 'enterprise'::text])))
+    CONSTRAINT users_subscription_tier_check CHECK ((subscription_tier = ANY (ARRAY['free'::text, 'pro'::text, 'student_14'::text, 'student_30'::text, 'enterprise'::text])))
 );
 
 
 ALTER TABLE public.users OWNER TO postgres;
+
+--
+-- Name: v_user_active_subscription; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.v_user_active_subscription AS
+ SELECT u.id AS user_id,
+    u.email AS user_email,
+    u.full_name AS user_name,
+    COALESCE(us.status, 'active'::text) AS subscription_status,
+    COALESCE(active_plan.code, 'free'::text) AS plan_code,
+    COALESCE(active_plan.name, 'Free Plan'::text) AS plan_name,
+    COALESCE(active_plan.tier_category, 'free'::text) AS tier_category,
+    COALESCE(active_plan.daily_file_limit, 3) AS daily_file_limit,
+    COALESCE(active_plan.daily_token_limit, 0) AS daily_token_limit,
+    COALESCE(active_plan.total_tokens_max, 0) AS total_tokens_max,
+    us.started_at,
+    us.expires_at,
+        CASE
+            WHEN (us.expires_at IS NULL) THEN NULL::integer
+            WHEN (us.expires_at > now()) THEN GREATEST(0, (EXTRACT(day FROM (us.expires_at - now())))::integer)
+            ELSE 0
+        END AS days_remaining,
+        CASE
+            WHEN ((active_plan.code IS NULL) OR (active_plan.code = 'free'::text)) THEN true
+            WHEN ((us.status = 'active'::text) AND (us.expires_at > now())) THEN true
+            ELSE false
+        END AS is_currently_valid
+   FROM ((public.users u
+     LEFT JOIN LATERAL ( SELECT user_subscriptions.id,
+            user_subscriptions.user_id,
+            user_subscriptions.plan_id,
+            user_subscriptions.status,
+            user_subscriptions.started_at,
+            user_subscriptions.expires_at,
+            user_subscriptions.amount_paid,
+            user_subscriptions.payment_method,
+            user_subscriptions.created_at,
+            user_subscriptions.invoice_id,
+            user_subscriptions.tokens_accumulated_total
+           FROM public.user_subscriptions
+          WHERE ((user_subscriptions.user_id = u.id) AND (user_subscriptions.status = 'active'::text) AND ((user_subscriptions.expires_at IS NULL) OR (user_subscriptions.expires_at > now())))
+          ORDER BY user_subscriptions.created_at DESC
+         LIMIT 1) us ON (true))
+     LEFT JOIN LATERAL ( SELECT sp.id,
+            sp.code,
+            sp.name,
+            sp.description,
+            sp.price,
+            sp.currency,
+            sp.billing_period,
+            sp.paper_limit_per_month,
+            sp.ai_query_limit_per_day,
+            sp.features,
+            sp.is_active,
+            sp.is_popular,
+            sp.sort_order,
+            sp.created_at,
+            sp.updated_at,
+            sp.duration_days,
+            sp.daily_file_limit,
+            sp.daily_token_limit,
+            sp.total_tokens_max,
+            sp.tier_category
+           FROM public.subscription_plans sp
+          WHERE ((sp.id = us.plan_id) OR ((us.plan_id IS NULL) AND (sp.code = 'free'::text) AND (sp.is_active = true)))
+          ORDER BY sp.sort_order
+         LIMIT 1) active_plan ON (true));
+
+
+ALTER VIEW public.v_user_active_subscription OWNER TO postgres;
 
 --
 -- Data for Name: users; Type: TABLE DATA; Schema: auth; Owner: postgres
@@ -1281,13 +1248,29 @@ COPY public.research_syntheses (id, project_id, novelty_summary, proposed_titles
 
 
 --
+-- Data for Name: subscription_invoices; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.subscription_invoices (id, user_id, plan_id, invoice_number, amount, currency, status, payment_method, payment_details, paid_at, expires_at, created_at, updated_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: subscription_plans; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.subscription_plans (id, code, name, description, price, currency, billing_period, paper_limit_per_month, ai_query_limit_per_day, features, is_active, is_popular, sort_order, created_at, updated_at) FROM stdin;
-b8f6de57-afb7-4960-a95f-53ea9fc27574	free_explorer	Paket Peneliti Pemula (Free)	Ideal untuk mahasiswa yang baru mulai menyusun literatur dasar.	0.00	IDR	free	5	20	["Maksimal 5 dokumen paper per bulan", "Ekstraksi 13 parameter ilmiah kanonik", "Tanya AI standar (20 query/hari)", "Akses Matriks Komparasi dasar"]	t	f	1	2026-10-27 15:19:27.50659+00	2026-10-27 15:19:27.50659+00
-93b16304-a358-4f7a-b6de-d3d04d46e1e1	pro_scholar	Pro Scholar (Rekomendasi)	Pilihan terbaik untuk peneliti tesis, disertasi, dan publikasi jurnal Scopus.	99000.00	IDR	monthly	50	250	["Maksimal 50 dokumen paper per bulan", "Ekstraksi prioritas kecepatan tinggi", "Tanya AI RAG tanpa batas (250 query/hari)", "Ekspor Word, Excel & PDF Komparasi", "Kanvas Graf Pengetahuan & Celah Riset 2D"]	t	t	2	2026-10-27 15:19:27.50659+00	2026-10-27 15:19:27.50659+00
-52018e18-0de6-4236-b5b0-851dcad53bca	lab_enterprise	Lab & Campus Enterprise	Dirancang khusus untuk tim laboratorium riset atau fakultas perguruan tinggi.	499000.00	IDR	monthly	500	1500	["Maksimal 500 dokumen paper per bulan", "Dedicated API Key & kuota AI prioritas", "Dukungan multi-user kolaboratif", "Verifikasi DOI penerbit Tier-1 otomatis", "SLA & Konsultasi Teknis Prioritas"]	t	f	3	2026-10-27 15:19:27.50659+00	2026-10-27 15:19:27.50659+00
+COPY public.subscription_plans (id, code, name, description, price, currency, billing_period, paper_limit_per_month, ai_query_limit_per_day, features, is_active, is_popular, sort_order, created_at, updated_at, duration_days, daily_file_limit, daily_token_limit, total_tokens_max, tier_category) FROM stdin;
+8a619693-bb53-4a3b-9535-71360b665178	free	Free Plan	Cocok untuk pengguna yang ingin mencoba kemampuan dasar Modellyng.	0.00	IDR	free	5	20	[{"text": "Maksimal penggunaan 3 file per hari.", "is_available": true, "status_badge": "3 File / Hari"}, {"text": "Reset kuota setiap 24 jam setelah batas harian tercapai.", "is_available": true}, {"text": "Akses hasil analisis dan ringkasan dasar paper.", "is_available": true}, {"text": "Akses terbatas pada Comparative Paper Matrix (tabel perbandingan dasar dapat dilihat, tetapi penjelasan mendalam dan perbandingan antar-paper dikunci).", "is_limited": true, "is_available": false, "status_badge": "Terbatas"}, {"text": "Akses terbatas pada Research Gap Map (hanya dapat dilihat melalui preview terbatas, flow map dibuat blur, dan hubungan antar-penelitian tidak dapat dibaca).", "is_limited": true, "is_available": false, "status_badge": "Preview Blur"}, {"text": "Fitur AI Editing dan penjelasan lanjutan terkunci penuh.", "is_available": false, "status_badge": "Terkunci"}]	t	f	1	2026-11-18 04:43:44.08315+00	2026-11-18 04:43:44.08315+00	0	3	0	0	free
+cf2b1284-79b9-418d-8e88-e6385ae00488	student_14	Student Pro – 14 Hari	Cocok untuk mahasiswa yang membutuhkan akses dalam periode pengerjaan tugas atau kajian pustaka dengan komitmen pembayaran lebih rendah.	29000.00	IDR	fixed_days	5	20	[{"text": "Kuota 15 token setiap hari (diperbarui setiap hari selama masa aktif, total maksimal 210 token).", "is_available": true, "status_badge": "15 Token / Hari"}, {"text": "Seluruh fitur terbuka dan tidak ada fitur yang terkunci selama masa aktif.", "is_available": true}, {"text": "Akses penuh Comparative Paper Matrix (tabel perbandingan lengkap, penjelasan mendalam, keterbatasan penelitian, dan hubungan antar-paper dapat dibaca).", "is_available": true}, {"text": "Akses penuh Research Gap Map (seluruh visualisasi flow map terlihat jelas dan interaktif, lengkap dengan analisis potensi research gap).", "is_available": true}, {"text": "Fitur AI Editing terbuka untuk mengedit, mengembangkan, dan menyempurnakan hasil analisis.", "is_available": true}, {"text": "Ekstraksi informasi dan ringkasan paper yang lebih lengkap dan terstruktur.", "is_available": true}]	t	f	2	2026-11-18 04:43:44.08315+00	2026-11-18 04:43:44.08315+00	14	\N	15	210	student
+56015330-a1aa-460b-930f-4e3ee0797169	student_30	Student Pro – 30 Hari	Cocok untuk mahasiswa yang sedang menyusun proposal, skripsi, atau kajian literatur secara berkelanjutan (pilihan paling ekonomis).	49000.00	IDR	fixed_days	5	20	[{"text": "Kuota 15 token setiap hari (diperbarui setiap hari selama masa aktif, total maksimal 450 token).", "is_available": true, "status_badge": "15 Token / Hari"}, {"text": "Seluruh fitur terbuka dan tidak ada fitur yang terkunci selama masa aktif.", "is_available": true}, {"text": "Akses penuh Comparative Paper Matrix (tabel perbandingan lengkap, penjelasan mendalam, keterbatasan penelitian, dan hubungan antar-paper dapat dibaca).", "is_available": true}, {"text": "Akses penuh Research Gap Map (seluruh visualisasi flow map terlihat jelas dan interaktif, lengkap dengan analisis potensi research gap).", "is_available": true}, {"text": "Fitur AI Editing terbuka untuk mengedit, mengembangkan, dan menyempurnakan hasil analisis.", "is_available": true}, {"text": "Ekstraksi informasi dan ringkasan paper yang lebih lengkap dan terstruktur.", "is_available": true}]	t	t	3	2026-11-18 04:43:44.08315+00	2026-11-18 04:43:44.08315+00	30	\N	15	450	student
+\.
+
+
+--
+-- Data for Name: user_daily_usage; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.user_daily_usage (id, user_id, usage_date, files_uploaded_count, tokens_used_count, last_activity_at, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -1303,9 +1286,9 @@ COPY public.user_notifications (id, user_id, announcement_id, title, message, ca
 -- Data for Name: user_subscriptions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.user_subscriptions (id, user_id, plan_id, status, started_at, expires_at, amount_paid, payment_method, created_at) FROM stdin;
-7590cd5f-1e10-40d5-acd7-f095aa73c009	98260a24-31c0-4399-ac0c-aff68a7939f8	93b16304-a358-4f7a-b6de-d3d04d46e1e1	active	2026-10-17 15:19:27.586316+00	2026-11-16 15:19:27.586316+00	99000.00	qris_manual	2026-10-27 15:19:27.586316+00
-9c421009-e149-4972-a86c-538791874ca6	1da54011-cdb7-4a6b-a947-3e0ed723c9a8	93b16304-a358-4f7a-b6de-d3d04d46e1e1	active	2026-10-22 15:19:27.586316+00	2026-11-21 15:19:27.586316+00	99000.00	qris_manual	2026-10-27 15:19:27.586316+00
+COPY public.user_subscriptions (id, user_id, plan_id, status, started_at, expires_at, amount_paid, payment_method, created_at, invoice_id, tokens_accumulated_total) FROM stdin;
+7590cd5f-1e10-40d5-acd7-f095aa73c009	98260a24-31c0-4399-ac0c-aff68a7939f8	56015330-a1aa-460b-930f-4e3ee0797169	active	2026-10-17 15:19:27.586316+00	2026-11-16 15:19:27.586316+00	49000.00	qris_manual	2026-10-27 15:19:27.586316+00	\N	0
+9c421009-e149-4972-a86c-538791874ca6	1da54011-cdb7-4a6b-a947-3e0ed723c9a8	56015330-a1aa-460b-930f-4e3ee0797169	active	2026-10-22 15:19:27.586316+00	2026-11-21 15:19:27.586316+00	49000.00	qris_manual	2026-10-27 15:19:27.586316+00	\N	0
 \.
 
 
@@ -1317,10 +1300,10 @@ COPY public.users (id, email, password_hash, full_name, institution, role, citat
 286cc61f-9902-454d-b100-e49fd18becb9	faqih@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$fhlrvrfPHNV0ggXfKyThsw$TJnKYcPpQ+sVPvDvcr1Tw4mS/w64wjlrzeShxbatiZ0	Faqih Core Developer	\N	researcher	APA	0.80	2026-10-27 10:23:14.973863+00	2026-10-27 10:23:14.973863+00	active	\N	admin	["all"]	free
 047d7a23-ca40-44aa-8542-4921877745f2	fatih@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$DxhZ/ppZF9X9WaLCJuEfFw$JIk2vn/8JXq64+f16exR6u2vtsGZii/98y2zCFQ1noI	Fatih AI Specialist	\N	researcher	APA	0.80	2026-10-27 10:23:14.973863+00	2026-10-27 10:23:14.973863+00	active	\N	admin	["all"]	free
 564cdfc4-e02a-4419-82c9-beeb5e7401b6	demo@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$qu96eYtPIGaHZJXb2/sNiA$0kcGunrH/0RY3pkTWpIlHd+MYFbdbgN7bKab3LiACEM	Demo Researcher	\N	researcher	APA	0.80	2026-10-27 10:23:14.973863+00	2026-10-27 10:37:19.800545+00	active	\N	admin	["all"]	free
-98260a24-31c0-4399-ac0c-aff68a7939f8	cahayu@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$DVjWhgcjqQoC0TI9KWhTTg$9+aZ/psOTKoyKka8q2syw8dcukh+zBGNMhDlSnzHzvA	Cahayu UI Specialist	\N	researcher	APA	0.80	2026-10-27 10:23:14.973863+00	2026-10-27 15:19:27.586316+00	active	\N	admin	["all"]	pro
-1da54011-cdb7-4a6b-a947-3e0ed723c9a8	arby@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$z/JUpQtYNh0kF1WR+522yg$sIZoZiUJGnCBXfITQaVzT/L8Z5hcukP1oFT8d2nPQ98	Arby Tech Lead	\N	researcher	APA	0.80	2026-10-27 10:23:14.973863+00	2026-10-27 15:19:27.586316+00	active	\N	admin	["all"]	pro
-5b8efa4d-4ea6-4c60-8c71-7a8569f24e22	admin@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$2KrXc8qYRSJjiK+IQl14nw$eEKFc5XXHDjA0KnFT672lg6TUFhJDGXE9TPlrVfm4ys	Super Administrator	\N	admin	APA	0.80	2026-10-27 10:33:43.084568+00	2026-10-27 15:24:31.151141+00	active	\N	super_admin	["all"]	free
 771ab279-bbf2-4040-b4b3-6621150af32a	lawren@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$B1kQ6jU+zl3IWJPg3VcMqQ$k1xCLQ/PPK0UrmXW14yQkUVAMYQ9fVVw/S2f+2I07o4	Lawren Researcher	\N	researcher	APA	0.80	2026-11-18 03:24:51.641901+00	2026-11-18 03:24:51.641901+00	active	\N	admin	["all"]	free
+5b8efa4d-4ea6-4c60-8c71-7a8569f24e22	admin@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$2KrXc8qYRSJjiK+IQl14nw$eEKFc5XXHDjA0KnFT672lg6TUFhJDGXE9TPlrVfm4ys	Super Administrator	\N	admin	APA	0.80	2026-10-27 10:33:43.084568+00	2026-11-18 04:24:18.041556+00	active	\N	super_admin	["all"]	free
+98260a24-31c0-4399-ac0c-aff68a7939f8	cahayu@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$DVjWhgcjqQoC0TI9KWhTTg$9+aZ/psOTKoyKka8q2syw8dcukh+zBGNMhDlSnzHzvA	Cahayu UI Specialist	\N	researcher	APA	0.80	2026-10-27 10:23:14.973863+00	2026-11-18 04:44:48.402002+00	active	\N	admin	["all"]	student_30
+1da54011-cdb7-4a6b-a947-3e0ed723c9a8	arby@modellyng.ac.id	$argon2id$v=19$m=65536,t=3,p=4$z/JUpQtYNh0kF1WR+522yg$sIZoZiUJGnCBXfITQaVzT/L8Z5hcukP1oFT8d2nPQ98	Arby Tech Lead	\N	researcher	APA	0.80	2026-10-27 10:23:14.973863+00	2026-11-18 04:44:48.402002+00	active	\N	admin	["all"]	student_30
 \.
 
 
@@ -1525,6 +1508,22 @@ ALTER TABLE ONLY public.research_syntheses
 
 
 --
+-- Name: subscription_invoices subscription_invoices_invoice_number_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.subscription_invoices
+    ADD CONSTRAINT subscription_invoices_invoice_number_key UNIQUE (invoice_number);
+
+
+--
+-- Name: subscription_invoices subscription_invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.subscription_invoices
+    ADD CONSTRAINT subscription_invoices_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: subscription_plans subscription_plans_code_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -1554,6 +1553,22 @@ ALTER TABLE ONLY public.paper_blocks
 
 ALTER TABLE ONLY public.extracted_components
     ADD CONSTRAINT uq_paper_parameter UNIQUE (paper_id, parameter_key);
+
+
+--
+-- Name: user_daily_usage uq_user_daily_usage; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_daily_usage
+    ADD CONSTRAINT uq_user_daily_usage UNIQUE (user_id, usage_date);
+
+
+--
+-- Name: user_daily_usage user_daily_usage_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_daily_usage
+    ADD CONSTRAINT user_daily_usage_pkey PRIMARY KEY (id);
 
 
 --
@@ -1834,6 +1849,27 @@ CREATE INDEX idx_reset_tokens_user ON public.password_reset_tokens USING btree (
 
 
 --
+-- Name: idx_subscription_invoices_created; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_subscription_invoices_created ON public.subscription_invoices USING btree (created_at DESC);
+
+
+--
+-- Name: idx_subscription_invoices_status; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_subscription_invoices_status ON public.subscription_invoices USING btree (status);
+
+
+--
+-- Name: idx_subscription_invoices_user; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_subscription_invoices_user ON public.subscription_invoices USING btree (user_id);
+
+
+--
 -- Name: idx_subscription_plans_active; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -1841,10 +1877,38 @@ CREATE INDEX idx_subscription_plans_active ON public.subscription_plans USING bt
 
 
 --
+-- Name: idx_subscription_plans_tier_category; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_subscription_plans_tier_category ON public.subscription_plans USING btree (tier_category);
+
+
+--
+-- Name: idx_user_daily_usage_date; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_user_daily_usage_date ON public.user_daily_usage USING btree (usage_date);
+
+
+--
+-- Name: idx_user_daily_usage_lookup; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_user_daily_usage_lookup ON public.user_daily_usage USING btree (user_id, usage_date);
+
+
+--
 -- Name: idx_user_notifications_user; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX idx_user_notifications_user ON public.user_notifications USING btree (user_id, is_read);
+
+
+--
+-- Name: idx_user_subscriptions_active_lookup; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_user_subscriptions_active_lookup ON public.user_subscriptions USING btree (user_id, status, expires_at);
 
 
 --
@@ -2023,6 +2087,14 @@ ALTER TABLE ONLY public.extracted_components
 
 
 --
+-- Name: user_subscriptions fk_user_subscriptions_invoice; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_subscriptions
+    ADD CONSTRAINT fk_user_subscriptions_invoice FOREIGN KEY (invoice_id) REFERENCES public.subscription_invoices(id) ON DELETE SET NULL;
+
+
+--
 -- Name: knowledge_graph_concepts knowledge_graph_concepts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2116,6 +2188,30 @@ ALTER TABLE ONLY public.research_canvas_nodes
 
 ALTER TABLE ONLY public.research_syntheses
     ADD CONSTRAINT research_syntheses_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: subscription_invoices subscription_invoices_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.subscription_invoices
+    ADD CONSTRAINT subscription_invoices_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: subscription_invoices subscription_invoices_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.subscription_invoices
+    ADD CONSTRAINT subscription_invoices_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_daily_usage user_daily_usage_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_daily_usage
+    ADD CONSTRAINT user_daily_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -2452,12 +2548,30 @@ GRANT ALL ON TABLE public.password_reset_tokens TO service_role;
 
 
 --
+-- Name: TABLE subscription_invoices; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.subscription_invoices TO anon;
+GRANT ALL ON TABLE public.subscription_invoices TO authenticated;
+GRANT ALL ON TABLE public.subscription_invoices TO service_role;
+
+
+--
 -- Name: TABLE subscription_plans; Type: ACL; Schema: public; Owner: postgres
 --
 
 GRANT ALL ON TABLE public.subscription_plans TO anon;
 GRANT ALL ON TABLE public.subscription_plans TO authenticated;
 GRANT ALL ON TABLE public.subscription_plans TO service_role;
+
+
+--
+-- Name: TABLE user_daily_usage; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.user_daily_usage TO anon;
+GRANT ALL ON TABLE public.user_daily_usage TO authenticated;
+GRANT ALL ON TABLE public.user_daily_usage TO service_role;
 
 
 --
@@ -2476,6 +2590,15 @@ GRANT ALL ON TABLE public.user_notifications TO service_role;
 GRANT ALL ON TABLE public.user_subscriptions TO anon;
 GRANT ALL ON TABLE public.user_subscriptions TO authenticated;
 GRANT ALL ON TABLE public.user_subscriptions TO service_role;
+
+
+--
+-- Name: TABLE v_user_active_subscription; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.v_user_active_subscription TO anon;
+GRANT ALL ON TABLE public.v_user_active_subscription TO authenticated;
+GRANT ALL ON TABLE public.v_user_active_subscription TO service_role;
 
 
 --
@@ -2542,5 +2665,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON T
 -- PostgreSQL database dump complete
 --
 
-\unrestrict NL8WxayaNWpPNTdNTsLliM4buH5IPKHDtcN6yRvuH6rqWGMaAv02W87KPpHf5OS
+\unrestrict l9hag2FlP6mTZZkBq9tfE6VY3laudT1er4gThrOJXuT8DVQw1s4e9UX06LAbVbZ
 
