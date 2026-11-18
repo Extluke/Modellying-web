@@ -783,12 +783,22 @@ DETAIL FITUR & INTEGRASI SISTEM
     2. Caching Memori 10 Menit (TanStack Query v5): Menggunakan custom hook `usePaperPdf` dengan query key hierarkis `['projects', userId, 'detail', projectId, 'papers', paperId, 'pdf']`, konfigurasi `staleTime: 600000` (10 menit), `gcTime: 900000` (15 menit), dan `refetchOnWindowFocus: false` sehingga dokumen biner berat tidak diunduh ulang saat berpindah tab.
     3. Kontrol Perbesaran Presisi (Zoom Engine): Mendukung Zoom In (+15%), Zoom Out (-15%), Reset Skala 115%, dan penyesuaian otomatis ke lebar viewport (*Fit to Width*). Dilengkapi pembatalan tugas render canvas aktif (`RenderTask.cancel()`) untuk mencegah race condition antar-render canvas saat zoom cepat.
     4. Navigasi Lompat Halaman Dua Arah (Bidirectional Page Jumper & Scroll Spy): Kotak input nomor halaman interaktif dengan validasi rentang (Enter / onBlur), tombol Prev/Next, serta IntersectionObserver yang mendeteksi nomor halaman fisik yang sedang aktif saat pengguna menggulir dokumen.
-    5. Penyorotan Bukti Ilmiah dengan Pencocokan Fleksibel (Multi-Tier Flexible Quote Matcher via `pdfMatcher.ts`):
-       - Tier 1: Pencocokan langsung koordinat kanonik Bounding Box (`bbox`) atau `block_id`.
-       - Tier 2: Pencocokan substring ternormalisasi yang tahan terhadap pemenggalan kata antar-baris (*hyphenation* e.g., `signifi- cant`), spasi ganda, dan variasi tanda petik tipografis.
-       - Tier 3: Multi-Block Span Sequence yang menggabungkan 2-3 blok teks berturutan saat kutipan bukti melintasi batas blok fisik.
-       - Tier 4: Token-Level Jaccard/Fuzzy Overlap yang mendeteksi kemiripan kata (> 55%) pada variasi parafrasa atau noise OCR.
-       - Tampilan Visual: Lapisan overlay di atas canvas beraksen indigo transparan (`bg-primary/25 border-2 border-primary`), animasi denyut lembut (*pulse*), lencana penanda bukti ilmiah, dan pengguliran otomatis presisi langsung ke koordinat vertikal kutipan teks fisik.
+    5. Penyorotan Bukti Ilmiah Tingkat Span Presisi & Relokasi Halaman Otomatis (`pdfMatcher.ts` & `PdfViewer.tsx`):
+       - Mesin Penyorot Span Presisi (Line-by-Line Span Highlighter via `extractQuoteSpanRects`):
+         * Mengekstrak koordinat matriks teks langsung dari engine PDF.js (`page.getTextContent()`) untuk menghasilkan kotak pembatas baris per baris (*line-by-line bounding boxes*) unscaled viewport.
+         * Pemotongan Sub-Baris Proporsional (*Proportional Sub-Line Trimming*): Memangkas offset horizontal pada baris pertama dan baris terakhir kutipan sehingga penyorotan dimulai tepat pada kata awal dan berakhir tepat pada kata akhir, bukan menutupi seluruh blok paragraf teks.
+         * Normalisasi Karakter Lanjutan: Tahan terhadap ligatur typografis (`fi`, `fl`, `ffi`, `ffl`), pemenggalan kata bersambung antar-baris (*hyphenation* e.g., `manage- ment` -> `management`), spasi ganda, dan variasi tanda hubung (*em/en-dash*).
+         * Tampilan Visual Elegan: Highlight semi-transparan indigo lembut (`bg-primary/25 border-b-2 border-primary/70`) dengan animasi denyut halus (*pulse*), lencana melayang "Bukti: [Parameter]" di baris pertama, dan tanpa garis tepi raksasa di sekeliling kanvas halaman (*zero whole-page ring outline*).
+       - Relokasi Halaman Otomatis (*Automatic Cross-Page Relocation* via `relocateEvidence`):
+         * Mendeteksi anomali ekstraksi di mana model mencatat nomor halaman yang salah (misal: Parameter #5 Metodologi tercatat di Halaman 9 padahal teks aslinya berada di Halaman 4, atau temuan klausa yang tercatat di Halaman 7 padahal di Halaman 10).
+         * Saat kartu bukti diklik di `PaperResultScreen.tsx`, sistem memeriksa keberadaan teks kutipan secara kanonik lintas seluruh blok dokumen dan langsung mengalihkan target scroll ke nomor halaman yang sebenarnya dengan teks tersorot akurat.
+       - Fallback Multi-Tier Terukur:
+         * Tier 1: Span-level line bounding boxes (Prioritas Utama untuk naskah digital berlapisan teks).
+         * Tier 2: Bounding Box Blok PyMuPDF terdekat (Fallback otomatis untuk naskah pindaian/OCR murni).
+         * Tier 3: Multi-Block Span Sequence yang menggabungkan 2-3 blok teks saat kutipan melintasi batas blok fisik.
+         * Tier 4: Token-Level Jaccard/Fuzzy Overlap (> 55%) untuk variasi parafrasa minor.
+       - Eliminasi Tombol Duplikat:
+         * Menghapus redundansi tombol "Buka Kutipan Bukti" pada toolbar internal `PdfViewer.tsx` dan mengonsolidasikan kontrol pembukaan panel bukti secara terpadu melalui tombol "Buka Panel Bukti" pada header kanan atas `PaperResultScreen.tsx`.
 - Asisten AI Pembantu Revisi Formulasi Ilmiah (Guided Looping State Machine & Draggable Floating Modal):
   * Perbedaan Bagian yang Direvisi vs Bukti Kanonik:
     1. Bagian yang Direvisi: `value.text` (formulasi teks deskriptif ilmiah dalam Bahasa Indonesia akademik).

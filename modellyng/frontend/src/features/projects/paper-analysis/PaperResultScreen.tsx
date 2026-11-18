@@ -56,6 +56,7 @@ import {
   ExtractedComponent,
   EvidenceItem,
 } from "../api/projectsApi"
+import { relocateEvidence } from "./pdfMatcher"
 import { toast } from "@/lib/store/useToastStore"
 
 type TabGroupKey = "konteks_masalah" | "metode_data" | "hasil_gap"
@@ -200,9 +201,11 @@ export default function PaperResultScreen() {
 
   // Scroll to Evidence block in PdfViewer
   const scrollToEvidence = (comp: ExtractedComponent, ev: EvidenceItem) => {
-    setActiveEvidence(ev)
+    // Relocate evidence if page was mismatched by extraction model
+    const resolvedEv = blocks.length > 0 ? relocateEvidence(ev, blocks) : ev
+    setActiveEvidence(resolvedEv)
     setActiveComponentLabel(comp.label.id || comp.parameter_key)
-    setTargetPage(ev.page_index || 1)
+    setTargetPage(resolvedEv.page_index || 1)
     setIsEvidencePanelOpen(true)
   }
 
@@ -545,8 +548,6 @@ export default function PaperResultScreen() {
               onPageChange={(p) => setTargetPage(p)}
               isExpanded={isPdfExpanded}
               onToggleExpand={() => setIsPdfExpanded((prev) => !prev)}
-              isEvidencePanelOpen={isEvidencePanelOpen}
-              onOpenEvidencePanel={() => setIsEvidencePanelOpen(true)}
               componentLabel={activeComponentLabel}
             />
           )}
