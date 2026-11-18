@@ -507,6 +507,7 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 | GET    | /api/v1/admin/users                                         | Daftar pengguna, search, filter status & role       |
 | PATCH  | /api/v1/admin/users/{user_id}/status                        | Sanksi pelanggaran (aktif/tangguhkan/nonaktifkan)   |
 | PATCH  | /api/v1/admin/users/{user_id}/role                          | Promosi/demisi role pengguna (researcher/admin)     |
+| PATCH  | /api/v1/admin/users/{user_id}/subscription                  | Setujui (ACC) atau ubah paket langganan pengguna    |
 | DELETE | /api/v1/admin/users/{user_id}                               | Hapus akun pengguna permanen (kaskade)              |
 | POST   | /api/v1/admin/users/{user_id}/reset-password                | Penanganan kesulitan login (Reset kata sandi instan)|
 | GET    | /api/v1/admin/bug-reports                                   | Daftar laporan bug & tiket kendala pengguna         |
@@ -1279,11 +1280,20 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Pemantauan Beban Infrastruktur: Beban antrean worker Celery, status konektivitas broker Redis port 6381, estimasi token AI hari ini, dan log 5 aktivitas sistem terkini.
   * Dukungan Sinkronisasi Real-Time: Tombol "Segarkan Data" dan interval otomatis 30 detik via TanStack Query.
 
-- JOB 2: Konfigurasi Pengguna, Solusi Login, Pelanggaran & Tiket Bug (`/admin/users`):
-  * Pencarian & Filter Multi-Kriteria: Menyaring pengguna berdasarkan kata kunci nama/email/institusi, filter peran (`researcher`/`admin`), dan status akun (`active`, `suspended`, `deactivated`).
+- JOB 2: Konfigurasi Pengguna, Solusi Login, Pelanggaran, Approval Langganan & Tiket Bug (`/admin/users`):
+  * Pencarian & Filter Multi-Kriteria: Menyaring pengguna berdasarkan kata kunci nama/email/institusi, filter peran (`researcher`/`admin`), status akun (`active`, `suspended`, `deactivated`), serta filter baru Tipe Paket Langganan (`Semua Paket Langganan`, `Menunggu Persetujuan (Pending ACC)`, `Pro Scholar`, `Lab Enterprise`, `Free Explorer`).
+  * Spanduk Notifikasi Permohonan Langganan Pending ACC: Menampilkan kartu peringatan interaktif di atas tabel pengguna saat ada pendaftar baru yang menunggu persetujuan admin (`pending_approval`), dilengkapi counter real-time dan tombol filter 1-klik untuk langsung mengisolasi permohonan yang belum di-ACC.
+  * Kolom Tabel Khusus: Tipe Langganan & Status ACC: Menampilkan lencana tingkatan paket berikon visual (Sparkles untuk Pro Scholar, Crown untuk Lab Enterprise, BookOpen untuk Free Explorer) serta status persetujuan yang tegas (`Menunggu ACC Admin` dengan animasi titik denyut/ping dan stempel waktu pengajuan, `Aktif Disetujui`, atau `Ditolak`).
+  * Mekanisme Persetujuan Langganan (ACC Admin 1-Klik):
+    - Tombol "ACC Langganan": Tombol cepat beraksen emerald hijau pada baris tabel untuk menyetujui aktivasi kuota dan paket akademik pengguna baru secara instan dengan notifikasi toast seragam 5 detik (5000 ms).
+    - Tombol "Tolak": Mengembalikan status langganan ke Free Explorer.
+    - Modal "Ubah Paket": Memungkinkan admin mengalihkan tingkatan langganan dan status persetujuan akun pengguna kapan saja secara fleksibel.
   * Penanganan Kesulitan Login Pengguna: Fitur "Reset Sandi" instan oleh Administrator yang mengenkripsi kata sandi baru menggunakan hashing standar militer Argon2id di backend tanpa menunggu token email.
   * Sanksi Pelanggaran Tertentu (Penangguhan Akun): Modal penangguhan akun dengan kolom input alasan pelanggaran (`suspension_reason`), serta tombol aktivasi kembali untuk memulihkan akses pengguna yang sudah ditangguhkan.
-  * Manajemen Tiket Laporan Bug & Kendala: Tab terpadu menampilkan daftar kendala teknis pengguna (laporan ekstraksi, canvas viewer, tabel IEEE dua kolom) lengkap dengan label tingkat keparahan (`critical`, `high`, `medium`, `low`), status tiket (`open`, `investigating`, `resolved`, `closed`), dan modal resolusi dengan catatan perbaikan teknis administrator.
+  * Manajemen Tiket Laporan Bug Format Kotak Masuk Email (Gmail-Style Interface):
+    - Tampilan Kotak Masuk Terstruktur: Daftar laporan kendala teknis berformat baris email lengkap dengan checkbox seleksi, penanda bintang prioritas (*starred*), nama pelapor, cuplikan deskripsi kendala, badge keparahan (*critical*, *high*, *medium*, *low*), badge status, dan tanggal laporan.
+    - Aksi Masal Cepat (*Bulk Action Toolbar*): Tombol ubah status serentak untuk tiket-tiket yang dicentang (Terselesaikan, Investigasi, Ditutup).
+    - Tampilan Detail Percakapan Email (*Email Conversation Detail*): Membuka panel rincian korespondensi resmi, alamat email pengguna, URL halaman asal kendala, balasan tanggapan admin dengan textarea interaktif, tombol kirim tanggapan, dan tombol pintas pengubah status.
 
 - JOB 3: Konfigurasi Paket Langganan CMS (`/admin/subscriptions` & `/api/v1/admin/subscriptions/plans`):
   * Manajemen Paket Berbasis CMS: Menampilkan kartu harga interaktif untuk seluruh tingkatan langganan dengan lencana rekomendasi ("Paling Diminati") dan status aktif.

@@ -21,6 +21,7 @@ from .models import (
     AdminUserRoleUpdateRequest,
     AdminUserStatusUpdateRequest,
     AdminUserPasswordResetRequest,
+    AdminUserSubscriptionUpdateRequest,
     AdminBugReportItem,
     AdminBugReportUpdateRequest,
     # Job 3: Subscriptions CMS
@@ -236,6 +237,7 @@ async def list_users(
     search: Optional[str] = Query(None, description="Pencarian nama, email, atau institusi"),
     role: Optional[str] = Query(None, description="Filter role (researcher/admin)"),
     status: Optional[str] = Query(None, description="Filter status (active/suspended/deactivated)"),
+    subscription_tier: Optional[str] = Query(None, description="Filter tier langganan (free/pro/enterprise)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     admin: dict = Depends(require_admin),
@@ -259,6 +261,10 @@ async def list_users(
     if status and status.strip() in ("active", "suspended", "deactivated"):
         query_filters.append("u.status = %s")
         params.append(status.strip())
+
+    if subscription_tier and subscription_tier.strip():
+        query_filters.append("u.subscription_tier = %s")
+        params.append(subscription_tier.strip())
 
     where_clause = f"WHERE {' AND '.join(query_filters)}" if query_filters else ""
 
@@ -303,6 +309,8 @@ async def list_users(
                         status=r.get("status") or "active",
                         suspension_reason=r.get("suspension_reason"),
                         subscription_tier=r.get("subscription_tier") or "free",
+                        subscription_status=r.get("subscription_status") or "active",
+                        subscription_requested_at=r.get("subscription_requested_at"),
                         citation_format=r.get("citation_format") or "APA",
                         total_projects=int(r["total_projects"] or 0),
                         total_papers=int(r["total_papers"] or 0),
@@ -367,6 +375,46 @@ async def update_user_status(
 
     action_label = "diaktifkan kembali" if new_status == "active" else f"diubah menjadi '{new_status}'"
     return AdminMessageResponse(message=f"Akun pengguna {updated[1]} berhasil {action_label}.")
+
+
+@admin_router.patch("/users/{user_id}/subscription", response_model=AdminMessageResponse)
+async def update_user_subscription(
+    user_id: str,
+    req: AdminUserSubscriptionUpdateRequest,
+    admin: dict = Depends(require_admin),
+):
+    """
+    Menyetujui (ACC) atau memperbarui status paket langganan pengguna (active, pending_approval, rejected).
+    """
+    new_tier = req.subscription_tier.strip().lower()
+    new_status = req.subscription_status.strip().lower()
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE public.users 
+                SET subscription_tier = %s, updated_at = NOW() 
+                WHERE id = %s 
+                RETURNING id, email, full_name;
+                """,
+                (new_tier, user_id),
+            )
+            updated = cur.fetchone()
+            if not updated:
+                raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+    log_admin_action(
+        admin_email=admin["email"],
+        admin_id=str(admin["id"]),
+        action="update_user_subscription",
+        target_type="user",
+        target_id=user_id,
+        details={"subscription_tier": new_tier, "subscription_status": new_status},
+    )
+
+    action_label = "disetujui (ACC)" if new_status == "active" else "diperbarui"
+    return AdminMessageResponse(message=f"Langganan paket '{new_tier}' untuk pengguna '{updated[2]}' ({updated[1]}) berhasil {action_label}.")
 
 
 @admin_router.post("/users/{user_id}/reset-password", response_model=AdminMessageResponse)

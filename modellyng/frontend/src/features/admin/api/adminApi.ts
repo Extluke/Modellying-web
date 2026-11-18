@@ -47,6 +47,9 @@ export interface AdminUserItem {
   status: "active" | "suspended" | "deactivated"
   suspension_reason: string | null
   subscription_tier: string
+  subscription_status?: "active" | "pending_approval" | "rejected"
+  subscription_requested_at?: string | null
+  subscription_approved_at?: string | null
   citation_format: string
   total_projects: number
   total_papers: number
@@ -281,6 +284,9 @@ export const adminApi = {
 
   updateUserRole: (userId: string, data: { role: string }) =>
     apiClient.patch<AdminUserItem>(`/admin/users/${userId}/role`, data),
+
+  updateUserSubscription: (userId: string, data: { subscription_tier: string; subscription_status?: string }) =>
+    apiClient.patch<AdminActionResponse>(`/admin/users/${userId}/subscription`, data),
 
   resetUserPassword: (userId: string, data: { new_password: string }) =>
     apiClient.post<AdminActionResponse>(`/admin/users/${userId}/reset-password`, data),

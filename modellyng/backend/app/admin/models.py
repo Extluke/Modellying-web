@@ -46,6 +46,8 @@ class AdminUserItem(BaseModel):
     status: str = "active"  # active, suspended, deactivated
     suspension_reason: Optional[str] = None
     subscription_tier: str = "free"
+    subscription_status: str = "active"  # active, pending_approval, rejected
+    subscription_requested_at: Optional[str] = None
     citation_format: str = "APA"
     total_projects: int = 0
     total_papers: int = 0
@@ -67,6 +69,10 @@ class AdminUserStatusUpdateRequest(BaseModel):
 
 class AdminUserPasswordResetRequest(BaseModel):
     new_password: str = Field(..., min_length=6, description="Kata sandi baru pengguna")
+
+class AdminUserSubscriptionUpdateRequest(BaseModel):
+    subscription_tier: str = Field(..., description="Paket langganan baru: free, pro, enterprise, student_semester")
+    subscription_status: str = Field("active", description="Status persetujuan langganan: active, pending_approval, rejected")
 
 class AdminBugReportItem(BaseModel):
     id: str
