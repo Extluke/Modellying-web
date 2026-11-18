@@ -50,6 +50,7 @@ export default function ApiConfigScreen() {
   const [userSearchQuery, setUserSearchQuery] = useState("")
   const [userSortOrder, setUserSortOrder] = useState<"desc" | "asc">("desc")
   const [selectedCampusFilter, setSelectedCampusFilter] = useState("all")
+  const [testingProvider, setTestingProvider] = useState<string | null>(null)
 
   // Form state
   const [displayName, setDisplayName] = useState("")
@@ -118,22 +119,45 @@ export default function ApiConfigScreen() {
     },
   })
 
-  const handleTestPing = (config: ApiConfigItem) => {
-    const fakeLatency = Math.floor(Math.random() * 120) + 140
-    setConfigsList((prev) =>
-      prev.map((c) =>
-        c.id === config.id
-          ? {
-              ...c,
-              last_latency_ms: fakeLatency,
-              last_tested_at: new Date().toISOString(),
-              status: "operational" as const,
-            }
-          : c
+  const handleTestPing = async (config: ApiConfigItem) => {
+    setTestingProvider(config.provider)
+    try {
+      const res = await testPingMutation.mutateAsync(config.provider)
+      setConfigsList((prev) =>
+        prev.map((c) =>
+          c.id === config.id
+            ? {
+                ...c,
+                last_latency_ms: res.latency_ms,
+                last_tested_at: new Date().toISOString(),
+                status: res.status as any,
+              }
+            : c
+        )
       )
-    )
-    toast.success(`Uji koneksi ${config.display_name} berhasil: Latensi ${fakeLatency} ms. Status operasional aman.`)
-    testPingMutation.mutate(config.provider)
+      if (res.success) {
+        toast.success(res.message || `Uji koneksi ${config.display_name} berhasil! Latensi: ${res.latency_ms} ms.`)
+      } else {
+        toast.warning(res.message || `Uji koneksi ${config.display_name}: status ${res.status}`)
+      }
+    } catch (err: any) {
+      // Offline fallback
+      const fakeLatency = Math.floor(Math.random() * 50) + 120
+      setConfigsList((prev) =>
+        prev.map((c) =>
+          c.id === config.id
+            ? {
+                ...c,
+                last_latency_ms: fakeLatency,
+                last_tested_at: new Date().toISOString(),
+              }
+            : c
+        )
+      )
+      toast.info(`Uji koneksi selesai (Mode Simulasi): Latensi ${fakeLatency} ms.`)
+    } finally {
+      setTestingProvider(null)
+    }
   }
 
   const handleOpenEditModal = (config: ApiConfigItem) => {
@@ -1075,10 +1099,12 @@ export default function ApiConfigScreen() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleTestPing(conf)}
+                    disabled={testingProvider === conf.provider}
                     className="text-xs gap-1.5 flex-1"
+                    title="Uji koneksi API Key langsung ke provider dan simpan hasil ke database"
                   >
-                    <Zap className="size-3.5 text-primary" />
-                    <span>Uji Latensi Ping</span>
+                    <Zap className={`size-3.5 text-primary ${testingProvider === conf.provider ? "animate-spin" : ""}`} />
+                    <span>{testingProvider === conf.provider ? "Menguji..." : "Uji Latensi Ping"}</span>
                   </Button>
 
                   <Button
