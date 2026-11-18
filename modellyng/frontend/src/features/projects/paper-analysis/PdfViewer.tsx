@@ -347,9 +347,30 @@ export function PdfViewer({
         const spans = await extractQuoteSpanRects(page, resolvedEv.quote || "")
         if (isCancelled) return
 
-        if (spans.length > 0) {
-          setActiveSpans(spans)
-          setActiveSpanPage(targetPageNum)
+        let foundSpans = spans
+        let finalPage = targetPageNum
+
+        // If not found on target page, search other pages nearest first
+        if (foundSpans.length === 0 && pdfDoc.numPages > 1) {
+          const pageCandidates = Array.from({ length: pdfDoc.numPages }, (_, i) => i + 1)
+            .filter((p) => p !== targetPageNum)
+            .sort((a, b) => Math.abs(a - targetPageNum) - Math.abs(b - targetPageNum))
+
+          for (const pNum of pageCandidates) {
+            const p = await pdfDoc.getPage(pNum)
+            const pSpans = await extractQuoteSpanRects(p, resolvedEv.quote || "")
+            if (isCancelled) return
+            if (pSpans.length > 0) {
+              foundSpans = pSpans
+              finalPage = pNum
+              break
+            }
+          }
+        }
+
+        if (foundSpans.length > 0) {
+          setActiveSpans(foundSpans)
+          setActiveSpanPage(finalPage)
         } else {
           setActiveSpans([])
           setActiveSpanPage(null)
@@ -699,42 +720,45 @@ export function PdfViewer({
                     </div>
                   )}
 
-                  {/* Priority 2: Fallback to Block Bounding Box if spans could not be extracted */}
-                  {!(activeSpanPage === pageNum && activeSpans.length > 0) && matchedBlocks.length > 0 && (
-                    <div
-                      className="absolute inset-0 pointer-events-none"
-                      style={{ width: `${dim.scaledWidth}px`, height: `${dim.scaledHeight}px` }}
-                    >
-                      {matchedBlocks.map((mb, mIdx) => {
-                        const coords = getScaledBboxCoordinates(mb.bbox, scale)
+                  {/* Priority 2: Fallback ONLY for explicit user-drawn or canonical exact bbox coordinates (never whole paragraph blocks) */}
+                  {!(activeSpanPage === pageNum && activeSpans.length > 0) &&
+                    matchedBlocks.filter((mb) => mb.matchType === "exact_bbox").length > 0 && (
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{ width: `${dim.scaledWidth}px`, height: `${dim.scaledHeight}px` }}
+                      >
+                        {matchedBlocks
+                          .filter((mb) => mb.matchType === "exact_bbox")
+                          .map((mb, mIdx) => {
+                            const coords = getScaledBboxCoordinates(mb.bbox, scale)
 
-                        return (
-                          <div
-                            key={`${mb.block_id}-${mIdx}`}
-                            style={{
-                              left: `${coords.left}px`,
-                              top: `${coords.top}px`,
-                              width: `${coords.width}px`,
-                              height: `${coords.height}px`,
-                            }}
-                            className="absolute rounded-sm bg-primary/25 border-2 border-primary shadow-sm pointer-events-auto transition-all animate-pulse"
-                            title={`Bukti Kanonik (${mb.matchType}): ${mb.block_id}`}
-                          >
-                            {mIdx === 0 && (
-                              <div className="absolute -top-6 left-0 rounded-md bg-primary px-2 py-0.5 text-[9px] font-bold text-white shadow-md flex items-center gap-1 whitespace-nowrap z-30">
-                                <BookmarkCheck className="size-3" />
-                                <span>
-                                  {componentLabel
-                                    ? `Bukti: ${componentLabel}`
-                                    : "Bukti Teks Teridentifikasi"}
-                                </span>
+                            return (
+                              <div
+                                key={`${mb.block_id}-${mIdx}`}
+                                style={{
+                                  left: `${coords.left}px`,
+                                  top: `${coords.top}px`,
+                                  width: `${coords.width}px`,
+                                  height: `${coords.height}px`,
+                                }}
+                                className="absolute rounded-sm bg-primary/25 border-2 border-primary shadow-sm pointer-events-auto transition-all animate-pulse"
+                                title={`Bukti Kanonik (${mb.matchType}): ${mb.block_id}`}
+                              >
+                                {mIdx === 0 && (
+                                  <div className="absolute -top-6 left-0 rounded-md bg-primary px-2 py-0.5 text-[9px] font-bold text-white shadow-md flex items-center gap-1 whitespace-nowrap z-30">
+                                    <BookmarkCheck className="size-3" />
+                                    <span>
+                                      {componentLabel
+                                        ? `Bukti: ${componentLabel}`
+                                        : "Bukti Teks Teridentifikasi"}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                            )
+                          })}
+                      </div>
+                    )}
                 </>
               )}
             </div>

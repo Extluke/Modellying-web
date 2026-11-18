@@ -55,6 +55,7 @@ import {
   useProjectDetail,
   ExtractedComponent,
   EvidenceItem,
+  TextBlock,
 } from "../api/projectsApi"
 import { relocateEvidence } from "./pdfMatcher"
 import { toast } from "@/lib/store/useToastStore"
@@ -454,6 +455,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    blocks={blocks}
                     paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
@@ -481,6 +483,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    blocks={blocks}
                     paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
@@ -508,6 +511,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    blocks={blocks}
                     paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
@@ -645,6 +649,7 @@ function getParameterIcon(key: string) {
  */
 interface ComponentCardProps {
   comp: ExtractedComponent
+  blocks?: TextBlock[]
   paperContext?: PaperAnalysisContext
   activeEvidence: EvidenceItem | null
   scrollToEvidence: (comp: ExtractedComponent, blockId?: string) => void
@@ -654,6 +659,7 @@ interface ComponentCardProps {
 
 function ComponentCard({
   comp,
+  blocks = [],
   paperContext,
   activeEvidence,
   scrollToEvidence,
@@ -684,13 +690,15 @@ function ComponentCard({
 
   const title = comp.label.id || comp.parameter_key
   const primaryEvidence = comp.evidence && comp.evidence.length > 0 ? comp.evidence[0] : null
-  const evidenceQuote = primaryEvidence?.quote || ""
-  const pageNumber = primaryEvidence?.page_index || 1
-  const blockId = primaryEvidence?.block_id || ""
+  const resolvedEvidence =
+    primaryEvidence && blocks.length > 0 ? relocateEvidence(primaryEvidence, blocks) : primaryEvidence
+  const evidenceQuote = resolvedEvidence?.quote || primaryEvidence?.quote || ""
+  const pageNumber = resolvedEvidence?.page_index || primaryEvidence?.page_index || 1
+  const blockId = resolvedEvidence?.block_id || primaryEvidence?.block_id || ""
 
   const isEvidenceActive =
     activeEvidence &&
-    ((primaryEvidence?.block_id && activeEvidence.block_id === primaryEvidence.block_id) ||
+    ((resolvedEvidence?.block_id && activeEvidence.block_id === resolvedEvidence.block_id) ||
       (evidenceQuote && activeEvidence.quote === evidenceQuote))
 
   return (

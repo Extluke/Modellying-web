@@ -1515,13 +1515,16 @@ tipe data TypeScript pada frontend dengan menjalankan perintah:
 - Lencana "N paper belum dianalisis" berarti ada paper berstatus memproses atau gagal. Paper tersebut
   baru tampil pada graf setelah statusnya Siap atau Perlu Tinjauan (tombol "Segarkan" memuat ulang data).
 
-7. KUTIPAN BUKTI TIDAK MENYOROT TEKS PADA PDF
+7. KUTIPAN BUKTI TIDAK MENYOROT TEKS PADA PDF & PRESISI HIGHLIGHT
 --------------------------------------------------------------------------------
-- Hasil ekstraksi kadang mencatat halaman atau blok yang keliru untuk sebuah kutipan (misalnya blok yang
-  hanya berisi satu kata). Penampil PDF memverifikasi blok tersebut terhadap teks kutipan, lalu mencari
-  kutipan pada seluruh halaman dokumen (`relocateEvidence` pada `pdfMatcher.ts`).
-- Bila kutipan tidak ditemukan pada halaman mana pun, penampil hanya membuka halaman yang tercatat tanpa
-  sorotan. Perbaikan data dilakukan dengan memproses ulang paper dari ikhtisar proyek.
+- Algoritma Pencocokan Presisi Multi-Segment & Relokasi Kanonik (`pdfMatcher.ts` & `PdfViewer.tsx`):
+  * Multi-Segment Ellipsis Splitting: Kutipan panjang ber-elipsis (`...`, `…`, `[...]`) otomatis dipecah menjadi segmen-segmen kalimat terpisah (`splitQuoteSegments`). Setiap segmen dicari koordinatnya secara presisi pada engine PDF.js tanpa terputus.
+  * Normalisasi Ligatur & Karakter Khusus: Teks PDF dan blok PyMuPDF dinormalisasi mencakup ligatur tipografis (`\uFB00`–`\uFB06`: ff, fi, fl, ffi, ffl, ft, st), tanda petik cerdas, dash (en-dash, em-dash, hyphen), spasi non-breaking, dan pemenggalan kata antar-baris (hyphenation, e.g. `deﬁ-\n nition` -> `definition`).
+  * Toleransi Saltik LLM (Fuzzy Matching): Menggunakan perbandingan token berbasis Levenshtein distance (jarak <= 2 untuk kata >= 4 karakter) guna mengatasi saltik bawaan hasil ekstraksi model LLM serta pemotongan baris naskah.
+  * Relokasi Halaman Kanonik Ketat: Fungsi `relocateEvidence` mencari halaman asli kutipan berbasis pencocokan segmen eksak, mencegah false positive akibat overlap kata umum pada abstrak, dan mengarahkan pengguna ke halaman kanonik yang tepat (misal Parameter #5 ke Halaman 4, Parameter #10 ke Halaman 10).
+  * Penyelarasan Lencana Kartu Parameter: Kartu komponen pada `PaperResultScreen.tsx` (`ComponentCard`) meresolusi nomor halaman secara reaktif via `relocateEvidence(primaryEvidence, blocks)`, memastikan label lencana "HALAMAN {N}" selalu selaras 100% dengan tampilan penampil PDF dan bilah kutipan kanonik.
+  * 100% Eliminasi Kotak Paragraf Semu: Fallback bounding box PyMuPDF satu paragraf penuh dieliminasi total pada dokumen teks, sehingga pengguna hanya melihat penyorotan garis kalimat yang rapi, tepat, dan presisi.
+- Bila kutipan tidak ditemukan pada halaman mana pun, penampil hanya membuka halaman yang tercatat tanpa sorotan. Perbaikan data dilakukan dengan memproses ulang paper dari ikhtisar proyek.
 
 8. PANDUAN PENEGAKAN KUOTA LANGGANAN & TROUBLESHOOTING KUOTA
 --------------------------------------------------------------------------------
