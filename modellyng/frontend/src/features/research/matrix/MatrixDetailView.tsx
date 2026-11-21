@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Download,
   Link2,
+  Lock,
   RotateCw,
   Table2,
   TableProperties,
@@ -23,6 +24,7 @@ import { ROUTES } from "@/app/routes"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
 import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
+import { toast } from "@/lib/store/useToastStore"
 import { useComparativeMatrix, type MatrixParameter } from "@/features/projects/api/projectsApi"
 import { ContentMatrixTable } from "./components/ContentMatrixTable"
 import type { CellDetailRequest, EvidenceRequest } from "./components/ContentMatrixTable"
@@ -247,11 +249,29 @@ export default function MatrixDetailView() {
             />
             <Button
               variant="outline"
-              onClick={() => downloadMatrixCsv(matrixData, activePapers)}
+              onClick={() => {
+                if (isFreeUser) {
+                  handleTriggerUpgrade()
+                  toast.info(
+                    "Fitur unduh CSV matriks komparasi lengkap eksklusif untuk akun Student Pro.",
+                    5000
+                  )
+                  return
+                }
+                downloadMatrixCsv(matrixData, activePapers)
+              }}
               className="h-10 gap-2 px-4 text-xs font-medium"
-              title="Unduh matriks yang sedang ditampilkan dalam format CSV"
+              title={
+                isFreeUser
+                  ? "Fitur unduh CSV eksklusif untuk akun Student Pro"
+                  : "Unduh matriks yang sedang ditampilkan dalam format CSV"
+              }
             >
-              <Download className="text-primary" />
+              {isFreeUser ? (
+                <Lock className="size-3.5 text-primary" />
+              ) : (
+                <Download className="text-primary" />
+              )}
               <span>Unduh CSV</span>
             </Button>
           </div>

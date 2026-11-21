@@ -146,20 +146,24 @@ export function ContentMatrixTable({
                   </div>
                 </th>
 
-                {papers.map((paper) => (
-                  <td key={paper.id} className={cn(PAPER_CELL, "bg-card")}>
-                    <ContentCell
-                      cell={matrix[parameter.key]?.[paper.id]}
-                      compact={compact}
-                      isLocked={isLocked}
-                      onTriggerUpgrade={onTriggerUpgrade}
-                      onOpenDetail={(cell) => onOpenCell({ parameter, paper, cell })}
-                      onOpenEvidence={(cell, evidence) =>
-                        onOpenEvidence({ parameter, paper, cell, evidence })
-                      }
-                    />
-                  </td>
-                ))}
+                {papers.map((paper) => {
+                  const cell = matrix[parameter.key]?.[paper.id]
+                  const cellLocked = isLocked || Boolean(cell?.is_locked)
+                  return (
+                    <td key={paper.id} className={cn(PAPER_CELL, "bg-card")}>
+                      <ContentCell
+                        cell={cell}
+                        compact={compact}
+                        isLocked={cellLocked}
+                        onTriggerUpgrade={onTriggerUpgrade}
+                        onOpenDetail={(cell) => onOpenCell({ parameter, paper, cell })}
+                        onOpenEvidence={(cell, evidence) =>
+                          onOpenEvidence({ parameter, paper, cell, evidence })
+                        }
+                      />
+                    </td>
+                  )
+                })}
               </tr>
             </Fragment>
           )

@@ -213,6 +213,7 @@ export interface MatrixCell {
   evidence: EvidenceItem[]
   confidence_score: number
   status: "needs_review" | "accepted" | "edited" | "rejected"
+  is_locked?: boolean
 }
 
 export interface MatrixParameter {

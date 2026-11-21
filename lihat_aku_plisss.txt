@@ -933,19 +933,25 @@ DETAIL FITUR & INTEGRASI SISTEM
       Menyajikan posisi kontribusi dan kebaruan setiap dokumen secara utuh tanpa pemotongan string (`.slice()`/ellipsis `...`), dinarasikan alami dalam bahasa akademis baku, serta bebas dari tabrakan titik ganda maupun duplikasi sitasi di dalam kartu.
     Dilengkapi tombol "Salin Poin" dan "Salin Paragraf Akademik" dengan feedback toast 5 detik.
   * Penerapan Batasan Akun Freemium (Paywall Tier) pada Matriks Komparasi:
-    Menerapkan sistem pembatasan tier freemium secara ketat dan elegan pada Matriks Komparasi (`MatrixDetailView.tsx`, `ContentMatrixTable.tsx`, dan `ProjectSynthesisCard.tsx`) berdasarkan 3 kelas pengguna di basis data (`free`, `pro`, `admin`):
+    Menerapkan sistem pembatasan tier freemium secara ketat dan elegan pada Matriks Komparasi (`MatrixDetailView.tsx`, `ContentMatrixTable.tsx`, dan `ProjectSynthesisCard.tsx`) berbasis arsitektur Keamanan Berlapis (*Defense-in-Depth*) & Batas Server Nir-Percaya (*Zero-Trust Server Boundary*) berdasarkan 3 kelas pengguna di basis data (`free`, `pro`, `admin`):
     - Penentuan Tingkatan Akun Real-Time (`isFreeUser` vs `isProUser`):
       Mengombinasikan data autentikasi `useAuthStore` (`user.role`, `user.subscription_tier`) dan status kuota aktif `useUserQuota` (`quota.tier_category`, `quota.is_developer`). Pengguna dengan role `admin`, tier `developer`, atau langganan aktif `pro` / `student` (`student_14`, `student_30`, `pro_scholar`) mendapatkan akses penuh tanpa sensor (100% unlocked).
-    - Kolom Konteks & Masalah Terbuka Penuh:
-      Pengguna akun Free dapat membaca secara utuh seluruh kolom pada kelompok Konteks & Masalah (`research_problem` / Rumusan Masalah, `subject_demographics` / Konteks & Demografi Subjek, `research_objective`, dan `research_questions`) beserta skor keyakinan dan navigasi bukti kutipan naskah PDF kanoniknya.
-    - Kolom Lanjutan Terkunci dengan Efek Blur & Teaser:
-      Seluruh kolom lanjutan (Kelompok Metode & Data: `methodology`, `dataset_sample`, `variables_concepts`, `evaluation_metrics`; dan Kelompok Hasil & Gap: `results_findings`, `novelty`, `key_claims`, `limitations`, `future_work`) dikunci untuk akun Free:
+    - Batas Otoritas Server Nir-Percaya (Zero-Trust Server-Side Data Redaction):
+      Pada endpoint `GET /api/v1/projects/{project_id}/comparative-matrix`, backend FastAPI mengevaluasi status langganan pengguna secara real-time. Jika pengguna berstatus Free:
+      1) Kolom Konteks & Masalah Terbuka Penuh: Parameter kelompok Konteks & Masalah (`research_problem` / Rumusan Masalah, `subject_demographics` / Konteks & Demografi Subjek, `research_objective`, dan `research_questions`) dikirim utuh beserta bukti kutipan fisik PDF dan koordinat bounding box.
+      2) Kolom Lanjutan Disensor di Server (Server-Side Redaction): Seluruh kolom lanjutan pada kelompok Metode & Data serta Hasil & Gap dipangkas di memori backend hanya menjadi kalimat pertama (maksimal 100 karakter) sebagai teaser penggugah minat, array bukti kutipan PDF dikosongkan total (`evidence: []`), dan ditandai `is_locked: True`. Data naskah lanjutan secara fisik TIDAK PERNAH terkirim ke komputer pengguna Free, sehingga manipulasi DOM (F12) maupun penyadapan jaringan (Network Tab) tidak akan membocorkan data.
+    - Kolom Lanjutan Terkunci dengan Efek Blur & Teaser di Frontend:
+      Seluruh kolom lanjutan (`methodology`, `dataset_sample`, `variables_concepts`, `evaluation_metrics`, `results_findings`, `novelty`, `key_claims`, `limitations`, `future_work`) dirender elegan:
       1) Baris Pertama Sebagai Teaser: Baris awal formulasi teks tetap tampak jelas (`line-clamp-1 text-xs font-medium text-foreground select-none`) untuk menggugah minat penelusuran akademis peneliti.
       2) Konten Lanjutan Berkabut (Blur): Kalimat lanjutan disensor dengan efek visual blur halus (`blur-[3.5px] select-none pointer-events-none opacity-60`).
       3) Overlay CTA Interaktif & Lencana Gembok: Dilengkapi lencana header gembok `Lock` "Pro" pada judul kolom serta tombol mikro "Upgrade Pro" di tengah sel yang langsung memicu pop-up promosi.
       4) Proteksi Akses Bukti PDF & Modal Rinci: Tombol klik "Selengkapnya" dan tautan bukti "Hal. X" pada sel terkunci dicegah membuka modal/PDF dan dialihkan secara elegan untuk menawarkan upgrade Student Pro.
     - Penguncian Kartu Sintesis AI Global Komparatif (`ProjectSynthesisCard.tsx`):
       Menampilkan lencana gembok "Khusus Student Pro" di header kartu. Pada bodi kartu, naskah narasi akademik formal ditampilkan 2 baris awal sebagai teaser penggugah minat, sementara seluruh komparasi komprehensif di bawahnya (perbedaan metodologi, perbandingan variabel riset, pola data riil, kesenjangan, dan ide riset lanjutan) diproteksi di balik kontainer frosted glass (`backdrop-blur-md bg-card/95`) dengan kartu CTA terpusat: "Buka Seluruh Sintesis AI Global Komparatif". Tombol "Salin Poin" dan "Salin Paragraf Akademik" diproteksi dengan umpan balik toast informatif 5 detik.
+    - Proteksi Ekspor Data Matriks & Endpoint Sintesis AI:
+      1) Tombol "Unduh CSV" (`MatrixDetailView.tsx`): Ditandai dengan ikon gembok `Lock` untuk pengguna Free. Menekan tombol ini tidak lagi mengunduh berkas mentah melainkan memicu modal promosi `FeaturePromoModal` dan menampilkan notifikasi toast 5 detik: *"Fitur unduh CSV matriks komparasi lengkap eksklusif untuk akun Student Pro."*.
+      2) Server Gatekeeping Ekspor (`GET /api/v1/projects/{project_id}/export`): Mengembalikan `HTTP 403 Forbidden` bagi pengguna Free untuk mencegah unduhan data via cURL atau Postman.
+      3) Server Gatekeeping Sintesis Celah AI (`POST /api/v1/projects/{project_id}/knowledge-graph/synthesize`): Mengembalikan `HTTP 403 Forbidden` bagi pengguna Free guna memproteksi pemanggilan model LLM secara ilegal.
     - Integrasi Modal Promosi & Checkout WhatsApp Admin:
       Setiap penekanan tombol CTA pada matriks atau kartu sintesis otomatis memicu `<FeaturePromoModal feature="matrix" forceOpen={true}>` yang terhubung langsung ke WhatsApp Admin resmi via `buildPricingWhatsAppUrl` untuk aktivasi paket Student Pro (14 hari / 30 hari).
   * Kartu Laporan Intelijen & Bibliografi Riset (`IntelligenceReportCard.tsx`):
@@ -1000,6 +1006,10 @@ DETAIL FITUR & INTEGRASI SISTEM
     menjamin berkas unduhan terisi penuh dan bebas dari galat.
   * Endpoint Backend: `GET /api/v1/projects/{project_id}/export?format=pdf|csv|xlsx`
     Menghasilkan byte stream langsung dengan header Content-Disposition attachment yang aman.
+    Endpoint ini dilindungi oleh otentikasi tier server: pengguna Free Plan yang memanggil endpoint
+    ini langsung via cURL atau browser akan menerima respons `HTTP 403 Forbidden` dengan pesan
+    "Fitur ekspor matriks komparasi (CSV/Excel/PDF) eksklusif untuk akun Student Pro." guna menjamin
+    keamanan data paywall dari kebocoran berkas.
 
 10. FITUR CEK KEABSAHAN SUMBER (DOI VERIFICATION DRAWER) & GATEKEEPING STATUS
 --------------------------------------------------------------------------------
@@ -1563,5 +1573,37 @@ tipe data TypeScript pada frontend dengan menjalankan perintah:
 - Mengapa Muncul Pesan "Batas Kuota Harian Tercapai"?
   * Pengguna pada Free Plan telah mengunggah 3 dokumen dalam hari berjalan.
   * Kuota otomatis direset pada pukul 00:00 WIB (Asia/Jakarta). Pengguna dapat meningkatkan paket ke Student Pro melalui tautan WhatsApp admin di halaman `/settings/pricing`.
+
+9. ARSITEKTUR KEAMANAN PAYWALL & PENCEGAHAN BYPASS (ZERO-TRUST ANTI-TAMPERING STANDARDS)
+--------------------------------------------------------------------------------
+- Prinsip Keamanan Nir-Percaya Klien (Zero-Trust Server Boundary):
+  * Aturan Emas: Antarmuka peramban (frontend) berada di bawah kendali penuh pengguna. Proteksi
+    visual CSS seperti `filter: blur()`, `pointer-events: none`, atau penyembunyian komponen UI
+    HANYA berfungsi sebagai estetika antarmuka (UX presentation layer), BUKAN benteng keamanan data.
+  * Server FastAPI tidak pernah mempercayai klien dan WAJIB memangkas data sensitif di memori server
+    sebelum respons HTTP dikirimkan ke jaringan.
+- Mekanisme Redaksi Data Server pada Matriks Komparasi:
+  * Endpoint: `GET /api/v1/projects/{project_id}/comparative-matrix`
+  * Evaluasi Tier: Diperiksa secara real-time via `get_user_quota_status(user_id)` dan klausa `tier_category`.
+  * Parameter Terbuka (Free Allowed): `research_problem`, `subject_demographics`, `research_objective`, `research_questions`.
+    Data dikirim 100% utuh beserta bukti kutipan PDF (`evidence`).
+  * Parameter Terkunci (Locked): Kelompok Metode & Data (`methodology`, `dataset_sample`, dll.) serta Hasil & Gap.
+    1) Teks dipotong di server menjadi hanya kalimat pertama (maksimal 100 karakter) sebagai teaser.
+    2) Seluruh naskah lanjutan dibuang dari memori server.
+    3) Bukti kutipan PDF dikosongkan total (`evidence: []`).
+    4) Properti `is_locked: True` dikirimkan secara eksplisit.
+  * Hasil Audit Keamanan: Sekalipun pengguna menekan F12 (Inspect Element), menghapus class CSS blur,
+    atau memantau payload JSON di Network DevTools, data naskah lengkap dan bukti PDF fisik TIDAK PERNAH
+    ada di memori browser. Upaya kecurangan dipastikan gagal 100%.
+- Proteksi Pintu Belakang Ekspor & Endpoint AI:
+  * Endpoint Ekspor (`GET /api/v1/projects/{project_id}/export`): Mengembalikan `HTTP 403 Forbidden`
+    untuk akun Free guna mencegah penarikan data 13 parameter secara massal via CSV/Excel/PDF.
+  * Endpoint AI Synthesis (`POST /api/v1/projects/{project_id}/knowledge-graph/synthesize`):
+    Mengembalikan `HTTP 403 Forbidden` untuk akun Free guna mencegah konsumsi komputasi LLM ilegal.
+- Verifikasi Pengujian Penetrasi (Security Test Command):
+  Untuk memverifikasi kekokohan benteng paywall secara otomatis, jalankan skrip uji:
+    python C:/Users/aarif/.gemini/antigravity/brain/6eee6625-bc3a-47ca-a336-01a796003862/scratch/test_security_paywall.py
+  Skrip akan memvalidasi bahwa 0 bukti kutipan bocor ke akun Free, seluruh kolom terkunci tersensor
+  di level server, dan seluruh percobaan ekspor terblokir dengan kode status HTTP 403.
 
 ================================================================================

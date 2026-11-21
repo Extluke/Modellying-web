@@ -1147,8 +1147,23 @@ def export_project_synthesis(
     """
     Mengunduh matriks sintesis 13 parameter ilmiah seluruh paper dalam proyek
     dalam format CSV, Excel (.xlsx), atau PDF resmi secara presisi dan non-empty.
+    Fitur ini eksklusif untuk akun Student Pro, Developer, atau Admin.
     """
     user_id = current_user["id"]
+    quota = get_user_quota_status(user_id)
+    is_pro = (
+        current_user.get("role") == "admin"
+        or current_user.get("subscription_tier") in ("pro", "developer")
+        or quota.get("is_developer") is True
+        or quota.get("tier_category") in ("student", "developer")
+        or quota.get("tier") in ("pro", "developer", "student")
+    )
+    if not is_pro:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fitur ekspor matriks komparasi (CSV/Excel/PDF) eksklusif untuk akun Student Pro.",
+        )
+
     try:
         data = fetch_project_export_data(project_id, user_id)
     except ValueError as e:
@@ -1561,6 +1576,24 @@ def get_comparative_matrix(
             )
             comp_rows = cur.fetchall()
 
+            # Quota & Tier Evaluation for Server-Side Data Masking (Zero-Trust)
+            quota = get_user_quota_status(user_id)
+            is_pro = (
+                current_user.get("role") == "admin"
+                or current_user.get("subscription_tier") in ("pro", "developer")
+                or quota.get("is_developer") is True
+                or quota.get("tier_category") in ("student", "developer")
+                or quota.get("tier") in ("pro", "developer", "student")
+            )
+
+            FREE_ALLOWED_PARAM_KEYS = {
+                "research_problem",
+                "subject_demographics",
+                "research_objective",
+                "research_questions",
+            }
+            param_tab_map = {p["key"]: p.get("tab_group", "") for p in parameters}
+
             # Group cells by parameter_key -> paper_id
             matrix_cells = {}
             for row in comp_rows:
@@ -1568,13 +1601,40 @@ def get_comparative_matrix(
                 pid = str(row["paper_id"])
                 if pkey not in matrix_cells:
                     matrix_cells[pkey] = {}
+
+                # Security & Anti-Tampering: Server-Side Data Redaction for Free Tier
+                is_unlocked = (
+                    is_pro
+                    or pkey in FREE_ALLOWED_PARAM_KEYS
+                    or param_tab_map.get(pkey) == "konteks_masalah"
+                )
+
+                if is_unlocked:
+                    cell_value = row["value"] or {}
+                    cell_evidence = row["evidence"] or []
+                    cell_locked = False
+                else:
+                    # Redact to first sentence or max 100 chars teaser only
+                    raw_text = (row["value"] or {}).get("text", "")
+                    if raw_text:
+                        first_sentence = raw_text.split(". ")[0].strip()
+                        if len(first_sentence) > 100:
+                            first_sentence = first_sentence[:97] + "..."
+                        teaser_text = first_sentence
+                    else:
+                        teaser_text = ""
+                    cell_value = {"text": teaser_text}
+                    cell_evidence = []  # Strip physical PDF evidence coordinates and quotes
+                    cell_locked = True
+
                 matrix_cells[pkey][pid] = {
                     "id": str(row["id"]),
                     "state": row["state"],
-                    "value": row["value"] or {},
-                    "evidence": row["evidence"] or [],
+                    "value": cell_value,
+                    "evidence": cell_evidence,
                     "confidence_score": float(row["confidence_score"]) if row["confidence_score"] is not None else 0.0,
                     "status": row["status"],
+                    "is_locked": cell_locked,
                 }
 
             return {
@@ -1637,6 +1697,21 @@ def synthesize_knowledge_graph_gap(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Pilih satu celah riset terlebih dahulu untuk disusun menjadi rumusan masalah.",
+        )
+
+    # Security & Anti-Tampering: Fitur sintesis AI rumusan masalah eksklusif Student Pro / Admin
+    quota = get_user_quota_status(user_id)
+    is_pro = (
+        current_user.get("role") == "admin"
+        or current_user.get("subscription_tier") in ("pro", "developer")
+        or quota.get("is_developer") is True
+        or quota.get("tier_category") in ("student", "developer")
+        or quota.get("tier") in ("pro", "developer", "student")
+    )
+    if not is_pro:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fitur sintesis rumusan masalah AI eksklusif untuk akun Student Pro.",
         )
 
     # 1. Verify project ownership (the connection is released before the slow AI call)
