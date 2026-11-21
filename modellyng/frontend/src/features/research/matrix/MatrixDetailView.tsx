@@ -20,6 +20,9 @@ import { Card } from "@/components/ui/card"
 import { FilterTabs, type FilterTabOption } from "@/components/ui/filter-tabs"
 import { SearchField } from "@/components/ui/search-field"
 import { ROUTES } from "@/app/routes"
+import { useAuthStore } from "@/features/auth/store/authStore"
+import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 import { useComparativeMatrix, type MatrixParameter } from "@/features/projects/api/projectsApi"
 import { ContentMatrixTable } from "./components/ContentMatrixTable"
 import type { CellDetailRequest, EvidenceRequest } from "./components/ContentMatrixTable"
@@ -51,6 +54,25 @@ const SCROLL_STEP_PX = 320
 export default function MatrixDetailView() {
   const { projectId } = useParams<{ projectId: string }>()
   const { data: matrixData, isLoading, isError, refetch } = useComparativeMatrix(projectId)
+
+  const user = useAuthStore((s) => s.user)
+  const { quota } = useUserQuota()
+
+  const isAdmin =
+    user?.role === "admin" ||
+    user?.subscription_tier === "developer" ||
+    quota?.is_developer === true
+  const isPro =
+    user?.subscription_tier === "pro" ||
+    quota?.tier_category === "student" ||
+    quota?.tier === "student_14" ||
+    quota?.tier === "student_30" ||
+    quota?.tier === "pro_scholar"
+  const isProUser = isAdmin || isPro
+  const isFreeUser = !isProUser
+
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false)
+  const handleTriggerUpgrade = () => setIsPromoModalOpen(true)
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedGroup, setSelectedGroup] = useState("all")
@@ -310,6 +332,8 @@ export default function MatrixDetailView() {
             matrix={matrixData.matrix}
             compact={viewMode === "compact"}
             scrollProps={contentScroll}
+            isFreeUser={isFreeUser}
+            onTriggerUpgrade={handleTriggerUpgrade}
             onOpenCell={setCellDetail}
             onOpenEvidence={setEvidenceRequest}
           />
@@ -321,6 +345,8 @@ export default function MatrixDetailView() {
         <ProjectSynthesisCard
           synthesis={projectSynthesis}
           projectName={matrixData.project_name}
+          isFreeUser={isFreeUser}
+          onTriggerUpgrade={handleTriggerUpgrade}
         />
       )}
 
@@ -390,6 +416,12 @@ export default function MatrixDetailView() {
           />
         </Suspense>
       )}
+
+      <FeaturePromoModal
+        feature="matrix"
+        forceOpen={isPromoModalOpen}
+        onClose={() => setIsPromoModalOpen(false)}
+      />
     </div>
   )
 }

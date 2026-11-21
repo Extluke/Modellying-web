@@ -932,6 +932,22 @@ DETAIL FITUR & INTEGRASI SISTEM
     - Seksi Posisi Spesifik Tiap Dokumen dalam Peta Literatur (`paperPositions`):
       Menyajikan posisi kontribusi dan kebaruan setiap dokumen secara utuh tanpa pemotongan string (`.slice()`/ellipsis `...`), dinarasikan alami dalam bahasa akademis baku, serta bebas dari tabrakan titik ganda maupun duplikasi sitasi di dalam kartu.
     Dilengkapi tombol "Salin Poin" dan "Salin Paragraf Akademik" dengan feedback toast 5 detik.
+  * Penerapan Batasan Akun Freemium (Paywall Tier) pada Matriks Komparasi:
+    Menerapkan sistem pembatasan tier freemium secara ketat dan elegan pada Matriks Komparasi (`MatrixDetailView.tsx`, `ContentMatrixTable.tsx`, dan `ProjectSynthesisCard.tsx`) berdasarkan 3 kelas pengguna di basis data (`free`, `pro`, `admin`):
+    - Penentuan Tingkatan Akun Real-Time (`isFreeUser` vs `isProUser`):
+      Mengombinasikan data autentikasi `useAuthStore` (`user.role`, `user.subscription_tier`) dan status kuota aktif `useUserQuota` (`quota.tier_category`, `quota.is_developer`). Pengguna dengan role `admin`, tier `developer`, atau langganan aktif `pro` / `student` (`student_14`, `student_30`, `pro_scholar`) mendapatkan akses penuh tanpa sensor (100% unlocked).
+    - Kolom Konteks & Masalah Terbuka Penuh:
+      Pengguna akun Free dapat membaca secara utuh seluruh kolom pada kelompok Konteks & Masalah (`research_problem` / Rumusan Masalah, `subject_demographics` / Konteks & Demografi Subjek, `research_objective`, dan `research_questions`) beserta skor keyakinan dan navigasi bukti kutipan naskah PDF kanoniknya.
+    - Kolom Lanjutan Terkunci dengan Efek Blur & Teaser:
+      Seluruh kolom lanjutan (Kelompok Metode & Data: `methodology`, `dataset_sample`, `variables_concepts`, `evaluation_metrics`; dan Kelompok Hasil & Gap: `results_findings`, `novelty`, `key_claims`, `limitations`, `future_work`) dikunci untuk akun Free:
+      1) Baris Pertama Sebagai Teaser: Baris awal formulasi teks tetap tampak jelas (`line-clamp-1 text-xs font-medium text-foreground select-none`) untuk menggugah minat penelusuran akademis peneliti.
+      2) Konten Lanjutan Berkabut (Blur): Kalimat lanjutan disensor dengan efek visual blur halus (`blur-[3.5px] select-none pointer-events-none opacity-60`).
+      3) Overlay CTA Interaktif & Lencana Gembok: Dilengkapi lencana header gembok `Lock` "Pro" pada judul kolom serta tombol mikro "Upgrade Pro" di tengah sel yang langsung memicu pop-up promosi.
+      4) Proteksi Akses Bukti PDF & Modal Rinci: Tombol klik "Selengkapnya" dan tautan bukti "Hal. X" pada sel terkunci dicegah membuka modal/PDF dan dialihkan secara elegan untuk menawarkan upgrade Student Pro.
+    - Penguncian Kartu Sintesis AI Global Komparatif (`ProjectSynthesisCard.tsx`):
+      Menampilkan lencana gembok "Khusus Student Pro" di header kartu. Pada bodi kartu, naskah narasi akademik formal ditampilkan 2 baris awal sebagai teaser penggugah minat, sementara seluruh komparasi komprehensif di bawahnya (perbedaan metodologi, perbandingan variabel riset, pola data riil, kesenjangan, dan ide riset lanjutan) diproteksi di balik kontainer frosted glass (`backdrop-blur-md bg-card/95`) dengan kartu CTA terpusat: "Buka Seluruh Sintesis AI Global Komparatif". Tombol "Salin Poin" dan "Salin Paragraf Akademik" diproteksi dengan umpan balik toast informatif 5 detik.
+    - Integrasi Modal Promosi & Checkout WhatsApp Admin:
+      Setiap penekanan tombol CTA pada matriks atau kartu sintesis otomatis memicu `<FeaturePromoModal feature="matrix" forceOpen={true}>` yang terhubung langsung ke WhatsApp Admin resmi via `buildPricingWhatsAppUrl` untuk aktivasi paket Student Pro (14 hari / 30 hari).
   * Kartu Laporan Intelijen & Bibliografi Riset (`IntelligenceReportCard.tsx`):
     Kartu laporan intelijen komprehensif yang menyajikan metrik statistik riset (total relasi,
     komponen terverifikasi, rata-rata skor keyakinan AI, dan jumlah klaim butuh evaluasi bukti),
@@ -1270,6 +1286,12 @@ DETAIL FITUR & INTEGRASI SISTEM
   Hasilnya (3 usulan judul, 2-3 pertanyaan penelitian, pernyataan novelty, alasan pemilihan) tampil pada
   `SynthesisResultDialog.tsx` sebagai draf yang wajib ditinjau pengguna. Bila semua model gagal, pengguna menerima pesan galat
   (HTTP 503) dan tidak ada teks pengganti yang dikarang.
+
+- Penerapan Batasan Akun Freemium (Paywall Tier) pada Graf Pengetahuan:
+  * Penentuan Tingkatan Pengguna Real-Time: Mengombinasikan `useAuthStore` dan `useUserQuota`. Pengguna Pro (`pro` / `student`) dan Admin/Developer mendapatkan akses interaktif penuh tanpa batas.
+  * Efek Visual Sensor (Blur Teaser): Pada pengguna akun Free, seluruh kanvas Graf Pengetahuan (`KnowledgeGraphCanvas.tsx`) disamarkan di balik efek blur (`filter blur-[4.5px] opacity-40 pointer-events-none select-none`). Simpul-simpul riset tetap tampak samar di latar belakang sebagai teaser penggugah minat penelusuran.
+  * Overlay CTA Interaktif & Lencana Gembok: Menampilkan kartu dialog melayang di tengah kanvas berbalut kaca buram (`backdrop-blur-md bg-card/95 border border-primary/25 shadow-2xl`) dengan judul "Buka Graf Pengetahuan Interaktif", deskripsi manfaat ilmiah, lencana gembok, dan tombol CTA "Upgrade ke Student Pro Sekarang".
+  * Proteksi Klik Simpul & Modal Promosi: Interaksi pemilihan simpul, sintesis AI, dan telaah bukti PDF dicegah untuk akun Free dan langsung memicu pop-up promosi terpadu (`FeaturePromoModal feature="gap_map"`).
 
 - Keterbatasan saat ini: simpul diturunkan dari teks sel ekstraksi, bukan dari ekstraksi entitas khusus seperti pada aplikasi mobile,
   sehingga pada proyek kecil sebagian besar simpul hanya dilaporkan oleh satu paper dan berada pada satu zona saturasi.

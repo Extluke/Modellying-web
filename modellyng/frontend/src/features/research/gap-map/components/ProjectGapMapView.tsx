@@ -1,7 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Compass, ArrowLeft, CheckCircle2, GitBranch, AlertTriangle, Target } from "lucide-react"
+import { Compass, ArrowLeft, CheckCircle2, GitBranch, AlertTriangle, Target, Crown, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { useAuthStore } from "@/features/auth/store/authStore"
+import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 import {
   useProjects,
   useComparativeMatrix,
@@ -57,6 +61,26 @@ export function ProjectGapMapView({ projectId, onBackToProjects }: ProjectGapMap
   const [, setSearchParams] = useSearchParams()
   const { data: projectList = [] } = useProjects({ status: "active" })
   const { data: matrixData, isLoading, isError, refetch } = useComparativeMatrix(projectId)
+
+  const user = useAuthStore((s) => s.user)
+  const { quota } = useUserQuota()
+
+  const isAdmin =
+    user?.role === "admin" ||
+    user?.subscription_tier === "developer" ||
+    quota?.is_developer === true
+  const isPro =
+    user?.subscription_tier === "pro" ||
+    quota?.tier_category === "student" ||
+    quota?.tier === "student_14" ||
+    quota?.tier === "student_30" ||
+    quota?.tier === "pro_scholar"
+  const isProUser = isAdmin || isPro
+  const isFreeUser = !isProUser
+
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false)
+  const handleTriggerUpgrade = useCallback(() => setIsPromoModalOpen(true), [])
+
   const { selectedGapId, setSelectedGapId, summaryGapId, setSummaryGapId, resetStore } = useGapMapStore()
 
   const [evidenceTarget, setEvidenceTarget] = useState<EvidenceTarget | null>(null)
@@ -230,7 +254,40 @@ export function ProjectGapMapView({ projectId, onBackToProjects }: ProjectGapMap
 
         <div className="space-y-6">
           {/* Interactive React Flow Canvas */}
-          <ResearchFlowCanvas graphData={graphData} />
+          <div className="relative overflow-hidden rounded-2xl border border-border/80">
+            <div className={cn(isFreeUser && "pointer-events-none select-none filter blur-[4.5px] opacity-40 scale-[1.01]")}>
+              <ResearchFlowCanvas graphData={graphData} />
+            </div>
+
+            {/* Frosted Glass Overlay CTA jika Akun Free Tier */}
+            {isFreeUser && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-background/60 backdrop-blur-md">
+                <div className="relative flex flex-col items-center justify-center max-w-lg p-6 sm:p-8 bg-card/95 backdrop-blur-md rounded-2xl border border-primary/25 shadow-2xl text-center animate-in zoom-in-95 duration-200">
+                  <div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4 shadow-inner">
+                    <GitBranch className="size-7" />
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-0.5 text-[11px] font-bold text-primary border border-primary/20 mb-2">
+                    <Lock className="size-3" />
+                    <span>Fitur Eksklusif Student Pro</span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">
+                    Buka Kanvas Alur &amp; Peta Celah Riset
+                  </h3>
+                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed max-w-md">
+                    Analisis 4 tahap alur riset, deteksi celah metodologi langka, dan rumuskan novelty proposal penelitian lanjutan secara interaktif tanpa sensor.
+                  </p>
+                  <Button
+                    onClick={handleTriggerUpgrade}
+                    size="sm"
+                    className="mt-5 gap-2 px-6 py-2.5 font-bold shadow-md hover:shadow-primary/25 hover:scale-[1.02] transition-all cursor-pointer"
+                  >
+                    <Crown className="size-4" />
+                    <span>Upgrade ke Student Pro Sekarang</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Research Gaps (below the canvas, as in the mobile app) */}
           <ResearchGapsSection
@@ -280,6 +337,12 @@ export function ProjectGapMapView({ projectId, onBackToProjects }: ProjectGapMap
           onClose={() => setSynthesisOutcome(null)}
         />
       )}
+
+      <FeaturePromoModal
+        feature="gap_map"
+        forceOpen={isPromoModalOpen}
+        onClose={() => setIsPromoModalOpen(false)}
+      />
     </div>
   )
 }
