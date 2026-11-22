@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { toast } from "@/lib/store/useToastStore"
 import { useAuthStore } from "@/features/auth/store/authStore"
+import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
 import { PRICING_PLANS } from "@/features/styleguide/components/PricingSection"
 import {
   ADMIN_WHATSAPP_DISPLAY,
@@ -16,7 +17,6 @@ import {
   type PromoFeatureType,
   canShowFeaturePromo,
   recordFeaturePromoShown,
-  getPromoCooldownDisplay,
 } from "../promoConfig"
 import {
   FeatureThumbnailPreview,
@@ -35,11 +35,27 @@ export function FeaturePromoModal({
   onClose,
 }: FeaturePromoModalProps) {
   const user = useAuthStore((s) => s.user)
+  const { quota } = useUserQuota()
   const [isOpen, setIsOpen] = useState(false)
   const [selectedPlanOption, setSelectedPlanOption] = useState<"14_days" | "30_days">("30_days")
 
+  // Pengguna Pro (student_14, student_30) dan Developer/Admin sama sekali bebas iklan dan promosi
+  const isPaidOrDeveloper =
+    user?.subscription_tier === "student_14" ||
+    user?.subscription_tier === "student_30" ||
+    user?.subscription_tier === "developer" ||
+    user?.role === "admin" ||
+    quota?.is_developer ||
+    quota?.tier_category === "student"
+
   // Otomatis mengecek apakah cooldown 5 menit (testing) / 24 jam (prod) sudah lewat
   useEffect(() => {
+    // Pengguna berbayar atau Developer sama sekali bebas iklan dan promosi
+    if (isPaidOrDeveloper) {
+      setIsOpen(false)
+      return
+    }
+
     if (forceOpen) {
       setIsOpen(true)
       return
@@ -50,7 +66,7 @@ export function FeaturePromoModal({
       // Catat waktu kemunculan agar cooldown segera aktif
       recordFeaturePromoShown(feature)
     }
-  }, [feature, forceOpen])
+  }, [feature, forceOpen, isPaidOrDeveloper])
 
   const handleClose = () => {
     setIsOpen(false)
@@ -59,10 +75,6 @@ export function FeaturePromoModal({
     if (onClose) {
       onClose()
     }
-    toast.info(
-      `Thumbnail promosi ditutup. Cooldown ${getPromoCooldownDisplay()} aktif untuk kenyamanan Anda.`,
-      5000
-    )
   }
 
   const handleUpgradeViaWhatsApp = () => {
@@ -83,12 +95,12 @@ export function FeaturePromoModal({
     handleClose()
   }
 
-  if (!isOpen) return null
+  if (isPaidOrDeveloper || !isOpen) return null
 
   const content = PROMO_FEATURE_CONTENT[feature]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -98,7 +110,7 @@ export function FeaturePromoModal({
           type="button"
           onClick={handleClose}
           className="absolute top-4 right-4 z-20 size-8 rounded-full bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-xs"
-          title="Tutup Promosi (Cooldown 5 Menit)"
+          title="Tutup Promosi"
         >
           <X className="size-4" />
         </button>
@@ -235,9 +247,4 @@ export function FeaturePromoModal({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+          </div

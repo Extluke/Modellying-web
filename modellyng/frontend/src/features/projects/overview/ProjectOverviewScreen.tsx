@@ -33,6 +33,7 @@ import {
 import { UploadPdfModal } from "./UploadPdfModal"
 import { ExportDropdownButton } from "./ExportDropdownButton"
 import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
+import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
 import { ROUTES } from "@/app/routes"
 import { toast } from "@/lib/store/useToastStore"
 
@@ -67,7 +68,25 @@ export default function ProjectOverviewScreen() {
   const bulkAcceptMutation = useBulkAcceptReviews(projectId || "")
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isForcePromoOpen, setIsForcePromoOpen] = useState(false)
   const [deletingPaper, setDeletingPaper] = useState<Paper | null>(null)
+  const { quota } = useUserQuota()
+
+  const handleOpenUploadModal = () => {
+    // Jika kuota harian telah habis (0 tersisa)
+    if (quota && !quota.is_developer && quota.remaining_files <= 0) {
+      if (quota.tier_category === "student") {
+        toast.info(
+          `Batas kuota harian Anda (${quota.daily_file_limit} dokumen) telah tercapai. Kuota token akan direset kembali pada pukul 00:00 WIB.`,
+          5000
+        )
+        return
+      }
+      setIsForcePromoOpen(true)
+      return
+    }
+    setIsUploadModalOpen(true)
+  }
 
   // Search and Sort state
   const [searchQuery, setSearchQuery] = useState("")
@@ -260,7 +279,7 @@ export default function ProjectOverviewScreen() {
             />
 
             <Button
-              onClick={() => setIsUploadModalOpen(true)}
+              onClick={handleOpenUploadModal}
               className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/25 h-10 px-4 text-xs font-medium cursor-pointer"
             >
               <Upload className="size-4" />
@@ -404,7 +423,7 @@ export default function ProjectOverviewScreen() {
               </p>
             </div>
             <Button
-              onClick={() => setIsUploadModalOpen(true)}
+              onClick={handleOpenUploadModal}
               className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground mt-2 cursor-pointer"
             >
               <Upload className="size-4" />
@@ -675,6 +694,7 @@ export default function ProjectOverviewScreen() {
         onClose={() => setIsUploadModalOpen(false)}
         projectId={project.id}
         existingFilenames={papers.filter((p) => p.status !== "failed").map((p) => p.file_name)}
+        onTriggerPromo={() => setIsForcePromoOpen(true)}
       />
 
       {/* Delete Paper Confirmation Modal */}
@@ -734,8 +754,7 @@ export default function ProjectOverviewScreen() {
         </div>
       )}
 
-      {/* Promotional Modal (Cooldown 5 Menit / 24 Jam) */}
-      <FeaturePromoModal feature="upload" />
-    </div>
-  )
-}
+      {/* Promotional Modal (Cooldown 5 Menit / 24 Jam atau dipicu otomatis saat kuota habis / berlebih) */}
+      <FeaturePromoModal
+        feature="upload"
+        forceOpen={isForcePromoOpen}

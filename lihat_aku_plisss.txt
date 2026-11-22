@@ -1284,18 +1284,27 @@ DETAIL FITUR & INTEGRASI SISTEM
 
 17. PENERAPAN THUMBNAIL PROMOSI OTOMATIS SAAT PROYEK & FITUR DIBUKA
 --------------------------------------------------------------------------------
-- Lokasi Penayangan Otomatis Sesuai Fitur Terkait:
+- Lokasi Penayangan Otomatis Sesuai Fitur Terkait (Khusus saat membuka ruang kerja proyek):
   1. Halaman Upload PDF (`/projects/:projectId/overview`):
      - Memunculkan thumbnail promosi `upload` (Batas Kuota Dokumen & Token Harian) saat pengguna membuka ruang kerja overview proyek.
-  2. Halaman Comparative Matrix (`/matrix/overview`, `/matrix`, `/projects/:projectId/matrix`):
-     - Memunculkan thumbnail promosi `matrix` (Analisis Lengkap 13 Parameter) saat pengguna membuka overview/katalog matriks maupun ruang kerja matriks.
-  3. Halaman Graf Pengetahuan (`/knowledge-graph/overview`, `/knowledge-graph`, `/projects/:projectId/knowledge-graph`):
-     - Memunculkan thumbnail promosi `gap_map` (Relasi Antarpenelitian & Celah Novelty) saat pengguna membuka overview graf pengetahuan maupun kanvas graf.
+  2. Halaman Comparative Matrix (`/projects/:projectId/matrix`):
+     - Memunculkan thumbnail promosi `matrix` (Analisis Lengkap 13 Parameter) khusus saat pengguna membuka ruang kerja matriks suatu proyek (tidak muncul di halaman depan katalog /matrix).
+  3. Halaman Graf Pengetahuan (`/projects/:projectId/knowledge-graph`):
+     - Memunculkan thumbnail promosi `gap_map` (Relasi Antarpenelitian & Celah Novelty) khusus saat pengguna membuka kanvas graf pengetahuan suatu proyek (tidak muncul di halaman depan katalog /knowledge-graph).
 - Konfigurasi Timer Cooldown Fleksibel (Testing 5 Menit vs Produksi 24 Jam):
   * Pengaturan Cooldown Testing: Ditetapkan 5 menit (`TESTING_COOLDOWN_MS = 5 * 60 * 1000`) agar tim developer/penguji dapat memverifikasi kemunculan modal secara berulang tanpa perlu menunggu 24 jam penuh.
   * Jalur Kustomisasi CMS Admin / LocalStorage: Sistem menyediakan jalur override dinamis melalui kunci `modellyng_cms_promo_cooldown_minutes` di localStorage. Nilai ini siap dihubungkan langsung ke konfigurasi CMS Admin (`/admin/cms`).
-  * Proteksi Anti-Spam: Setiap kali modal ditutup, timestamp dicatat ke `localStorage` dengan prefix `modellyng_promo_last_shown_<feature>`, menjamin pengguna tidak terganggu oleh iklan berulang dalam rentang cooldown aktif.
+  * Proteksi Anti-Spam: Setiap kali modal ditutup, timestamp dicatat ke `localStorage` dengan prefix `modellyng_promo_last_shown_<feature>`, menjamin pengguna tidak terganggu oleh iklan berulang dalam rentang cooldown aktif. Seluruh notifikasi toast saat modal ditutup telah dihilangkan sepenuhnya demi menjaga tampilan antarmuka tetap bersih, elegan, dan profesional.
   * Aksi Langsung ke WhatsApp Admin: Pengguna dapat memilih durasi Student Pro (14 Hari Rp29.000 atau 30 Hari Rp49.000) dan mengklik tombol "Upgrade via WhatsApp" untuk dipandu instan oleh Admin Modellyng (+62 812-6927-4671).
+- Hak Istimewa Pengguna Berlangganan (Student Pro & Developer / Admin Bebas Iklan 100%):
+  * Bebas Promosi & Bebas Iklan Penuh: Pengguna dengan paket aktif Student Pro (`student_14`, `student_30`) dan pengembang/admin (`developer`, `admin`, `role === 'admin'`) DIJAMIN 100% BEBAS DARI SELURUH THUMBNAIL PROMOSI. Komponen `FeaturePromoModal` secara otomatis mengembalikan nilai `null` sehingga tidak akan pernah muncul di halaman manapun (`/matrix`, `/knowledge-graph`, `/projects/:id/overview`, dll.).
+  * Notifikasi Santun Saat Batas Kuota Tercapai: Ketika pengguna Student Pro mencapai batas kuota harian (15 dokumen per hari):
+    1. Sistem SAMA SEKALI TIDAK memunculkan thumbnail promosi ataupun tombol penawaran paket.
+    2. Sistem menyajikan pemberitahuan informatif yang santun melalui toast universal 5 detik:
+       "Batas kuota harian Anda (15 dokumen) telah tercapai. Kuota token akan direset kembali pada pukul 00:00 WIB."
+    3. Di dalam modal unggah (`UploadPdfModal.tsx`), banner status kuota menampilkan informasi bersih:
+       "Batas kuota harian (15 dokumen) telah tercapai. Kuota token akan direset kembali pukul 00:00 WIB." tanpa tombol "Tingkatkan Paket".
+    4. Jika pengguna memilih berkas melebihi sisa kuota (misal sisa 2 kuota tetapi memilih 5 dokumen), sistem secara cerdas memotong antrean hanya mengambil 2 berkas pertama dan membatalkan sisanya dengan pesan santun tanpa memicu modal promosi.
 
 
 ================================================================================
@@ -1388,5 +1397,10 @@ tipe data TypeScript pada frontend dengan menjalankan perintah:
 - Mengapa Muncul Pesan "Batas Kuota Harian Tercapai"?
   * Pengguna pada Free Plan telah mengunggah 3 dokumen dalam hari berjalan.
   * Kuota otomatis direset pada pukul 00:00 WIB (Asia/Jakarta). Pengguna dapat meningkatkan paket ke Student Pro melalui tautan WhatsApp admin di halaman `/settings/pricing`.
+- Logika Pemotongan & Truncation Pemilihan File Berlebih (Free Tier):
+  * Jika pengguna Free memilih file melebihi sisa kuota harian (misal sisa kuota 3 file tetapi memilih 7 file PDF), sistem hanya mengambil 3 file pertama sesuai urutan pemilihan dan langsung membatalkan/menghapus file sisanya dari antrean unggah.
+  * Seketika setelah pemilihan file selesai, dialog thumbnail promosi (`FeaturePromoModal upload`) otomatis terbuka secara paksa (`forceOpen`) mempromosikan paket Student Pro.
+- Proteksi Mutlak Tombol "Unggah PDF" Saat Kuota Habis:
+  * Jika batas kuota harian pengguna Free telah tercapai (0 file tersisa), klik pada tombol "Unggah Paper PDF" di ikhtisar proyek otomatis langsung memunculkan dialog thumbnail promosi Student Pro, sehingga modal antrean unggah tidak dapat dibuka sama sekali.
 
 ================================================================================

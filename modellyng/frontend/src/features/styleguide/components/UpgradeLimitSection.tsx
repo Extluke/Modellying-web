@@ -474,7 +474,6 @@ export function UpgradeLimitSection() {
     const now = Date.now()
     localStorage.setItem(storageKey, now.toString())
     setLastShownTime(new Date(now).toLocaleTimeString("id-ID") + " (Hari Ini)")
-    toast.info("Thumbnail promosi ditutup. Sistem mencatat timer 24 jam untuk pengguna ini.")
   }
 
   // Handler reset jam simulasi
@@ -1105,12 +1104,4 @@ export function UpgradeLimitSection() {
                       Nanti Saja
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  )
-}
+             

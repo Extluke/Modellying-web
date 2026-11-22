@@ -37,6 +37,7 @@ interface UploadPdfModalProps {
   onClose: () => void
   projectId: string
   existingFilenames?: string[]
+  onTriggerPromo?: () => void
 }
 
 const MAX_FILES = 15
@@ -48,6 +49,7 @@ export function UploadPdfModal({
   onClose,
   projectId,
   existingFilenames = [],
+  onTriggerPromo,
 }: UploadPdfModalProps) {
   const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
@@ -105,21 +107,70 @@ export function UploadPdfModal({
       if (!fileList || fileList.length === 0) return
 
       if (quota && !quota.is_developer && quota.remaining_files <= 0) {
+        if (quota.tier_category === "student") {
+          toast.info(
+            `Batas kuota harian Anda (${quota.daily_file_limit} dokumen) telah tercapai. Kuota token akan direset kembali pada pukul 00:00 WIB.`,
+            5000
+          )
+          return
+        }
         toast.warning(
-          `Batas kuota harian (${quota.daily_file_limit} dokumen) telah tercapai. Kuota akan direset pada pukul 00:00 WIB.`,
+          `Batas kuota harian (${quota.daily_file_limit} dokumen) telah tercapai. Tingkatkan paket untuk melanjutkan unggahan.`,
           5000
         )
+        onTriggerPromo?.()
         return
       }
+
+      // Hitung sisa slot kuota yang dapat diterima dalam sesi saat ini
+      const activeQueueCount = queue.filter((q) => q.status !== "error").length
+      const availableQuotaSlots = quota && !quota.is_developer
+        ? Math.max(0, quota.remaining_files - activeQueueCount)
+        : MAX_FILES - queue.length
 
       const remainingSlots = quota && !quota.is_developer
-        ? Math.min(MAX_FILES - queue.length, quota.remaining_files)
+        ? Math.min(MAX_FILES - queue.length, availableQuotaSlots)
         : MAX_FILES - queue.length
+
       if (remainingSlots <= 0) {
+        if (quota?.tier_category === "student") {
+          toast.info(
+            `Batas kuota harian Anda (${quota.daily_file_limit} dokumen) telah tercapai. Kuota token akan direset kembali pada pukul 00:00 WIB.`,
+            5000
+          )
+          return
+        }
+        toast.warning(
+          `Batas kuota harian (${quota?.daily_file_limit || 3} dokumen) telah tercapai. Tingkatkan paket untuk melanjutkan unggahan.`,
+          5000
+        )
+        onTriggerPromo?.()
         return
       }
 
-      const filesToProcess = Array.from(fileList).slice(0, remainingSlots)
+      const allSelectedFiles = Array.from(fileList)
+      const isExcess = quota && !quota.is_developer && allSelectedFiles.length > remainingSlots
+
+      // Hanya ambil sebanyak remainingSlots sesuai urutan, sisanya dihapus/dibatalkan dari antrean
+      const filesToProcess = allSelectedFiles.slice(0, remainingSlots)
+      const discardedCount = allSelectedFiles.length - filesToProcess.length
+
+      if (isExcess && discardedCount > 0) {
+        if (quota.tier_category === "student") {
+          toast.info(
+            `Sesuai sisa kuota harian Student Pro Anda, hanya ${remainingSlots} file pertama yang diproses. Sisa ${discardedCount} file dibatalkan dari antrean. Kuota harian Anda akan direset pukul 00:00 WIB.`,
+            5000
+          )
+        } else {
+          toast.warning(
+            `Sesuai kuota Free Plan, hanya ${remainingSlots} file pertama yang diproses. Sisa ${discardedCount} file dibatalkan dari antrean.`,
+            5000
+          )
+          // Otomatis munculkan thumbnail promosi paket Pro
+          onTriggerPromo?.()
+        }
+      }
+
       const newItems: UploadFileItem[] = []
 
       for (const file of filesToProcess) {
@@ -171,7 +222,7 @@ export function UploadPdfModal({
         )
       }
     },
-    [queue.length, quota]
+    [queue, quota, onTriggerPromo]
   )
 
   // Upload Worker Loop (Concurrency 2-3)
@@ -403,16 +454,25 @@ export function UploadPdfModal({
 
                 {quota.remaining_files <= 0 && (
                   <div className="flex items-center justify-between pt-1 text-[11px]">
-                    <span className="text-amber-800 dark:text-amber-300 font-medium">
-                      Batas kuota tercapai. Ingin kuota 15 dokumen per hari?
-                    </span>
-                    <a
-                      href="/settings/pricing"
-                      className="font-bold text-primary hover:underline ml-2 shrink-0 inline-flex items-center gap-1"
-                    >
-                      <span>Tingkatkan Paket</span>
-                      <span>→</span>
-                    </a>
+                    {quota.tier_category === "student" ? (
+                      <span className="text-muted-foreground font-medium">
+                        Batas kuota harian ({quota.daily_file_limit} dokumen) telah tercapai. Kuota token akan direset kembali pukul 00:00 WIB.
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-amber-800 dark:text-amber-300 font-medium">
+                          Batas kuota tercapai. Ingin kuota 15 dokumen per hari?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onTriggerPromo?.()}
+                          className="font-bold text-primary hover:underline ml-2 shrink-0 inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                        >
+                          <span>Tingkatkan Paket</span>
+                          <span>→</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -434,10 +494,18 @@ export function UploadPdfModal({
           }}
           onClick={() => {
             if (quota && !quota.is_developer && quota.remaining_files <= 0) {
+              if (quota.tier_category === "student") {
+                toast.info(
+                  `Batas kuota harian Anda (${quota.daily_file_limit} dokumen) telah tercapai. Kuota token akan direset kembali pada pukul 00:00 WIB.`,
+                  5000
+                )
+                return
+              }
               toast.warning(
-                "Batas kuota harian telah tercapai (3 dokumen). Tingkatkan paket untuk melanjutkan unggahan.",
+                `Batas kuota harian (${quota.daily_file_limit} dokumen) telah tercapai. Tingkatkan paket untuk melanjutkan unggahan.`,
                 5000
               )
+              onTriggerPromo?.()
               return
             }
             fileInputRef.current?.click()
@@ -628,9 +696,4 @@ export function UploadPdfModal({
             className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
           >
             {hasActiveUploads ? "Tutup (Berjalan di Latar)" : "Selesai"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
+          </
