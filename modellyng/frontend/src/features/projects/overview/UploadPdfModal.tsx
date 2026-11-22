@@ -696,4 +696,9 @@ export function UploadPdfModal({
             className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
           >
             {hasActiveUploads ? "Tutup (Berjalan di Latar)" : "Selesai"}
-          </
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}

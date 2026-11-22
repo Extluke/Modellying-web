@@ -247,4 +247,9 @@ export function FeaturePromoModal({
                 </button>
               </div>
             </div>
-          </div
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

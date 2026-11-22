@@ -758,3 +758,8 @@ export default function ProjectOverviewScreen() {
       <FeaturePromoModal
         feature="upload"
         forceOpen={isForcePromoOpen}
+        onClose={() => setIsForcePromoOpen(false)}
+      />
+    </div>
+  )
+}
