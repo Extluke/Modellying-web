@@ -47,6 +47,9 @@ export interface AdminUserItem {
   status: "active" | "suspended" | "deactivated"
   suspension_reason: string | null
   subscription_tier: string
+  subscription_status?: "active" | "pending_approval" | "rejected"
+  subscription_requested_at?: string | null
+  subscription_approved_at?: string | null
   citation_format: string
   total_projects: number
   total_papers: number
@@ -84,10 +87,15 @@ export interface SubscriptionPlanItem {
   description: string | null
   price: number
   currency: string
-  billing_period: "free" | "monthly" | "annual" | "lifetime"
-  paper_limit_per_month: number
-  ai_query_limit_per_day: number
-  features: string[]
+  billing_period: "free" | "monthly" | "annual" | "lifetime" | "fixed_days"
+  paper_limit_per_month?: number
+  ai_query_limit_per_day?: number
+  duration_days?: number
+  daily_file_limit?: number | null
+  daily_token_limit?: number
+  total_tokens_max?: number
+  tier_category?: "free" | "student" | "enterprise"
+  features: Array<string | { text: string; is_available?: boolean; status_badge?: string; is_limited?: boolean }>
   is_active: boolean
   is_popular: boolean
   sort_order: number
@@ -105,7 +113,12 @@ export interface SubscriptionPlanCreateData {
   billing_period?: string
   paper_limit_per_month?: number
   ai_query_limit_per_day?: number
-  features: string[]
+  duration_days?: number
+  daily_file_limit?: number | null
+  daily_token_limit?: number
+  total_tokens_max?: number
+  tier_category?: string
+  features: Array<string | { text: string; is_available?: boolean; status_badge?: string; is_limited?: boolean }>
   is_active?: boolean
   is_popular?: boolean
   sort_order?: number
@@ -144,7 +157,7 @@ export interface AnnouncementCreateData {
 // --- JOB 5: DYNAMIC API CONFIGURATION ---
 export interface ApiConfigItem {
   id: string
-  provider: "gemini" | "groq" | "openai" | "anthropic"
+  provider: "gemini" | "groq"
   display_name: string
   model_name: string
   api_key_masked: string
@@ -174,6 +187,49 @@ export interface ApiConfigTestResult {
   latency_ms: number
   status: string
   message: string
+}
+
+export interface DailyTokenUsageItem {
+  date: string
+  day_name: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  request_count: number
+  avg_latency_ms: number
+}
+
+export interface UserTokenUsageItem {
+  user_id: string
+  user_name: string
+  user_email: string
+  institution: string
+  role: string
+  avatar_url?: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  request_count: number
+  papers_analyzed: number
+  percent_share: number
+  last_active: string
+}
+
+export interface VendorTokenDashboardData {
+  provider: string
+  display_name: string
+  model_name: string
+  total_tokens_month: number
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  total_requests: number
+  active_users_count: number
+  avg_latency_ms: number
+  estimated_cost_usd: number
+  quota_tpm: number
+  quota_used_percent: number
+  daily_usage: DailyTokenUsageItem[]
+  users_usage: UserTokenUsageItem[]
 }
 
 // --- JOB 6: MULTI-ADMIN & AUDIT LOGS ---
@@ -239,6 +295,9 @@ export const adminApi = {
   updateUserRole: (userId: string, data: { role: string }) =>
     apiClient.patch<AdminUserItem>(`/admin/users/${userId}/role`, data),
 
+  updateUserSubscription: (userId: string, data: { subscription_tier: string; subscription_status?: string }) =>
+    apiClient.patch<AdminActionResponse>(`/admin/users/${userId}/subscription`, data),
+
   resetUserPassword: (userId: string, data: { new_password: string }) =>
     apiClient.post<AdminActionResponse>(`/admin/users/${userId}/reset-password`, data),
 
@@ -296,6 +355,9 @@ export const adminApi = {
 
   testApiConfig: (provider: string) =>
     apiClient.post<ApiConfigTestResult>(`/admin/api-config/${provider}/test`),
+
+  getVendorTokenUsage: (provider: string) =>
+    apiClient.get<VendorTokenDashboardData>(`/admin/api-config/${provider}/token-usage`),
 
   // Job 6
   getAdminAccounts: () =>

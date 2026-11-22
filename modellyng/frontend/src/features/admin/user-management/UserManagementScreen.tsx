@@ -19,7 +19,11 @@ import {
   ArrowLeft,
   Check,
   Star,
-  RefreshCw
+  RefreshCw,
+  Sparkles,
+  Crown,
+  BookOpen,
+  Filter
 } from "lucide-react"
 import { adminApi, AdminUserItem, AdminBugReportItem } from "../api/adminApi"
 import { DUMMY_USERS, DUMMY_BUG_REPORTS } from "../data/dummyAdminData"
@@ -61,11 +65,44 @@ function getStatusBadge(status: string) {
   }
 }
 
+function getTierInfo(tier?: string) {
+  switch (tier?.toLowerCase()) {
+    case "student_30":
+    case "pro_30":
+    case "pro":
+      return {
+        label: "Student Pro 30 Hari",
+        badgeClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-300/40",
+        icon: Sparkles,
+      }
+    case "student_14":
+    case "pro_14":
+      return {
+        label: "Student Pro 14 Hari",
+        badgeClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300/40",
+        icon: Sparkles,
+      }
+    case "enterprise":
+      return {
+        label: "Lab Enterprise",
+        badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300/40",
+        icon: Crown,
+      }
+    default:
+      return {
+        label: "Free Plan",
+        badgeClass: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200",
+        icon: BookOpen,
+      }
+  }
+}
+
 export default function UserManagementScreen() {
   const [activeTab, setActiveTab] = useState<"users" | "bugs">("users")
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("")
   const [statusFilter, setStatusFilter] = useState<string>("")
+  const [subscriptionFilter, setSubscriptionFilter] = useState<string>("")
   const [bugStatusFilter, setBugStatusFilter] = useState<string>("")
   const [bugSearch, setBugSearch] = useState("")
 
@@ -82,6 +119,12 @@ export default function UserManagementScreen() {
   const [targetStatus, setTargetStatus] = useState<"active" | "suspended" | "deactivated">("suspended")
   const [suspensionReason, setSuspensionReason] = useState("")
 
+  // Modal State for Subscription Change
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false)
+  const [selectedUserForSub, setSelectedUserForSub] = useState<AdminUserItem | null>(null)
+  const [targetSubTier, setTargetSubTier] = useState<string>("student_30")
+  const [targetSubStatus, setTargetSubStatus] = useState<"active" | "pending_approval" | "rejected">("active")
+
   // Email Inbox Bug states (Gmail Style)
   const [selectedBugId, setSelectedBugId] = useState<string | null>(null)
   const [inlineStatus, setInlineStatus] = useState<string>("investigating")
@@ -96,16 +139,27 @@ export default function UserManagementScreen() {
     retry: false,
   })
 
+  // Sync users list when API returns live database records
+  useEffect(() => {
+    if (apiUserData?.users && apiUserData.users.length > 0) {
+      setUsersList(apiUserData.users)
+    }
+  }, [apiUserData?.users])
+
   const { data: apiBugData } = useQuery({
     queryKey: ["admin", "bug-reports", bugStatusFilter],
     queryFn: () => adminApi.getBugReports(bugStatusFilter || undefined),
     retry: false,
   })
 
+  // Count pending subscription approvals
+  const pendingApprovalsCount = useMemo(() => {
+    return usersList.filter((u) => u.subscription_status === "pending_approval").length
+  }, [usersList])
+
   // Filtered users list based on state
   const filteredUsers = useMemo(() => {
-    const source = (apiUserData?.users && apiUserData.users.length > 0) ? apiUserData.users : usersList
-    return source.filter((u) => {
+    return usersList.filter((u) => {
       const term = search.toLowerCase()
       const matchSearch = !term || 
         u.full_name.toLowerCase().includes(term) || 
@@ -113,9 +167,23 @@ export default function UserManagementScreen() {
         (u.institution && u.institution.toLowerCase().includes(term))
       const matchRole = !roleFilter || u.role === roleFilter
       const matchStatus = !statusFilter || u.status === statusFilter
-      return matchSearch && matchRole && matchStatus
+      
+      let matchSubscription = true
+      if (subscriptionFilter === "pending_approval") {
+        matchSubscription = u.subscription_status === "pending_approval"
+      } else if (subscriptionFilter === "student_30") {
+        matchSubscription = u.subscription_tier === "student_30" || u.subscription_tier === "pro"
+      } else if (subscriptionFilter === "student_14") {
+        matchSubscription = u.subscription_tier === "student_14"
+      } else if (subscriptionFilter === "free") {
+        matchSubscription = !u.subscription_tier || u.subscription_tier === "free"
+      } else if (subscriptionFilter) {
+        matchSubscription = u.subscription_tier === subscriptionFilter
+      }
+
+      return matchSearch && matchRole && matchStatus && matchSubscription
     })
-  }, [apiUserData, usersList, search, roleFilter, statusFilter])
+  }, [usersList, search, roleFilter, statusFilter, subscriptionFilter])
 
   // Filtered bug reports list based on state, search & stars
   const filteredBugs = useMemo(() => {
@@ -298,6 +366,92 @@ export default function UserManagementScreen() {
     setSelectedUser(null)
   }
 
+  // Subscription Approval & Management Handlers
+  const handleApproveSubscription = (user: AdminUserItem) => {
+    const tierName = getTierInfo(user.subscription_tier).label
+    setUsersList((prev) =>
+      prev.map((u) =>
+        u.id === user.id
+          ? {
+              ...u,
+              subscription_status: "active",
+              subscription_approved_at: new Date().toISOString(),
+            }
+          : u
+      )
+    )
+
+    adminApi.updateUserSubscription(user.id, {
+      subscription_tier: user.subscription_tier,
+      subscription_status: "active",
+    }).catch(() => {})
+
+    toast.success(
+      `Permintaan langganan paket '${tierName}' untuk pengguna '${user.full_name}' berhasil disetujui (ACC). Hak akses akademik telah aktif.`
+    )
+  }
+
+  const handleRejectSubscription = (user: AdminUserItem) => {
+    setUsersList((prev) =>
+      prev.map((u) =>
+        u.id === user.id
+          ? {
+              ...u,
+              subscription_tier: "free",
+              subscription_status: "rejected",
+            }
+          : u
+      )
+    )
+
+    adminApi.updateUserSubscription(user.id, {
+      subscription_tier: "free",
+      subscription_status: "rejected",
+    }).catch(() => {})
+
+    toast.info(
+      `Permintaan langganan untuk pengguna '${user.full_name}' telah ditolak. Akun dikembalikan ke paket Free Explorer.`
+    )
+  }
+
+  const handleOpenSubModal = (user: AdminUserItem) => {
+    setSelectedUserForSub(user)
+    setTargetSubTier(user.subscription_tier || "free")
+    setTargetSubStatus(user.subscription_status || "active")
+    setIsSubModalOpen(true)
+  }
+
+  const handleSaveSubscriptionChange = () => {
+    if (!selectedUserForSub) return
+    const tierName = getTierInfo(targetSubTier).label
+    setUsersList((prev) =>
+      prev.map((u) =>
+        u.id === selectedUserForSub.id
+          ? {
+              ...u,
+              subscription_tier: targetSubTier,
+              subscription_status: targetSubStatus,
+            }
+          : u
+      )
+    )
+
+    adminApi.updateUserSubscription(selectedUserForSub.id, {
+      subscription_tier: targetSubTier,
+      subscription_status: targetSubStatus,
+    }).catch(() => {})
+
+    const statusLabel = 
+      targetSubStatus === "active" ? "Aktif Disetujui (ACC)" : 
+      targetSubStatus === "pending_approval" ? "Menunggu ACC Admin" : "Ditolak"
+
+    toast.success(
+      `Paket langganan pengguna '${selectedUserForSub.full_name}' berhasil diubah menjadi '${tierName}' (${statusLabel}).`
+    )
+    setIsSubModalOpen(false)
+    setSelectedUserForSub(null)
+  }
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -342,6 +496,36 @@ export default function UserManagementScreen() {
       {/* TAB 1: USERS LIST */}
       {activeTab === "users" && (
         <div className="space-y-4">
+          {/* Alert Banner Permohonan Langganan Pending ACC */}
+          {pendingApprovalsCount > 0 && (
+            <div className="rounded-xl border border-amber-300/80 bg-amber-50/70 dark:bg-amber-950/30 dark:border-amber-800/80 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="size-9 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                  <Clock className="size-5 animate-pulse text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                    Terdapat {pendingApprovalsCount} Pengguna Baru Menunggu Persetujuan (ACC) Langganan
+                  </p>
+                  <p className="text-[11px] text-amber-700/90 dark:text-amber-300/80">
+                    Pengguna baru yang mendaftar atau mengajukan upgrade paket akademik memerlukan persetujuan Administrator agar fitur dan kuota ekstra aktif.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSubscriptionFilter("pending_approval")}
+                  className="h-7 text-xs border-amber-400 text-amber-900 bg-white/80 hover:bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700"
+                >
+                  <Filter className="size-3 mr-1" />
+                  Filter Pending ({pendingApprovalsCount})
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Filters Bar */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
@@ -354,7 +538,20 @@ export default function UserManagementScreen() {
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {/* Subscription Filter */}
+              <select
+                value={subscriptionFilter}
+                onChange={(e) => setSubscriptionFilter(e.target.value)}
+                className="text-xs rounded-md border bg-card px-2.5 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+              >
+                <option value="">Semua Paket Langganan</option>
+                <option value="pending_approval">⏳ Menunggu Persetujuan (Pending ACC)</option>
+                <option value="student_30">Student Pro – 30 Hari (Rp49.000)</option>
+                <option value="student_14">Student Pro – 14 Hari (Rp29.000)</option>
+                <option value="free">Free Plan (Rp0)</option>
+              </select>
+
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
@@ -386,7 +583,7 @@ export default function UserManagementScreen() {
                   <tr>
                     <th className="py-3 px-4">Pengguna</th>
                     <th className="py-3 px-4">Institusi Riset</th>
-                    <th className="py-3 px-4">Paket</th>
+                    <th className="py-3 px-4">Tipe Langganan & Status ACC</th>
                     <th className="py-3 px-4">Proyek / Paper</th>
                     <th className="py-3 px-4">Status Akun</th>
                     <th className="py-3 px-4 text-right">Aksi Administrator</th>
@@ -400,107 +597,182 @@ export default function UserManagementScreen() {
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-secondary/20 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div>
-                            <div className="font-semibold text-foreground flex items-center gap-1.5">
-                              <span>{u.full_name}</span>
-                              {u.role === "admin" && (
-                                <Badge className="text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-                                  Admin
-                                </Badge>
+                    filteredUsers.map((u) => {
+                      const tierInfo = getTierInfo(u.subscription_tier)
+                      const TierIcon = tierInfo.icon
+                      const isPendingAcc = u.subscription_status === "pending_approval"
+
+                      return (
+                        <tr 
+                          key={u.id} 
+                          className={`hover:bg-secondary/20 transition-colors ${
+                            isPendingAcc ? "bg-amber-50/30 dark:bg-amber-950/10" : ""
+                          }`}
+                        >
+                          <td className="py-3.5 px-4">
+                            <div>
+                              <div className="font-semibold text-foreground flex items-center gap-1.5">
+                                <span>{u.full_name}</span>
+                                {u.role === "admin" && (
+                                  <Badge className="text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                                    Admin
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-muted-foreground font-mono">{u.email}</span>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-muted-foreground">
+                            {u.institution || "-"}
+                          </td>
+
+                          {/* Element Baru: Subscription Type & Status Persetujuan (ACC) */}
+                          <td className="py-3.5 px-4">
+                            <div className="space-y-1.5">
+                              {/* Paket Tier Badge */}
+                              <div className="flex items-center gap-1.5">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${tierInfo.badgeClass}`}>
+                                  <TierIcon className="size-3" />
+                                  <span>{tierInfo.label}</span>
+                                </span>
+                              </div>
+
+                              {/* Status ACC / Persetujuan */}
+                              {isPendingAcc ? (
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 shadow-xs">
+                                    <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
+                                    Menunggu ACC Admin
+                                  </span>
+                                  {u.subscription_requested_at && (
+                                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                      <Clock className="size-2.5" />
+                                      <span>Diajukan: {u.subscription_requested_at}</span>
+                                    </p>
+                                  )}
+                                </div>
+                              ) : u.subscription_status === "rejected" ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950 dark:text-rose-300">
+                                  <X className="size-2.5" />
+                                  Ditolak (Free)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+                                  <CheckCircle2 className="size-2.5" />
+                                  Aktif Disetujui
+                                </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-muted-foreground font-mono">{u.email}</span>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-muted-foreground">
-                          {u.institution || "-"}
-                        </td>
+                          <td className="py-3.5 px-4 text-muted-foreground">
+                            <strong>{u.total_projects}</strong> Proyek • <strong>{u.total_papers}</strong> Paper
+                          </td>
 
-                        <td className="py-3.5 px-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
-                            u.subscription_tier === "pro" 
-                              ? "bg-primary/10 text-primary border border-primary/20" 
-                              : u.subscription_tier === "enterprise"
-                              ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300/30"
-                              : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                          }`}>
-                            {u.subscription_tier}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-muted-foreground">
-                          <strong>{u.total_projects}</strong> Proyek • <strong>{u.total_papers}</strong> Paper
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          {u.status === "active" ? (
-                            <Badge variant="outline" className="text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950 border-emerald-200">
-                              Aktif
-                            </Badge>
-                          ) : u.status === "suspended" ? (
-                            <div className="space-y-0.5">
-                              <Badge variant="destructive" className="text-[10px]">
-                                Ditangguhkan
-                              </Badge>
-                              {u.suspension_reason && (
-                                <p className="text-[10px] text-destructive/80 italic max-w-xs truncate" title={u.suspension_reason}>
-                                  "{u.suspension_reason}"
-                                </p>
-                              )}
-                            </div>
-                          ) : (
-                            <Badge variant="secondary" className="text-[10px]">
-                              Nonaktif
-                            </Badge>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Reset password button */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenPasswordModal(u)}
-                              className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
-                              title="Bantu Pengguna: Reset Kata Sandi"
-                            >
-                              <KeyRound className="size-3.5 mr-1" />
-                              <span>Reset Sandi</span>
-                            </Button>
-
-                            {/* Status toggle button */}
+                          <td className="py-3.5 px-4">
                             {u.status === "active" ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenStatusModal(u, "suspended")}
-                                className="h-7 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950"
-                                title="Tangguhkan Akun Karena Pelanggaran"
-                              >
-                                <UserX className="size-3.5 mr-1" />
-                                <span>Tangguhkan</span>
-                              </Button>
+                              <Badge variant="outline" className="text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950 border-emerald-200">
+                                Aktif
+                              </Badge>
+                            ) : u.status === "suspended" ? (
+                              <div className="space-y-0.5">
+                                <Badge variant="destructive" className="text-[10px]">
+                                  Ditangguhkan
+                                </Badge>
+                                {u.suspension_reason && (
+                                  <p className="text-[10px] text-destructive/80 italic max-w-xs truncate" title={u.suspension_reason}>
+                                    "{u.suspension_reason}"
+                                  </p>
+                                )}
+                              </div>
                             ) : (
+                              <Badge variant="secondary" className="text-[10px]">
+                                Nonaktif
+                              </Badge>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {/* Quick Action: ACC Langganan jika pending */}
+                              {isPendingAcc && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleApproveSubscription(u)}
+                                    className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+                                    title="Setujui (ACC) Permintaan Langganan Ini"
+                                  >
+                                    <Check className="size-3.5 mr-1 stroke-[3]" />
+                                    <span>ACC Langganan</span>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRejectSubscription(u)}
+                                    className="h-7 px-2 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950"
+                                    title="Tolak Permintaan Langganan"
+                                  >
+                                    <X className="size-3.5 mr-1" />
+                                    <span>Tolak</span>
+                                  </Button>
+                                </>
+                              )}
+
+                              {/* Ubah Paket Manual */}
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleOpenStatusModal(u, "active")}
-                                className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-                                title="Aktifkan Kembali Akun"
+                                onClick={() => handleOpenSubModal(u)}
+                                className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
+                                title="Ubah Paket & Status Langganan"
                               >
-                                <UserCheck className="size-3.5 mr-1" />
-                                <span>Aktifkan</span>
+                                <Sparkles className="size-3.5 mr-1" />
+                                <span>Ubah Paket</span>
                               </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+
+                              {/* Reset password button */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenPasswordModal(u)}
+                                className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                title="Bantu Pengguna: Reset Kata Sandi"
+                              >
+                                <KeyRound className="size-3.5 mr-1" />
+                                <span>Reset Sandi</span>
+                              </Button>
+
+                              {/* Status toggle button */}
+                              {u.status === "active" ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenStatusModal(u, "suspended")}
+                                  className="h-7 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950"
+                                  title="Tangguhkan Akun Karena Pelanggaran"
+                                >
+                                  <UserX className="size-3.5 mr-1" />
+                                  <span>Tangguhkan</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenStatusModal(u, "active")}
+                                  className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                                  title="Aktifkan Kembali Akun"
+                                >
+                                  <UserCheck className="size-3.5 mr-1" />
+                                  <span>Aktifkan</span>
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
@@ -1057,6 +1329,82 @@ export default function UserManagementScreen() {
                 className="text-xs"
               >
                 {targetStatus === "active" ? "Aktifkan Akun" : "Tangguhkan Akun"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: UBAH PAKET & STATUS LANGGANAN */}
+      {isSubModalOpen && selectedUserForSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+                <Sparkles className="size-4 text-primary" />
+                <span>Kelola Paket Langganan & Status ACC</span>
+              </div>
+              <button 
+                onClick={() => setIsSubModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-lg bg-secondary/60 text-xs space-y-1">
+              <div className="font-semibold text-foreground">{selectedUserForSub.full_name}</div>
+              <div className="text-muted-foreground font-mono text-[11px]">{selectedUserForSub.email}</div>
+              <div className="text-muted-foreground text-[11px]">Institusi: {selectedUserForSub.institution || "-"}</div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-medium text-foreground">
+                  Pilih Paket Langganan
+                </label>
+                <select
+                  value={targetSubTier}
+                  onChange={(e) => setTargetSubTier(e.target.value)}
+                  className="w-full rounded-md border bg-card p-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="student_30">Student Pro – 30 Hari (Rp49.000 / Paling Populer & Ekonomis)</option>
+                  <option value="student_14">Student Pro – 14 Hari (Rp29.000 / Periode Cepat)</option>
+                  <option value="free">Free Plan (Rp0 / Akun Dasar Gratis)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-medium text-foreground">
+                  Status Persetujuan (ACC Status)
+                </label>
+                <select
+                  value={targetSubStatus}
+                  onChange={(e) => setTargetSubStatus(e.target.value as "active" | "pending_approval" | "rejected")}
+                  className="w-full rounded-md border bg-card p-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="active">✓ Disetujui / Aktif (ACC Berhasil)</option>
+                  <option value="pending_approval">⏳ Menunggu Persetujuan Admin (Pending ACC)</option>
+                  <option value="rejected">✕ Ditolak (Kembalikan ke Free)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsSubModalOpen(false)}
+                className="text-xs"
+              >
+                Batal
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveSubscriptionChange}
+                className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+              >
+                Simpan Perubahan
               </Button>
             </div>
           </div>

@@ -213,6 +213,7 @@ export interface MatrixCell {
   evidence: EvidenceItem[]
   confidence_score: number
   status: "needs_review" | "accepted" | "edited" | "rejected"
+  is_locked?: boolean
 }
 
 export interface MatrixParameter {
@@ -515,16 +516,33 @@ export function useProjectChatHistory(projectId: string | undefined) {
   })
 }
 
+export interface SendChatMessageParams {
+  message: string
+  paper_id?: string
+  history?: Array<{ role: string; content: string }>
+}
+
 export function useSendProjectChatMessage(projectId: string) {
   const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
   const userId = user?.id
 
   return useMutation({
-    mutationFn: (message: string) =>
-      apiClient.post<ChatResponse>(`/projects/${projectId}/chat`, { message }),
+    mutationFn: (params: string | SendChatMessageParams) => {
+      const payload = typeof params === "string" ? { message: params } : params
+      return apiClient.post<ChatResponse>(`/projects/${projectId}/chat`, payload)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.chat(userId, projectId) })
+    },
+  })
+}
+
+export function useSendGlobalChatMessage() {
+  return useMutation({
+    mutationFn: (params: string | SendChatMessageParams) => {
+      const payload = typeof params === "string" ? { message: params } : params
+      return apiClient.post<ChatResponse>("/projects/chat/global", payload)
     },
   })
 }

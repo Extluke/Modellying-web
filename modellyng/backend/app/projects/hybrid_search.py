@@ -37,11 +37,16 @@ def get_query_embedding(query_text: str) -> List[float]:
     return [round(x / norm, 6) for x in raw_floats]
 
 
-def perform_hybrid_search(project_id: str, query: str, top_k: int = 6) -> List[Dict[str, Any]]:
+def perform_hybrid_search(
+    project_id: str,
+    query: str,
+    top_k: int = 6,
+    paper_id: str = None,
+) -> List[Dict[str, Any]]:
     """
     Executes Hybrid Search combining Dense Retrieval (pgvector HNSW) and
     Sparse Retrieval (PostgreSQL BM25 Full-Text Search) with Reciprocal Rank Fusion (RRF).
-    Constant k = 60.
+    Constant k = 60. Supports filtering by optional paper_id.
     """
     query_clean = query.strip()
     if not query_clean:
@@ -57,41 +62,74 @@ def perform_hybrid_search(project_id: str, query: str, top_k: int = 6) -> List[D
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # 1. Dense Semantic Retrieval via pgvector
             try:
-                cur.execute(
-                    """
-                    SELECT 
-                        pe.paper_id, pe.page_number, pe.chunk_index, pe.content,
-                        (1 - (pe.embedding <=> %s::vector)) AS score,
-                        p.title AS paper_title, p.file_name
-                    FROM public.paper_embeddings pe
-                    JOIN public.papers p ON p.id = pe.paper_id
-                    WHERE p.project_id = %s
-                    ORDER BY pe.embedding <=> %s::vector ASC
-                    LIMIT 20;
-                    """,
-                    (vector_str, project_id, vector_str),
-                )
+                if paper_id:
+                    cur.execute(
+                        """
+                        SELECT 
+                            pe.paper_id, pe.page_number, pe.chunk_index, pe.content,
+                            (1 - (pe.embedding <=> %s::vector)) AS score,
+                            p.title AS paper_title, p.file_name
+                        FROM public.paper_embeddings pe
+                        JOIN public.papers p ON p.id = pe.paper_id
+                        WHERE p.project_id = %s AND p.id = %s
+                        ORDER BY pe.embedding <=> %s::vector ASC
+                        LIMIT 20;
+                        """,
+                        (vector_str, project_id, paper_id, vector_str),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT 
+                            pe.paper_id, pe.page_number, pe.chunk_index, pe.content,
+                            (1 - (pe.embedding <=> %s::vector)) AS score,
+                            p.title AS paper_title, p.file_name
+                        FROM public.paper_embeddings pe
+                        JOIN public.papers p ON p.id = pe.paper_id
+                        WHERE p.project_id = %s
+                        ORDER BY pe.embedding <=> %s::vector ASC
+                        LIMIT 20;
+                        """,
+                        (vector_str, project_id, vector_str),
+                    )
                 dense_results = cur.fetchall() or []
             except Exception as e:
                 logger.error(f"Error executing dense retrieval: {e}")
 
             # 2. Sparse Lexical Retrieval via BM25 Full-Text Search
             try:
-                cur.execute(
-                    """
-                    SELECT 
-                        pb.paper_id, pb.page_number, pb.block_id, pb.text AS content, pb.bbox,
-                        ts_rank_cd(pb.fts_tokens, plainto_tsquery('simple', %s)) AS score,
-                        p.title AS paper_title, p.file_name
-                    FROM public.paper_blocks pb
-                    JOIN public.papers p ON p.id = pb.paper_id
-                    WHERE p.project_id = %s
-                      AND pb.fts_tokens @@ plainto_tsquery('simple', %s)
-                    ORDER BY score DESC
-                    LIMIT 20;
-                    """,
-                    (query_clean, project_id, query_clean),
-                )
+                if paper_id:
+                    cur.execute(
+                        """
+                        SELECT 
+                            pb.paper_id, pb.page_number, pb.block_id, pb.text AS content, pb.bbox,
+                            ts_rank_cd(pb.fts_tokens, plainto_tsquery('simple', %s)) AS score,
+                            p.title AS paper_title, p.file_name
+                        FROM public.paper_blocks pb
+                        JOIN public.papers p ON p.id = pb.paper_id
+                        WHERE p.project_id = %s AND p.id = %s
+                          AND pb.fts_tokens @@ plainto_tsquery('simple', %s)
+                        ORDER BY score DESC
+                        LIMIT 20;
+                        """,
+                        (query_clean, project_id, paper_id, query_clean),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT 
+                            pb.paper_id, pb.page_number, pb.block_id, pb.text AS content, pb.bbox,
+                            ts_rank_cd(pb.fts_tokens, plainto_tsquery('simple', %s)) AS score,
+                            p.title AS paper_title, p.file_name
+                        FROM public.paper_blocks pb
+                        JOIN public.papers p ON p.id = pb.paper_id
+                        WHERE p.project_id = %s
+                          AND pb.fts_tokens @@ plainto_tsquery('simple', %s)
+                        ORDER BY score DESC
+                        LIMIT 20;
+                        """,
+                        (query_clean, project_id, query_clean),
+                    )
                 sparse_results = cur.fetchall() or []
 
                 # Fallback to ILIKE if plainto_tsquery returns nothing
@@ -100,22 +138,60 @@ def perform_hybrid_search(project_id: str, query: str, top_k: int = 6) -> List[D
                     if keywords:
                         ilike_conds = " OR ".join(["pb.text ILIKE %s" for _ in keywords])
                         params = [f"%{k}%" for k in keywords]
-                        cur.execute(
-                            f"""
-                            SELECT 
-                                pb.paper_id, pb.page_number, pb.block_id, pb.text AS content, pb.bbox,
-                                0.5 AS score,
-                                p.title AS paper_title, p.file_name
-                            FROM public.paper_blocks pb
-                            JOIN public.papers p ON p.id = pb.paper_id
-                            WHERE p.project_id = %s AND ({ilike_conds})
-                            LIMIT 15;
-                            """,
-                            [project_id] + params,
-                        )
+                        if paper_id:
+                            cur.execute(
+                                f"""
+                                SELECT 
+                                    pb.paper_id, pb.page_number, pb.block_id, pb.text AS content, pb.bbox,
+                                    0.5 AS score,
+                                    p.title AS paper_title, p.file_name
+                                FROM public.paper_blocks pb
+                                JOIN public.papers p ON p.id = pb.paper_id
+                                WHERE p.project_id = %s AND p.id = %s AND ({ilike_conds})
+                                LIMIT 15;
+                                """,
+                                [project_id, paper_id] + params,
+                            )
+                        else:
+                            cur.execute(
+                                f"""
+                                SELECT 
+                                    pb.paper_id, pb.page_number, pb.block_id, pb.text AS content, pb.bbox,
+                                    0.5 AS score,
+                                    p.title AS paper_title, p.file_name
+                                FROM public.paper_blocks pb
+                                JOIN public.papers p ON p.id = pb.paper_id
+                                WHERE p.project_id = %s AND ({ilike_conds})
+                                LIMIT 15;
+                                """,
+                                [project_id] + params,
+                            )
                         sparse_results = cur.fetchall() or []
             except Exception as e:
                 logger.error(f"Error executing sparse retrieval: {e}")
+
+            # 3. Fallback to foundational page 1-2 blocks if conversational or general query returns no specific blocks
+            if not dense_results and not sparse_results:
+                try:
+                    paper_cond = "AND pb.paper_id = %s" if paper_id else ""
+                    f_params = [project_id, paper_id] if paper_id else [project_id]
+                    cur.execute(
+                        f"""
+                        SELECT 
+                            pb.paper_id, pb.page_number, pb.block_id, pb.text AS content, pb.bbox,
+                            0.4 AS score,
+                            p.title AS paper_title, p.file_name
+                        FROM public.paper_blocks pb
+                        JOIN public.papers p ON p.id = pb.paper_id
+                        WHERE p.project_id = %s {paper_cond} AND pb.page_number <= 2
+                        ORDER BY p.uploaded_at ASC, pb.page_number ASC, pb.block_id ASC
+                        LIMIT 10;
+                        """,
+                        f_params,
+                    )
+                    sparse_results = cur.fetchall() or []
+                except Exception as e:
+                    logger.error(f"Error executing fallback overview blocks: {e}")
 
     # 3. Reciprocal Rank Fusion (RRF)
     # RRF_score(d) = 1 / (60 + dense_rank) + 1 / (60 + sparse_rank)

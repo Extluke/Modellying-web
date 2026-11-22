@@ -2,9 +2,12 @@ import hashlib
 import uuid
 import re
 import shutil
+import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+
+logger = logging.getLogger("modellyng.projects_router")
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
@@ -45,7 +48,7 @@ from .export_service import (
 )
 from .graph_synthesis_service import GraphSynthesisError, synthesize_graph_nodes
 from .hybrid_search import perform_hybrid_search
-from .rag_service import generate_rag_response
+from .rag_service import generate_rag_response, generate_global_chat_response
 from .revision_service import generate_component_ai_revision
 
 projects_router = APIRouter(prefix="/projects", tags=["Projects & Papers"])
@@ -1144,8 +1147,23 @@ def export_project_synthesis(
     """
     Mengunduh matriks sintesis 13 parameter ilmiah seluruh paper dalam proyek
     dalam format CSV, Excel (.xlsx), atau PDF resmi secara presisi dan non-empty.
+    Fitur ini eksklusif untuk akun Student Pro, Developer, atau Admin.
     """
     user_id = current_user["id"]
+    quota = get_user_quota_status(user_id)
+    is_pro = (
+        current_user.get("role") == "admin"
+        or current_user.get("subscription_tier") in ("pro", "developer")
+        or quota.get("is_developer") is True
+        or quota.get("tier_category") in ("student", "developer")
+        or quota.get("tier") in ("pro", "developer", "student")
+    )
+    if not is_pro:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fitur ekspor matriks komparasi (CSV/Excel/PDF) eksklusif untuk akun Student Pro.",
+        )
+
     try:
         data = fetch_project_export_data(project_id, user_id)
     except ValueError as e:
@@ -1259,6 +1277,79 @@ def verify_paper_source_endpoint(
 # EVIDENCE-CENTERED RAG CHAT ENDPOINTS
 # ==============================================================================
 
+@projects_router.post("/chat/global", response_model=ChatResponse)
+def global_chat_query(
+    req: ChatMessageRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Universal Academic AI Assistant endpoint for Global Chat (/chat):
+    - Independent of any single project scope.
+    - Handles general methodology consultation, hypothesis formulation, academic inquiries.
+    - Can list available user projects and guide user to tag @project or /paper.
+    - Saves history in public.chat_messages with scope='global_chat' and project_id=None.
+    """
+    user_id = current_user["id"]
+
+    # 1. Load user's projects summary
+    user_projects = []
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT p.id, p.name, p.description, COUNT(pa.id) AS paper_count
+                FROM public.projects p
+                LEFT JOIN public.papers pa ON pa.project_id = p.id
+                WHERE p.user_id = %s
+                GROUP BY p.id, p.name, p.description, p.created_at
+                ORDER BY p.created_at DESC;
+                """,
+                (user_id,)
+            )
+            rows = cur.fetchall() or []
+            for r in rows:
+                user_projects.append({
+                    "id": str(r["id"]),
+                    "name": r["name"],
+                    "description": r.get("description") or "",
+                    "paper_count": int(r["paper_count"] or 0),
+                })
+
+    # 2. Generate universal academic response
+    global_res = generate_global_chat_response(
+        query=req.message,
+        user_projects=user_projects,
+        history=req.history,
+    )
+    answer = global_res["answer"]
+
+    # 3. Save to chat messages table (scope='global_assistant', project_id=None)
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO public.chat_messages (user_id, project_id, scope, role, content, citations)
+                    VALUES (%s, NULL, 'global_assistant', 'user', %s, '[]'::jsonb);
+                    """,
+                    (user_id, req.message.strip()),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO public.chat_messages (user_id, project_id, scope, role, content, citations)
+                    VALUES (%s, NULL, 'global_assistant', 'assistant', %s, '[]'::jsonb);
+                    """,
+                    (user_id, answer),
+                )
+    except Exception as db_err:
+        logger.warning(f"Failed to persist global chat message: {db_err}")
+
+    return ChatResponse(
+        answer=answer,
+        citations=[],
+    )
+
+
 @projects_router.post("/{project_id}/chat", response_model=ChatResponse)
 def project_chat_query(
     project_id: str,
@@ -1267,25 +1358,93 @@ def project_chat_query(
 ):
     """
     Evidence-Centered Project RAG endpoint:
-    - Runs Hybrid Search (pgvector HNSW + BM25 Full-Text Search + RRF).
-    - Injects top 5-7 context blocks into System Prompt.
-    - Uses structured JSON mode with strict anti-hallucination validation.
+    - Runs Hybrid Search (pgvector HNSW + BM25 Full-Text Search + RRF), supporting paper_id filter.
+    - Gathers project-level paper metadata and extracted components for multi-paper synthesis.
+    - Supports conversational history for natural interactive discussion.
+    - Injects evidence context blocks into System Prompt.
+    - Uses structured JSON mode with anti-hallucination validation.
     - Stores messages in public.chat_messages for persistent history.
     """
     user_id = current_user["id"]
 
-    # 1. Verify project ownership
+    # 1. Verify project ownership & load papers and extracted components for synthesis
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT id FROM public.projects WHERE id = %s AND user_id = %s;", (project_id, user_id))
-            if not cur.fetchone():
+            cur.execute("SELECT id, name, description FROM public.projects WHERE id = %s AND user_id = %s;", (project_id, user_id))
+            proj = cur.fetchone()
+            if not proj:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyek riset tidak ditemukan.")
 
-    # 2. Perform Hybrid Search
-    search_results = perform_hybrid_search(project_id=project_id, query=req.message, top_k=6)
+            # Load all papers in this project
+            cur.execute(
+                """
+                SELECT id, title, authors, year, journal
+                FROM public.papers
+                WHERE project_id = %s
+                ORDER BY uploaded_at ASC;
+                """,
+                (project_id,)
+            )
+            papers_rows = cur.fetchall() or []
 
-    # 3. Generate Evidence-Centered RAG response
-    rag_res = generate_rag_response(query=req.message, contexts=search_results)
+            # Load extracted components for comprehensive synthesis
+            cur.execute(
+                """
+                SELECT ec.paper_id, ec.parameter_key, ec.value->>'text' AS text
+                FROM public.extracted_components ec
+                JOIN public.papers p ON p.id = ec.paper_id
+                WHERE p.project_id = %s;
+                """,
+                (project_id,)
+            )
+            comp_rows = cur.fetchall() or []
+
+    comp_map = {}
+    for r in comp_rows:
+        pid_str = str(r["paper_id"])
+        if pid_str not in comp_map:
+            comp_map[pid_str] = {}
+        comp_map[pid_str][r["parameter_key"]] = r["text"]
+
+    papers_list = []
+    paper_focus = None
+    for p in papers_rows:
+        pid_str = str(p["id"])
+        p_dict = {
+            "id": pid_str,
+            "title": p["title"],
+            "authors": p["authors"] or [],
+            "year": p["year"],
+            "journal": p.get("journal"),
+            "components": comp_map.get(pid_str, {}),
+        }
+        papers_list.append(p_dict)
+        if req.paper_id and str(req.paper_id) == pid_str:
+            paper_focus = p_dict
+
+    project_meta = {
+        "id": str(proj["id"]),
+        "name": proj["name"],
+        "description": proj.get("description"),
+        "papers": papers_list,
+    }
+
+    # 2. Perform Hybrid Search (filtered by paper_id if specified)
+    search_results = perform_hybrid_search(
+        project_id=project_id,
+        query=req.message,
+        top_k=6,
+        paper_id=req.paper_id,
+    )
+
+    # 3. Generate Evidence-Centered RAG response with multi-paper reasoning & discussion capability
+    rag_res = generate_rag_response(
+        query=req.message,
+        contexts=search_results,
+        project_meta=project_meta,
+        paper_focus=paper_focus,
+        history=req.history,
+    )
     answer = rag_res["answer"]
     citations = rag_res["citations"]
 
@@ -1417,6 +1576,24 @@ def get_comparative_matrix(
             )
             comp_rows = cur.fetchall()
 
+            # Quota & Tier Evaluation for Server-Side Data Masking (Zero-Trust)
+            quota = get_user_quota_status(user_id)
+            is_pro = (
+                current_user.get("role") == "admin"
+                or current_user.get("subscription_tier") in ("pro", "developer")
+                or quota.get("is_developer") is True
+                or quota.get("tier_category") in ("student", "developer")
+                or quota.get("tier") in ("pro", "developer", "student")
+            )
+
+            FREE_ALLOWED_PARAM_KEYS = {
+                "research_problem",
+                "subject_demographics",
+                "research_objective",
+                "research_questions",
+            }
+            param_tab_map = {p["key"]: p.get("tab_group", "") for p in parameters}
+
             # Group cells by parameter_key -> paper_id
             matrix_cells = {}
             for row in comp_rows:
@@ -1424,13 +1601,40 @@ def get_comparative_matrix(
                 pid = str(row["paper_id"])
                 if pkey not in matrix_cells:
                     matrix_cells[pkey] = {}
+
+                # Security & Anti-Tampering: Server-Side Data Redaction for Free Tier
+                is_unlocked = (
+                    is_pro
+                    or pkey in FREE_ALLOWED_PARAM_KEYS
+                    or param_tab_map.get(pkey) == "konteks_masalah"
+                )
+
+                if is_unlocked:
+                    cell_value = row["value"] or {}
+                    cell_evidence = row["evidence"] or []
+                    cell_locked = False
+                else:
+                    # Redact to first sentence or max 100 chars teaser only
+                    raw_text = (row["value"] or {}).get("text", "")
+                    if raw_text:
+                        first_sentence = raw_text.split(". ")[0].strip()
+                        if len(first_sentence) > 100:
+                            first_sentence = first_sentence[:97] + "..."
+                        teaser_text = first_sentence
+                    else:
+                        teaser_text = ""
+                    cell_value = {"text": teaser_text}
+                    cell_evidence = []  # Strip physical PDF evidence coordinates and quotes
+                    cell_locked = True
+
                 matrix_cells[pkey][pid] = {
                     "id": str(row["id"]),
                     "state": row["state"],
-                    "value": row["value"] or {},
-                    "evidence": row["evidence"] or [],
+                    "value": cell_value,
+                    "evidence": cell_evidence,
                     "confidence_score": float(row["confidence_score"]) if row["confidence_score"] is not None else 0.0,
                     "status": row["status"],
+                    "is_locked": cell_locked,
                 }
 
             return {
@@ -1493,6 +1697,21 @@ def synthesize_knowledge_graph_gap(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Pilih satu celah riset terlebih dahulu untuk disusun menjadi rumusan masalah.",
+        )
+
+    # Security & Anti-Tampering: Fitur sintesis AI rumusan masalah eksklusif Student Pro / Admin
+    quota = get_user_quota_status(user_id)
+    is_pro = (
+        current_user.get("role") == "admin"
+        or current_user.get("subscription_tier") in ("pro", "developer")
+        or quota.get("is_developer") is True
+        or quota.get("tier_category") in ("student", "developer")
+        or quota.get("tier") in ("pro", "developer", "student")
+    )
+    if not is_pro:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fitur sintesis rumusan masalah AI eksklusif untuk akun Student Pro.",
         )
 
     # 1. Verify project ownership (the connection is released before the slow AI call)

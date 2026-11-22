@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Download,
   Link2,
+  Lock,
   RotateCw,
   Table2,
   TableProperties,
@@ -20,6 +21,10 @@ import { Card } from "@/components/ui/card"
 import { FilterTabs, type FilterTabOption } from "@/components/ui/filter-tabs"
 import { SearchField } from "@/components/ui/search-field"
 import { ROUTES } from "@/app/routes"
+import { useAuthStore } from "@/features/auth/store/authStore"
+import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
+import { toast } from "@/lib/store/useToastStore"
 import { useComparativeMatrix, type MatrixParameter } from "@/features/projects/api/projectsApi"
 import { ContentMatrixTable } from "./components/ContentMatrixTable"
 import type { CellDetailRequest, EvidenceRequest } from "./components/ContentMatrixTable"
@@ -51,6 +56,25 @@ const SCROLL_STEP_PX = 320
 export default function MatrixDetailView() {
   const { projectId } = useParams<{ projectId: string }>()
   const { data: matrixData, isLoading, isError, refetch } = useComparativeMatrix(projectId)
+
+  const user = useAuthStore((s) => s.user)
+  const { quota } = useUserQuota()
+
+  const isAdmin =
+    user?.role === "admin" ||
+    user?.subscription_tier === "developer" ||
+    quota?.is_developer === true
+  const isPro =
+    user?.subscription_tier === "pro" ||
+    quota?.tier_category === "student" ||
+    quota?.tier === "student_14" ||
+    quota?.tier === "student_30" ||
+    quota?.tier === "pro_scholar"
+  const isProUser = isAdmin || isPro
+  const isFreeUser = !isProUser
+
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false)
+  const handleTriggerUpgrade = () => setIsPromoModalOpen(true)
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedGroup, setSelectedGroup] = useState("all")
@@ -225,11 +249,29 @@ export default function MatrixDetailView() {
             />
             <Button
               variant="outline"
-              onClick={() => downloadMatrixCsv(matrixData, activePapers)}
+              onClick={() => {
+                if (isFreeUser) {
+                  handleTriggerUpgrade()
+                  toast.info(
+                    "Fitur unduh CSV matriks komparasi lengkap eksklusif untuk akun Student Pro.",
+                    5000
+                  )
+                  return
+                }
+                downloadMatrixCsv(matrixData, activePapers)
+              }}
               className="h-10 gap-2 px-4 text-xs font-medium"
-              title="Unduh matriks yang sedang ditampilkan dalam format CSV"
+              title={
+                isFreeUser
+                  ? "Fitur unduh CSV eksklusif untuk akun Student Pro"
+                  : "Unduh matriks yang sedang ditampilkan dalam format CSV"
+              }
             >
-              <Download className="text-primary" />
+              {isFreeUser ? (
+                <Lock className="size-3.5 text-primary" />
+              ) : (
+                <Download className="text-primary" />
+              )}
               <span>Unduh CSV</span>
             </Button>
           </div>
@@ -310,6 +352,8 @@ export default function MatrixDetailView() {
             matrix={matrixData.matrix}
             compact={viewMode === "compact"}
             scrollProps={contentScroll}
+            isFreeUser={isFreeUser}
+            onTriggerUpgrade={handleTriggerUpgrade}
             onOpenCell={setCellDetail}
             onOpenEvidence={setEvidenceRequest}
           />
@@ -321,6 +365,8 @@ export default function MatrixDetailView() {
         <ProjectSynthesisCard
           synthesis={projectSynthesis}
           projectName={matrixData.project_name}
+          isFreeUser={isFreeUser}
+          onTriggerUpgrade={handleTriggerUpgrade}
         />
       )}
 
@@ -390,6 +436,12 @@ export default function MatrixDetailView() {
           />
         </Suspense>
       )}
+
+      <FeaturePromoModal
+        feature="matrix"
+        forceOpen={isPromoModalOpen}
+        onClose={() => setIsPromoModalOpen(false)}
+      />
     </div>
   )
 }

@@ -39,14 +39,14 @@ export function GlobalChatInputBar({
     useGlobalChatStore()
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
-  // Otomatis sesuaikan tinggi textarea berdasarkan panjang teks
+  // Otomatis sesuaikan tinggi textarea berdasarkan panjang teks tanpa menampilkan scrollbar
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto"
-      textareaRef.current.style.height = `${Math.min(
-        textareaRef.current.scrollHeight,
-        140
-      )}px`
+      const scrollHeight = textareaRef.current.scrollHeight
+      const newHeight = Math.min(scrollHeight, 140)
+      textareaRef.current.style.height = `${newHeight}px`
+      textareaRef.current.style.overflowY = scrollHeight > 140 ? "auto" : "hidden"
     }
   }, [inputText])
 
@@ -151,7 +151,8 @@ export function GlobalChatInputBar({
                 ? `Tanyakan temuan pada proyek "${activeContextScope.project.name}" (ketik / untuk paper spesifik)...`
                 : "Tanyakan literatur akademik atau ketik @ untuk pilih proyek, / untuk pilih paper..."
             }
-            className="flex-1 max-h-36 resize-none bg-transparent px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none leading-relaxed"
+            className="flex-1 max-h-36 resize-none bg-transparent px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none leading-relaxed overflow-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           />
 
           <Button

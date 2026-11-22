@@ -55,7 +55,9 @@ import {
   useProjectDetail,
   ExtractedComponent,
   EvidenceItem,
+  TextBlock,
 } from "../api/projectsApi"
+import { relocateEvidence } from "./pdfMatcher"
 import { toast } from "@/lib/store/useToastStore"
 
 type TabGroupKey = "konteks_masalah" | "metode_data" | "hasil_gap"
@@ -200,9 +202,11 @@ export default function PaperResultScreen() {
 
   // Scroll to Evidence block in PdfViewer
   const scrollToEvidence = (comp: ExtractedComponent, ev: EvidenceItem) => {
-    setActiveEvidence(ev)
+    // Relocate evidence if page was mismatched by extraction model
+    const resolvedEv = blocks.length > 0 ? relocateEvidence(ev, blocks) : ev
+    setActiveEvidence(resolvedEv)
     setActiveComponentLabel(comp.label.id || comp.parameter_key)
-    setTargetPage(ev.page_index || 1)
+    setTargetPage(resolvedEv.page_index || 1)
     setIsEvidencePanelOpen(true)
   }
 
@@ -451,6 +455,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    blocks={blocks}
                     paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
@@ -478,6 +483,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    blocks={blocks}
                     paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
@@ -505,6 +511,7 @@ export default function PaperResultScreen() {
                   <ComponentCard
                     key={comp.parameter_key}
                     comp={comp}
+                    blocks={blocks}
                     paperContext={paperContext}
                     activeEvidence={activeEvidence}
                     scrollToEvidence={scrollToEvidenceByBlockId}
@@ -545,8 +552,6 @@ export default function PaperResultScreen() {
               onPageChange={(p) => setTargetPage(p)}
               isExpanded={isPdfExpanded}
               onToggleExpand={() => setIsPdfExpanded((prev) => !prev)}
-              isEvidencePanelOpen={isEvidencePanelOpen}
-              onOpenEvidencePanel={() => setIsEvidencePanelOpen(true)}
               componentLabel={activeComponentLabel}
             />
           )}
@@ -644,6 +649,7 @@ function getParameterIcon(key: string) {
  */
 interface ComponentCardProps {
   comp: ExtractedComponent
+  blocks?: TextBlock[]
   paperContext?: PaperAnalysisContext
   activeEvidence: EvidenceItem | null
   scrollToEvidence: (comp: ExtractedComponent, blockId?: string) => void
@@ -653,6 +659,7 @@ interface ComponentCardProps {
 
 function ComponentCard({
   comp,
+  blocks = [],
   paperContext,
   activeEvidence,
   scrollToEvidence,
@@ -683,13 +690,15 @@ function ComponentCard({
 
   const title = comp.label.id || comp.parameter_key
   const primaryEvidence = comp.evidence && comp.evidence.length > 0 ? comp.evidence[0] : null
-  const evidenceQuote = primaryEvidence?.quote || ""
-  const pageNumber = primaryEvidence?.page_index || 1
-  const blockId = primaryEvidence?.block_id || ""
+  const resolvedEvidence =
+    primaryEvidence && blocks.length > 0 ? relocateEvidence(primaryEvidence, blocks) : primaryEvidence
+  const evidenceQuote = resolvedEvidence?.quote || primaryEvidence?.quote || ""
+  const pageNumber = resolvedEvidence?.page_index || primaryEvidence?.page_index || 1
+  const blockId = resolvedEvidence?.block_id || primaryEvidence?.block_id || ""
 
   const isEvidenceActive =
     activeEvidence &&
-    ((primaryEvidence?.block_id && activeEvidence.block_id === primaryEvidence.block_id) ||
+    ((resolvedEvidence?.block_id && activeEvidence.block_id === resolvedEvidence.block_id) ||
       (evidenceQuote && activeEvidence.quote === evidenceQuote))
 
   return (

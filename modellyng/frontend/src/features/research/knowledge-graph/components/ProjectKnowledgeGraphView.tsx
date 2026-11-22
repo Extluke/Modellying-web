@@ -3,7 +3,9 @@ import { Link, generatePath, useParams } from "react-router-dom"
 import {
   AlertCircle,
   ArrowLeft,
+  Crown,
   Link2,
+  Lock,
   Network,
   RotateCw,
   TableProperties,
@@ -17,6 +19,9 @@ import { SearchField } from "@/components/ui/search-field"
 import { ROUTES } from "@/app/routes"
 import { cn } from "@/lib/utils"
 import { toast } from "@/lib/store/useToastStore"
+import { useAuthStore } from "@/features/auth/store/authStore"
+import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
+import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 import { useComparativeMatrix, type EvidenceItem } from "@/features/projects/api/projectsApi"
 import { useSynthesizeGraphNodes } from "../api/knowledgeGraphApi"
 import { useKnowledgeGraphStore } from "../store/useKnowledgeGraphStore"
@@ -67,6 +72,25 @@ function toEvidenceItem(evidence: GraphEvidence): EvidenceItem {
 export function ProjectKnowledgeGraphView() {
   const { projectId } = useParams<{ projectId: string }>()
   const { data: matrix, isLoading, isError, refetch } = useComparativeMatrix(projectId)
+
+  const user = useAuthStore((s) => s.user)
+  const { quota } = useUserQuota()
+
+  const isAdmin =
+    user?.role === "admin" ||
+    user?.subscription_tier === "developer" ||
+    quota?.is_developer === true
+  const isPro =
+    user?.subscription_tier === "pro" ||
+    quota?.tier_category === "student" ||
+    quota?.tier === "student_14" ||
+    quota?.tier === "student_30" ||
+    quota?.tier === "pro_scholar"
+  const isProUser = isAdmin || isPro
+  const isFreeUser = !isProUser
+
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false)
+  const handleTriggerUpgrade = useCallback(() => setIsPromoModalOpen(true), [])
 
   const {
     selectedNodeId,
@@ -253,6 +277,12 @@ export function ProjectKnowledgeGraphView() {
               <Badge variant="primary">{summary.nodeCount} Simpul</Badge>
               <Badge variant="primary">{summary.edgeCount} Relasi</Badge>
               <Badge variant="review">{summary.gapCount} Celah Riset</Badge>
+              {isFreeUser && (
+                <Badge variant="outline" className="gap-1 border-primary/30 bg-primary/5 text-primary font-semibold">
+                  <Lock className="size-3 text-primary" />
+                  Khusus Student Pro
+                </Badge>
+              )}
               {isConnected ? (
                 <Badge variant="ready">
                   <Link2 className="size-3" />
@@ -314,28 +344,62 @@ export function ProjectKnowledgeGraphView() {
 
       {/* Canvas */}
       <div className="flex flex-col gap-3">
-        <KnowledgeGraphCanvas
-          graph={graph}
-          filters={{ zone: zoneFilter, kind: kindFilter, query }}
-          selectedNodeId={selectedNode?.id ?? null}
-          onSelectNode={setSelectedNodeId}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={toggleFullscreen}
-          className={isFullscreen ? undefined : "h-[calc(100vh-4rem)] min-h-[560px]"}
-          overlay={
-            selectedNode && (
-              <NodeDetailPanel
-                graph={graph}
-                node={selectedNode}
-                onClose={() => setSelectedNodeId(null)}
-                onSelectNode={setSelectedNodeId}
-                onOpenEvidence={openEvidence}
-                onSynthesize={handleSynthesize}
-                isSynthesizing={synthesize.isPending}
-              />
-            )
-          }
-        />
+        <div className="relative overflow-hidden rounded-2xl border border-border/80">
+          <KnowledgeGraphCanvas
+            graph={graph}
+            filters={{ zone: zoneFilter, kind: kindFilter, query }}
+            selectedNodeId={isFreeUser ? null : (selectedNode?.id ?? null)}
+            onSelectNode={isFreeUser ? handleTriggerUpgrade : setSelectedNodeId}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={isFreeUser ? handleTriggerUpgrade : toggleFullscreen}
+            className={cn(
+              isFullscreen ? undefined : "h-[calc(100vh-4rem)] min-h-[560px]",
+              isFreeUser && "pointer-events-none select-none filter blur-[4.5px] opacity-40 scale-[1.01]"
+            )}
+            overlay={
+              !isFreeUser && selectedNode && (
+                <NodeDetailPanel
+                  graph={graph}
+                  node={selectedNode}
+                  onClose={() => setSelectedNodeId(null)}
+                  onSelectNode={setSelectedNodeId}
+                  onOpenEvidence={openEvidence}
+                  onSynthesize={handleSynthesize}
+                  isSynthesizing={synthesize.isPending}
+                />
+              )
+            }
+          />
+
+          {/* Frosted Glass Overlay CTA jika Akun Free Tier */}
+          {isFreeUser && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-background/60 backdrop-blur-md">
+              <div className="relative flex flex-col items-center justify-center max-w-lg p-6 sm:p-8 bg-card/95 backdrop-blur-md rounded-2xl border border-primary/25 shadow-2xl text-center animate-in zoom-in-95 duration-200">
+                <div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4 shadow-inner">
+                  <Network className="size-7" />
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-0.5 text-[11px] font-bold text-primary border border-primary/20 mb-2">
+                  <Lock className="size-3" />
+                  <span>Fitur Eksklusif Student Pro</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">
+                  Buka Graf Pengetahuan Interaktif
+                </h3>
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed max-w-md">
+                  Eksplorasi peta konsep riset multi-paper, keterhubungan metode &amp; temuan dalam zona saturasi, serta analisis celah penelitian (research gaps) secara menyeluruh tanpa batasan sensor.
+                </p>
+                <Button
+                  onClick={handleTriggerUpgrade}
+                  size="sm"
+                  className="mt-5 gap-2 px-6 py-2.5 font-bold shadow-md hover:shadow-primary/25 hover:scale-[1.02] transition-all cursor-pointer"
+                >
+                  <Crown className="size-4" />
+                  <span>Upgrade ke Student Pro Sekarang</span>
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {!isFullscreen && (
           <ul className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground" aria-label="Legenda graf">
@@ -383,6 +447,12 @@ export function ProjectKnowledgeGraphView() {
           onClose={() => setSynthesisOutcome(null)}
         />
       )}
+
+      <FeaturePromoModal
+        feature="gap_map"
+        forceOpen={isPromoModalOpen}
+        onClose={() => setIsPromoModalOpen(false)}
+      />
     </div>
   )
 }

@@ -20,6 +20,9 @@ import {
   findMatchingBlocks,
   getScaledBboxCoordinates,
   MatchedEvidenceBlock,
+  extractQuoteSpanRects,
+  SpanHighlightRect,
+  relocateEvidence,
 } from "./pdfMatcher"
 
 // Configure PDF.js worker using standard Vite asset URL
@@ -37,8 +40,6 @@ export interface PdfViewerProps {
   onPageChange?: (page: number, total: number) => void
   isExpanded?: boolean
   onToggleExpand?: () => void
-  isEvidencePanelOpen?: boolean
-  onOpenEvidencePanel?: () => void
   componentLabel?: string
 }
 
@@ -58,8 +59,6 @@ export function PdfViewer({
   onPageChange,
   isExpanded = false,
   onToggleExpand,
-  isEvidencePanelOpen = false,
-  onOpenEvidencePanel,
   componentLabel,
 }: PdfViewerProps) {
   // 1. Server State: Fetch and cache private PDF binary via TanStack Query (10 minutes TTL)
@@ -80,6 +79,10 @@ export function PdfViewer({
   const [docInitError, setDocInitError] = useState<string | null>(null)
   const [pageDimensions, setPageDimensions] = useState<Record<number, PageDimensions>>({})
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set([1]))
+
+  // Span highlights for active evidence
+  const [activeSpans, setActiveSpans] = useState<SpanHighlightRect[]>([])
+  const [activeSpanPage, setActiveSpanPage] = useState<number | null>(null)
 
   // DOM Refs
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -321,13 +324,81 @@ export function PdfViewer({
     }
   }, [targetPage])
 
+  // Calculate precise span rects when active evidence or document changes
+  useEffect(() => {
+    if (!pdfDoc || !activeEvidence || !activeEvidence.quote?.trim()) {
+      setActiveSpans([])
+      setActiveSpanPage(null)
+      return
+    }
+
+    let isCancelled = false
+
+    async function computeSpans() {
+      if (!pdfDoc || !activeEvidence) return
+
+      // Defensive relocation in case evidence points to wrong page
+      const resolvedEv =
+        blocks.length > 0 ? relocateEvidence(activeEvidence, blocks) : activeEvidence
+      const targetPageNum = resolvedEv.page_index || 1
+
+      try {
+        const page = await pdfDoc.getPage(targetPageNum)
+        const spans = await extractQuoteSpanRects(page, resolvedEv.quote || "")
+        if (isCancelled) return
+
+        let foundSpans = spans
+        let finalPage = targetPageNum
+
+        // If not found on target page, search other pages nearest first
+        if (foundSpans.length === 0 && pdfDoc.numPages > 1) {
+          const pageCandidates = Array.from({ length: pdfDoc.numPages }, (_, i) => i + 1)
+            .filter((p) => p !== targetPageNum)
+            .sort((a, b) => Math.abs(a - targetPageNum) - Math.abs(b - targetPageNum))
+
+          for (const pNum of pageCandidates) {
+            const p = await pdfDoc.getPage(pNum)
+            const pSpans = await extractQuoteSpanRects(p, resolvedEv.quote || "")
+            if (isCancelled) return
+            if (pSpans.length > 0) {
+              foundSpans = pSpans
+              finalPage = pNum
+              break
+            }
+          }
+        }
+
+        if (foundSpans.length > 0) {
+          setActiveSpans(foundSpans)
+          setActiveSpanPage(finalPage)
+        } else {
+          setActiveSpans([])
+          setActiveSpanPage(null)
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn("Gagal mengekstrak span rects:", err)
+          setActiveSpans([])
+          setActiveSpanPage(null)
+        }
+      }
+    }
+
+    computeSpans()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [pdfDoc, activeEvidence, blocks])
+
   // Precise coordinate scroll when active evidence changes. It waits until the page sizes are known:
   // a freshly opened document lays its pages out late, and scrolling earlier would stay on page 1.
-  const isEvidencePageLaidOut = Boolean(pageDimensions[activeEvidence?.page_index || 1])
+  const resolvedTargetPage = activeSpanPage || activeEvidence?.page_index || 1
+  const isEvidencePageLaidOut = Boolean(pageDimensions[resolvedTargetPage])
   useEffect(() => {
     if (!activeEvidence || !isEvidencePageLaidOut) return
 
-    const evPage = activeEvidence.page_index || 1
+    const evPage = activeSpanPage || activeEvidence.page_index || 1
     setCurrentPage(evPage)
     setPageInputValue(String(evPage))
 
@@ -338,8 +409,15 @@ export function PdfViewer({
     if (targetEl && container) {
       isJumpingProgrammatically.current = true
 
-      if (matchedBlocks.length > 0) {
-        const topCoord = matchedBlocks[0].bbox[1] * scale
+      // Prioritize span coordinate if available for exact line-level scroll
+      const topCoord =
+        activeSpans.length > 0 && activeSpanPage === evPage
+          ? activeSpans[0].top * scale
+          : matchedBlocks.length > 0
+          ? matchedBlocks[0].bbox[1] * scale
+          : null
+
+      if (topCoord !== null) {
         // Measured against the scroll container itself, so it does not depend on which ancestor is positioned
         const pageTop =
           targetEl.getBoundingClientRect().top -
@@ -357,7 +435,7 @@ export function PdfViewer({
         isJumpingProgrammatically.current = false
       }, 700)
     }
-  }, [activeEvidence, scale, blocks, isEvidencePageLaidOut])
+  }, [activeEvidence, scale, blocks, isEvidencePageLaidOut, activeSpans, activeSpanPage])
 
   // 7. Page Input Form Handler
   const handlePageInputSubmit = () => {
@@ -487,21 +565,8 @@ export function PdfViewer({
           )}
         </div>
 
-        {/* Right Section: Evidence Button, Zoom Controls, Fit Width, Expand */}
+        {/* Right Section: Zoom Controls, Fit Width, Expand */}
         <div className="flex items-center gap-1.5">
-          {/* Reopen Evidence Panel if closed */}
-          {activeEvidence && !isEvidencePanelOpen && onOpenEvidencePanel && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenEvidencePanel}
-              className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10 mr-1 cursor-pointer"
-            >
-              <BookmarkCheck className="size-3.5" />
-              <span>Buka Kutipan Bukti</span>
-            </Button>
-          )}
-
           {/* Zoom Out Button */}
           <Button
             variant="ghost"
@@ -576,7 +641,7 @@ export function PdfViewer({
         {Array.from({ length: totalPages }, (_, idx) => {
           const pageNum = idx + 1
           const dim = pageDimensions[pageNum]
-          const isTargetPage = activeEvidence?.page_index === pageNum
+          const isTargetPage = (activeSpanPage || activeEvidence?.page_index) === pageNum
 
           // Calculate matching evidence blocks for this page using multi-tier matcher
           const matchedBlocks: MatchedEvidenceBlock[] = isTargetPage
@@ -597,11 +662,7 @@ export function PdfViewer({
                 width: dim ? `${dim.scaledWidth}px` : "700px",
                 minHeight: dim ? `${dim.scaledHeight}px` : "900px",
               }}
-              className={`relative bg-white shadow-md rounded border transition-all ${
-                isTargetPage
-                  ? "ring-2 ring-primary ring-offset-2 shadow-lg"
-                  : "hover:shadow-lg"
-              }`}
+              className="relative bg-white shadow-md rounded border transition-all hover:shadow-lg"
             >
               {/* HTML5 Canvas rendered by pdfjs-dist */}
               <canvas
@@ -624,40 +685,81 @@ export function PdfViewer({
               )}
 
               {/* Absolute Overlay Layer for Evidence Highlighting */}
-              {dim && matchedBlocks.length > 0 && (
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ width: `${dim.scaledWidth}px`, height: `${dim.scaledHeight}px` }}
-                >
-                  {matchedBlocks.map((mb, mIdx) => {
-                    const coords = getScaledBboxCoordinates(mb.bbox, scale)
+              {dim && (
+                <>
+                  {/* Priority 1: Precise Span-Level Line Highlighting */}
+                  {activeSpanPage === pageNum && activeSpans.length > 0 && (
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ width: `${dim.scaledWidth}px`, height: `${dim.scaledHeight}px` }}
+                    >
+                      {activeSpans.map((span, sIdx) => (
+                        <div
+                          key={`span-${sIdx}`}
+                          style={{
+                            left: `${span.left * scale}px`,
+                            top: `${span.top * scale}px`,
+                            width: `${span.width * scale}px`,
+                            height: `${span.height * scale}px`,
+                          }}
+                          className="absolute rounded-[2px] bg-primary/25 border-b-2 border-primary/70 shadow-xs pointer-events-auto transition-all animate-pulse"
+                          title={span.textSnippet || "Bukti Kutipan"}
+                        >
+                          {sIdx === 0 && (
+                            <div className="absolute -top-6 left-0 rounded-md bg-primary px-2 py-0.5 text-[9px] font-bold text-white shadow-md flex items-center gap-1 whitespace-nowrap z-30 pointer-events-none">
+                              <BookmarkCheck className="size-3" />
+                              <span>
+                                {componentLabel
+                                  ? `Bukti: ${componentLabel}`
+                                  : "Bukti Teks Teridentifikasi"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                    return (
+                  {/* Priority 2: Fallback ONLY for explicit user-drawn or canonical exact bbox coordinates (never whole paragraph blocks) */}
+                  {!(activeSpanPage === pageNum && activeSpans.length > 0) &&
+                    matchedBlocks.filter((mb) => mb.matchType === "exact_bbox").length > 0 && (
                       <div
-                        key={`${mb.block_id}-${mIdx}`}
-                        style={{
-                          left: `${coords.left}px`,
-                          top: `${coords.top}px`,
-                          width: `${coords.width}px`,
-                          height: `${coords.height}px`,
-                        }}
-                        className="absolute rounded-sm bg-primary/25 border-2 border-primary shadow-sm pointer-events-auto transition-all animate-pulse"
-                        title={`Bukti Kanonik (${mb.matchType}): ${mb.block_id}`}
+                        className="absolute inset-0 pointer-events-none"
+                        style={{ width: `${dim.scaledWidth}px`, height: `${dim.scaledHeight}px` }}
                       >
-                        {mIdx === 0 && (
-                          <div className="absolute -top-6 left-0 rounded-md bg-primary px-2 py-0.5 text-[9px] font-bold text-white shadow-md flex items-center gap-1 whitespace-nowrap z-30">
-                            <BookmarkCheck className="size-3" />
-                            <span>
-                              {componentLabel
-                                ? `Bukti: ${componentLabel}`
-                                : "Bukti Teks Teridentifikasi"}
-                            </span>
-                          </div>
-                        )}
+                        {matchedBlocks
+                          .filter((mb) => mb.matchType === "exact_bbox")
+                          .map((mb, mIdx) => {
+                            const coords = getScaledBboxCoordinates(mb.bbox, scale)
+
+                            return (
+                              <div
+                                key={`${mb.block_id}-${mIdx}`}
+                                style={{
+                                  left: `${coords.left}px`,
+                                  top: `${coords.top}px`,
+                                  width: `${coords.width}px`,
+                                  height: `${coords.height}px`,
+                                }}
+                                className="absolute rounded-sm bg-primary/25 border-2 border-primary shadow-sm pointer-events-auto transition-all animate-pulse"
+                                title={`Bukti Kanonik (${mb.matchType}): ${mb.block_id}`}
+                              >
+                                {mIdx === 0 && (
+                                  <div className="absolute -top-6 left-0 rounded-md bg-primary px-2 py-0.5 text-[9px] font-bold text-white shadow-md flex items-center gap-1 whitespace-nowrap z-30">
+                                    <BookmarkCheck className="size-3" />
+                                    <span>
+                                      {componentLabel
+                                        ? `Bukti: ${componentLabel}`
+                                        : "Bukti Teks Teridentifikasi"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                       </div>
-                    )
-                  })}
-                </div>
+                    )}
+                </>
               )}
             </div>
           )

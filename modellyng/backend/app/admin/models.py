@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 from pydantic import BaseModel, Field
 
 # ==============================================================================
@@ -46,6 +46,8 @@ class AdminUserItem(BaseModel):
     status: str = "active"  # active, suspended, deactivated
     suspension_reason: Optional[str] = None
     subscription_tier: str = "free"
+    subscription_status: str = "active"  # active, pending_approval, rejected
+    subscription_requested_at: Optional[str] = None
     citation_format: str = "APA"
     total_projects: int = 0
     total_papers: int = 0
@@ -67,6 +69,10 @@ class AdminUserStatusUpdateRequest(BaseModel):
 
 class AdminUserPasswordResetRequest(BaseModel):
     new_password: str = Field(..., min_length=6, description="Kata sandi baru pengguna")
+
+class AdminUserSubscriptionUpdateRequest(BaseModel):
+    subscription_tier: str = Field(..., description="Paket langganan baru: free, pro, enterprise, student_semester")
+    subscription_status: str = Field("active", description="Status persetujuan langganan: active, pending_approval, rejected")
 
 class AdminBugReportItem(BaseModel):
     id: str
@@ -97,10 +103,15 @@ class SubscriptionPlanItem(BaseModel):
     description: Optional[str] = None
     price: float
     currency: str = "IDR"
-    billing_period: str = "monthly"
-    paper_limit_per_month: int = 50
-    ai_query_limit_per_day: int = 100
-    features: List[str] = Field(default_factory=list)
+    billing_period: str = "fixed_days"
+    paper_limit_per_month: Optional[int] = 50
+    ai_query_limit_per_day: Optional[int] = 100
+    duration_days: Optional[int] = 0
+    daily_file_limit: Optional[int] = None
+    daily_token_limit: Optional[int] = 0
+    total_tokens_max: Optional[int] = 0
+    tier_category: Optional[str] = "student"
+    features: List[Union[str, Dict[str, Any]]] = Field(default_factory=list)
     is_active: bool = True
     is_popular: bool = False
     sort_order: int = 1
@@ -182,7 +193,7 @@ class AnnouncementUpdateRequest(BaseModel):
 # ==============================================================================
 class ApiConfigItem(BaseModel):
     id: str
-    provider: str  # gemini, groq, openai, anthropic
+    provider: str  # gemini (Core) | groq (Backup)
     display_name: str
     model_name: str
     api_key_masked: str
@@ -210,6 +221,49 @@ class ApiConfigTestResult(BaseModel):
     latency_ms: int
     status: str
     message: str
+
+
+class DailyTokenUsageItem(BaseModel):
+    date: str
+    day_name: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    request_count: int
+    avg_latency_ms: int
+
+
+class UserTokenUsageItem(BaseModel):
+    user_id: str
+    user_name: str
+    user_email: str
+    institution: str
+    role: str
+    avatar_url: Optional[str] = None
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    request_count: int
+    papers_analyzed: int
+    percent_share: float
+    last_active: str
+
+
+class VendorTokenDashboardResponse(BaseModel):
+    provider: str
+    display_name: str
+    model_name: str
+    total_tokens_month: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_requests: int
+    active_users_count: int
+    avg_latency_ms: int
+    estimated_cost_usd: float
+    quota_tpm: int
+    quota_used_percent: float
+    daily_usage: List[DailyTokenUsageItem]
+    users_usage: List[UserTokenUsageItem]
 
 
 # ==============================================================================

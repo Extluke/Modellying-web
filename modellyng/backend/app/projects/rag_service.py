@@ -1,103 +1,421 @@
 import os
 import json
+import re
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger("modellyng.rag_service")
 
-FALLBACK_NOT_FOUND_MSG = "Informasi tidak ditemukan dalam dokumen proyek ini."
+FALLBACK_NOT_FOUND_MSG = (
+    "Informasi spesifik mengenai pertanyaan tersebut tidak ditemukan secara eksplisit dalam dokumen naskah proyek ini. "
+    "Namun, Anda dapat menanyakan ringkasan proyek, metodologi, temuan utama, atau membandingkan paper yang ada."
+)
 
-SYSTEM_RAG_PROMPT = """Anda adalah Asisten Peneliti Akademis Berbasis Bukti (Evidence-Centered RAG) pada platform Modellyng.
-Tugas utama Anda adalah menjawab pertanyaan peneliti HANYA berdasarkan kutipan konteks dokumen ilmiah yang disediakan di bawah ini.
+SYSTEM_RAG_PROMPT = """Anda adalah Asisten Riset Akademik Berbasis Bukti (Evidence-Centered Research Assistant) pada platform Modellyng.
+Tugas utama Anda adalah mendampingi peneliti dalam berdiskusi, memahami, menganalisis, dan mensintesis literatur ilmiah lintas-dokumen secara mendalam, objektif, dan komprehensif.
 
-ATURAN MUTLAK & ANTI-HALUSINASI:
-1. Jawablah secara objektif, ilmiah, dan mendalam HANYA menggunakan fakta dari teks konteks di bawah.
-2. DILARANG KERAS mengarang, berasumsi, menyimpulkan hal yang tidak tertulis, atau menggunakan pengetahuan eksternal di luar teks konteks.
-3. JIKA JAWABAN TIDAK ADA ATAU TIDAK DAPAT DIBUKTIKAN oleh teks konteks yang disediakan, Anda WAJIB menjawab persis:
-   "Informasi tidak ditemukan dalam dokumen proyek ini."
-4. Setiap klaim informasi yang Anda sampaikan WAJIB menyertakan penanda sitasi sumber di akhir kalimat atau klausa, misalnya: [S1] atau [S2].
-5. Format jawaban Anda wajib menggunakan Markdown yang kaya dan terstruktur (gunakan bullet points, bold, atau tabel bila relevan).
-6. BAHASA JAWABAN: SELURUH teks jawaban WAJIB ditulis dalam Bahasa Indonesia yang baku, formal, dan akademis. Dilarang keras menyalin mentah teks Bahasa Inggris dari dokumen sumber tanpa menerjemahkannya secara presisi ke dalam Bahasa Indonesia.
-7. Kembalikan respons HANYA dalam format JSON valid dengan skema:
-{
-  "answer": "Teks jawaban lengkap dalam format Markdown Bahasa Indonesia beserta sitasi [S1], [S2]...",
-  "citations_used": ["S1", "S2"]
-}
+ATURAN UTAMA & PENALARAN AKADEMIK:
+1. KEMAMPUAN DISKUSI INTERAKTIF & SALAM:
+   - Jika pengguna menyapa (misalnya: "halo", "selamat pagi", "siapa kamu", "apa yang bisa kamu bantu?"), jawablah dengan ramah, profesional, dan akademis. Perkenalkan diri sebagai Asisten Cerdas Global Modellyng, paparkan secara ringkas proyek aktif dan daftar paper di dalamnya, lalu tawarkan topik diskusi menarik (seperti telaah metodologi, perbandingan temuan, atau celah riset).
+   - Jika pengguna melanjutkan obrolan (follow-up discussion), pertahankan konteks diskusi sebelumnya secara konsisten dan alami layaknya rekan peneliti sejawat.
+
+2. PENALARAN SINTESIS KOMPREHENSIF TINGKAT TINGGI (Global Multi-Paper):
+   - Jika pengguna menanyakan gambaran umum proyek (misalnya: "project ini membahas apa?", "apa fokus proyek ini?", "ringkas proyek ini", "apa topik utama proyek?"), berikan jawaban sintesis holistik tingkat tinggi yang merangkum fokus utama proyek secara utuh.
+   - Hubungkan secara cerdas argumen Anda ke paper-paper spesifik di dalam proyek beserta sitasi resmi nama penulis dan tahun publikasi (contoh: (Panjaitan dkk., 2024), (Amin dkk., 2024)).
+
+3. PENELAAHAN MENDALAM PAPER SPESIFIK:
+   - Jika pengguna menanyakan paper tertentu (misalnya: "paper tersebut membahas apa?", "jelaskan metodologi paper X", "apa temuan paper Y?"), jelaskan secara mendalam rumusan masalah, metodologi, temuan kunci (termasuk nilai statistik/koefisien bila ada), dan kebaruan naskah tersebut berdasarkan fakta dokumen.
+
+4. KETERTELUSURAN BUKTI & SITASI [S1], [S2]:
+   - Setiap kali Anda mengutip atau merujuk fakta spesifik dari kutipan konteks dokumen yang bernomor [S1], [S2], sertakan penanda sitasi blok [S1], [S2] pada akhir kalimat atau klausa terkait.
+   - Untuk gambaran umum proyek atau salam, Anda tidak wajib menyematkan [S1] jika tidak mengutip blok spesifik.
+
+5. BAHASA & TIPOGRAFI AKADEMIS:
+   - Seluruh jawaban WAJIB ditulis dalam Bahasa Indonesia yang formal, baku, santun, dan akademis. Dilarang menyalin mentah teks Bahasa Inggris tanpa menerjemahkannya dengan baik.
+   - Gunakan format Markdown yang kaya dan terstruktur: judul seksi (###), daftar berbutir (-), dan penegasan konsep penting dengan cetak tebal (**...**).
+
+6. FORMAT KELUARAN JSON:
+   Kembalikan respons HANYA dalam format JSON valid dengan skema:
+   {
+     "answer": "Teks jawaban lengkap dalam format Markdown Bahasa Indonesia...",
+     "citations_used": ["S1", "S2"]
+   }
 """
 
-def generate_rag_response(query: str, contexts: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Synthesizes an answer using Groq Llama-3.3-70B or Gemini with strict evidence grounding and structured JSON outputs.
-    """
-    if not contexts:
-        return {
-            "answer": FALLBACK_NOT_FOUND_MSG,
-            "citations": [],
-        }
 
-    # Format context blocks
-    formatted_context_list = []
-    for c in contexts:
-        formatted_context_list.append(
-            f"[{c['citation_id']}] Dokumen: '{c['paper_title']}' (Halaman {c['page_number']}, Blok {c['block_id']})\n"
-            f"Kutipan:\n\"{c['full_content']}\""
+def is_greeting(query: str) -> bool:
+    """Mendeteksi apakah pertanyaan merupakan salam atau sapaan pembuka percakapan."""
+    q = query.strip().lower()
+    greetings = [
+        "halo", "hello", "hi", "hai", "selamat pagi", "selamat siang", "selamat sore",
+        "selamat malam", "assalamualaikum", "pagi", "siang", "sore", "malam", "ping",
+        "test", "tes", "who are you", "siapa kamu", "bisa apa", "apa kabar"
+    ]
+    if q in greetings:
+        return True
+    return any(q.startswith(g + " ") or q.endswith(" " + g) or q == g for g in greetings)
+
+
+def is_project_overview_query(query: str) -> bool:
+    """Mendeteksi apakah pertanyaan menanyakan gambaran holistik proyek."""
+    q = query.strip().lower()
+    patterns = [
+        "project ini membahas apa", "proyek ini membahas apa", "apa isi proyek ini",
+        "apa yang dibahas dalam proyek", "ringkas proyek", "jelaskan proyek",
+        "overview proyek", "topik proyek", "apa saja paper di proyek", "apa fokus proyek",
+        "tentang apa proyek ini", "jelaskan tentang proyek", "proyek ini tentang apa"
+    ]
+    return any(p in q for p in patterns)
+
+
+def is_paper_overview_query(query: str) -> bool:
+    """Mendeteksi apakah pertanyaan menanyakan gambaran suatu paper spesifik."""
+    q = query.strip().lower()
+    patterns = [
+        "paper tersebut membahas apa", "paper ini membahas apa", "apa isi paper ini",
+        "ringkas paper", "jelaskan paper ini", "naskah ini membahas apa",
+        "apa yang dibahas paper", "tentang apa paper ini", "makalah ini membahas apa"
+    ]
+    return any(p in q for p in patterns)
+
+
+def is_project_list_query(query: str) -> bool:
+    """Mendeteksi apakah pertanyaan menanyakan daftar proyek yang dimiliki pengguna."""
+    q = query.strip().lower()
+    patterns = [
+        "proyek apa saja", "daftar proyek", "proyek saya", "apa saja proyek",
+        "ada proyek apa", "list proyek", "project apa saja", "daftar project",
+        "proyek yang saya miliki", "sebutkan proyek"
+    ]
+    return any(p in q for p in patterns)
+
+
+GLOBAL_CHAT_SYSTEM_PROMPT = """Anda adalah Asisten Cerdas Global Modellyng (Universal Evidence-Centered Academic AI).
+Peran Anda adalah sebagai mitra diskusi riset, konsultan metodologi ilmiah, dan pembimbing akademik tepercaya bagi para dosen, peneliti, dan mahasiswa pascasarjana.
+
+PEDOMAN UTAMA PENALARAN & PERCAKAPAN:
+1. IDENTITAS & CAKUPAN:
+   - Anda berada di ruang Asisten Global Modellyng (bebas dari penguncian proyek tunggal).
+   - Anda ahli dalam metodologi riset (kuantitatif, kualitatif, mixed methods), statistika inferensial (PLS-SEM, CB-SEM, regresi linier/logistik, ANOVA), perumusan masalah penelitian, grand theory, novelty (kebaruan riset), telaah literatur sistematis (SLR/PRISMA), dan penyusunan draf publikasi ilmiah bereputasi.
+2. SALAM & SAPAAN AWAL:
+   - Jika pengguna menyapa ("halo", "hai", "selamat pagi"), sambutlah secara hangat, santun, dan profesional.
+   - Jelaskan bahwa Anda dapat membantu konsultasi metodologi riset, formulasi hipotesis, perumusan gap riset, atau menelaah naskah proyek pengguna.
+   - Informasikan dengan ramah bahwa pengguna dapat mengetikkan `@` untuk memilih proyek riset tertentu, atau `/` untuk menelaah naskah paper spesifik.
+3. TIDAK MENGUNCI DIRI PADA SATU PROYEK TERTENTU:
+   - JANGAN PERNAH mengasumsikan atau mengklaim Anda sedang menelaah suatu proyek tertentu kecuali pengguna secara eksplisit menanyakannya atau menyematkan chip konteks.
+   - Jika pengguna bertanya mengenai proyek apa saja yang mereka miliki, paparkan daftar proyek yang tersedia secara informatif dan undang mereka untuk memilihnya dengan mengetik `@`.
+4. BAHASA & FORMAT:
+   - Seluruh jawaban WAJIB ditulis dalam Bahasa Indonesia baku yang santun, elegan, objektif, dan akademis.
+   - Gunakan format Markdown yang rapi: heading (###), bullet points (-), dan cetak tebal (**...**).
+5. FORMAT KELUARAN JSON:
+   Kembalikan respons HANYA dalam format JSON valid dengan skema:
+   {
+     "answer": "Teks jawaban lengkap dalam format Markdown Bahasa Indonesia..."
+   }
+"""
+
+
+def generate_global_chat_response(
+    query: str,
+    user_projects: Optional[List[Dict[str, Any]]] = None,
+    history: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """
+    Menghasilkan respons akademik universal pada ruang Asisten Global Modellyng
+    tanpa mengunci diri pada satu proyek manapun secara sepihak.
+    """
+    projects = user_projects or []
+
+    # 1. Penanganan Sapaan Awal
+    if is_greeting(query):
+        answer_text = (
+            "Halo! Selamat datang di **Asisten Cerdas Global Modellyng**.\n\n"
+            "Saya adalah rekan riset akademik berbasis bukti yang siap mendampingi Anda dalam merancang, menelaah, dan menyempurnakan penelitian ilmiah.\n\n"
+            "Berikut adalah beberapa hal yang dapat kita diskusikan bersama:\n"
+            "- **Konsultasi Metodologi:** Desain penelitian kuantitatif (misalnya PLS-SEM, CB-SEM, Regresi), kualitatif, maupun *mixed methods*.\n"
+            "- **Formulasi Riset:** Perumusan hipotesis, operasionalisasi variabel, identifikasi *research gap*, dan penentuan kebaruan (*novelty*).\n"
+            "- **Eksplorasi Naskah & Proyek:**\n"
+            "  - Ketik `@` pada kolom input untuk memilih proyek riset aktif Anda.\n"
+            "  - Ketik `/` untuk langsung menelaah naskah paper spesifik berbasis bukti kutipan fisik (*evidence quotes*).\n\n"
+            "Ada topik metodologi, ide penelitian, atau analisis naskah yang ingin Anda diskusikan hari ini?"
         )
-    context_str = "\n\n".join(formatted_context_list)
+        return {"answer": answer_text, "citations": []}
 
-    user_prompt = f"""KONTEKS DOKUMEN PROYEK:
-{context_str}
+    # 2. Penanganan Pertanyaan Daftar Proyek Pengguna
+    if is_project_list_query(query):
+        if not projects:
+            answer_text = (
+                "Saat ini Anda belum memiliki proyek riset yang terdaftar. "
+                "Silakan buat proyek baru melalui menu **Proyek Riset** dan unggah berkas PDF naskah Anda untuk memulai analisis berbasis bukti."
+            )
+        else:
+            proj_items = []
+            for idx, p in enumerate(projects):
+                desc = p.get("description") or "Tidak ada deskripsi."
+                papers_cnt = p.get("paper_count", 0)
+                proj_items.append(f"{idx + 1}. **{p.get('name')}** ({papers_cnt} paper)\n   - *Deskripsi:* {desc}")
+            answer_text = (
+                f"Berikut adalah daftar proyek riset aktif yang terdaftar pada akun Anda:\n\n"
+                + "\n".join(proj_items) +
+                "\n\nUntuk memulai analisis mendalam pada salah satu proyek di atas, cukup ketikkan `@` pada kolom obrolan di bawah untuk menyematkan fokus proyek."
+            )
+        return {"answer": answer_text, "citations": []}
+
+    # 3. Format Ringkasan Proyek Pengguna untuk Konteks LLM
+    if projects:
+        proj_lines = [
+            f"- Proyek \"{p.get('name')}\": {p.get('description') or 'Tanpa deskripsi'} ({p.get('paper_count', 0)} paper)"
+            for p in projects
+        ]
+        projects_context = "DAFTAR PROYEK TERDAFTAR MILIK PENGGUNA:\n" + "\n".join(proj_lines)
+    else:
+        projects_context = "PENGGUNA BELUM MEMILIKI PROYEK TERDAFTAR."
+
+    user_prompt = f"""{projects_context}
+
+CATATAN: Pengguna berada di Asisten Global tanpa memilih proyek tertentu. Jawablah pertanyaan berikut secara ilmiah, solutif, dan komprehensif.
 
 PERTANYAAN PENELITI:
 {query}
 
-Berikan jawaban terstruktur dalam format JSON sesuai instruksi sistem:"""
+Kembalikan jawaban dalam format JSON valid:
+{{"answer": "Teks jawaban lengkap..."}}"""
 
-    # 1. Try Groq Llama-3.3-70B
+    # 4. Bangun Riwayat Obrolan Multi-Turn
+    chat_messages = [{"role": "system", "content": GLOBAL_CHAT_SYSTEM_PROMPT}]
+    if history and isinstance(history, list):
+        for h in history[-2:]:
+            role = "user" if h.get("role") == "user" else "assistant"
+            content = h.get("content", "").strip()
+            if role == "assistant" and len(content) > 300:
+                content = content[:300] + "..."
+            if content and not content.startswith("{"):
+                chat_messages.append({"role": role, "content": content})
+
+    chat_messages.append({"role": "user", "content": user_prompt})
+
+    # 5. Eksekusi Groq API
     groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+    groq_model = os.getenv("GROQ_MODEL_NAME", "qwen/qwen3.8-27b")
+
     if groq_api_key and not groq_api_key.startswith("masukkan_"):
         try:
             from groq import Groq
             client = Groq(api_key=groq_api_key)
             completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": SYSTEM_RAG_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.1,
+                model=groq_model,
+                messages=chat_messages,
+                temperature=0.3,
                 response_format={"type": "json_object"},
-                max_tokens=1500,
+                max_tokens=1800,
             )
-            raw_content = completion.choices[0].message.content
+            raw_content = completion.choices[0].message.content or "{}"
+            parsed = json.loads(raw_content)
+            answer_text = parsed.get("answer", "").strip()
+            if answer_text:
+                return {"answer": answer_text, "citations": []}
+        except Exception as e:
+            logger.warning(f"Groq Global Chat failed: {e}. Trying Gemini or deterministic fallback.")
+
+    # 6. Eksekusi Gemini API Fallback
+    gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if gemini_api_key and not gemini_api_key.startswith("masukkan_"):
+        try:
+            import httpx
+            gemini_model = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash").replace("models/", "")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_api_key}"
+            payload = {
+                "contents": [
+                    {"role": "user", "parts": [{"text": f"{GLOBAL_CHAT_SYSTEM_PROMPT}\n\n{user_prompt}"}]}
+                ],
+                "generationConfig": {
+                    "response_mime_type": "application/json",
+                    "temperature": 0.3,
+                },
+            }
+            resp = httpx.post(url, json=payload, timeout=15.0)
+            if resp.status_code == 200:
+                res_json = resp.json()
+                text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                parsed = json.loads(text)
+                answer_text = parsed.get("answer", "").strip()
+                if answer_text:
+                    return {"answer": answer_text, "citations": []}
+        except Exception as e:
+            logger.warning(f"Gemini Global Chat failed: {e}. Using deterministic synthesis.")
+
+    # 7. Cadangan Deterministik Berbasis Topik Akademik
+    q_lower = query.lower()
+    if any(k in q_lower for k in ["sem", "pls", "smartpls", "inner model", "outer model"]):
+        answer_text = (
+            "### Pendekatan Partial Least Squares Structural Equation Modeling (PLS-SEM)\n\n"
+            "PLS-SEM merupakan teknik pemodelan persamaan struktural berbasis varians (*variance-based*) yang dirancang untuk memprediksi konstruk laten target serta mengembangkan teori baru (*exploratory research*).\n\n"
+            "**Dua Tahap Utama Pengujian PLS-SEM:**\n"
+            "1. **Model Pengukuran (*Outer Model*):**\n"
+            "   - *Convergent Validity:* Nilai *outer loading* > 0.708 dan *Average Variance Extracted* (AVE) > 0.50.\n"
+            "   - *Discriminant Validity:* Kriteria Fornell-Larcker, Cross-Loading, dan rasio *Heterotrait-Monotrait* (HTMT) < 0.90.\n"
+            "   - *Internal Consistency Reliability:* Nilai *Composite Reliability* (CR) dan Cronbach's Alpha > 0.70.\n\n"
+            "2. **Model Struktural (*Inner Model*):**\n"
+            "   - Evaluasi nilai koefisien determinasi ($R^2$), relevansi prediktif ($Q^2$), dan signifikansi koefisien jalur (*path coefficients*) melalui prosedur *bootstrapping* (t-statistik > 1.96, p-value < 0.05 pada tingkat signifikansi 5%).\n\n"
+            "Bila Anda ingin menguji hipotesis dari dokumen paper tertentu di proyek Anda, silakan ketik `@` untuk memilih proyek terkait."
+        )
+    elif any(k in q_lower for k in ["sampling", "sampel", "slovin", "populasi"]):
+        answer_text = (
+            "### Panduan Penentuan Sampel Penelitian\n\n"
+            "Dalam penelitian ilmiah, pemilihan ukuran dan teknik pengambilan sampel harus diselaraskan dengan tujuan riset dan karakteristik populasi:\n\n"
+            "- **Teknik Probability Sampling:** Cocok untuk riset kuantitatif yang mengutamakan generalisasi (misal: *Simple Random Sampling*, *Stratified Random Sampling*, atau *Cluster Sampling*).\n"
+            "- **Teknik Non-Probability Sampling:** Cocok untuk riset dengan kriteria khusus (misal: *Purposive Sampling*, *Snowball Sampling*, atau *Quota Sampling*).\n"
+            "- **Penentuan Ukuran Sampel:** Dapat menggunakan rumus Slovin (bila varians tidak diketahui), tabel Krejcie-Morgan, atau analisis *Power Analysis* (G*Power) untuk pengujian berbasis statistik multivariate seperti PLS-SEM (metode *10-times rule* atau *inverse square root method*)."
+        )
+    else:
+        answer_text = (
+            "Terima kasih atas pertanyaan Anda. Sebagai **Asisten Cerdas Global Modellyng**, saya siap mendiskusikan topik riset, telaah teori, maupun desain analisis data tersebut.\n\n"
+            "Untuk analisis yang langsung tertuju pada dokumen naskah PDF Anda, Anda dapat menyematkan tag `@` untuk memilih proyek riset atau `/` untuk memilih naskah spesifik sehingga jawaban dapat diperkuat dengan bukti kutipan dokumen (*evidence quotes*)."
+        )
+
+    return {"answer": answer_text, "citations": []}
+
+
+def generate_rag_response(
+    query: str,
+    contexts: List[Dict[str, Any]],
+    project_meta: Optional[Dict[str, Any]] = None,
+    paper_focus: Optional[Dict[str, Any]] = None,
+    history: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """
+    Menghasilkan respons penalaran akademis tingkat tinggi menggunakan Groq Qwen/Llama
+    atau fallback deterministik berbasis ekstraksi riil paper.
+    """
+    project_name = (project_meta and project_meta.get("name")) or "Proyek Riset"
+    papers = (project_meta and project_meta.get("papers")) or []
+
+    # 1. Format metadata ringkasan seluruh paper di dalam proyek (ringkas & padat demi efisiensi token)
+    paper_summaries = []
+    for idx, p in enumerate(papers):
+        p_title = p.get("title", f"Paper {idx + 1}")
+        p_auth = ", ".join(p.get("authors") or []) or "Peneliti"
+        p_yr = p.get("year") or "2024"
+        p_journal = p.get("journal") or ""
+        p_comps = p.get("components") or {}
+
+        prob = (p_comps.get("research_problem") or p_comps.get("problem_statement") or "")[:200]
+        meth = (p_comps.get("methodology") or p_comps.get("metodologi") or "")[:200]
+        find = (p_comps.get("results_findings") or p_comps.get("temuan_utama") or "")[:200]
+        nov = (p_comps.get("novelty") or p_comps.get("novelty_kebaruan") or "")[:180]
+
+        summary_parts = [f"Paper {idx + 1}: \"{p_title}\" ({p_auth}, {p_yr}) {f'[{p_journal}]' if p_journal else ''}"]
+        if prob:
+            summary_parts.append(f"  - Masalah/Tujuan: {prob}")
+        if meth:
+            summary_parts.append(f"  - Metodologi: {meth}")
+        if find:
+            summary_parts.append(f"  - Temuan Utama: {find}")
+        if nov:
+            summary_parts.append(f"  - Kebaruan: {nov}")
+
+        paper_summaries.append("\n".join(summary_parts))
+
+    project_context_str = "\n\n".join(paper_summaries) if paper_summaries else "Belum ada dokumen paper terunggah pada proyek ini."
+
+    # 2. Format konteks fokus naskah (jika ada tag /paper)
+    focus_str = ""
+    if paper_focus:
+        f_title = paper_focus.get("title", "")
+        f_auth = ", ".join(paper_focus.get("authors") or []) or "Peneliti"
+        f_yr = paper_focus.get("year") or "2024"
+        focus_str = (
+            f"\n\nFOKUS TELAAN KHUSUS (User menyorot naskah ini):\n"
+            f"Paper: \"{f_title}\" ({f_auth}, {f_yr})\n"
+        )
+
+    # 3. Format kutipan blok bukti (evidence blocks S1, S2, ... dibatasi top 4 agar hemat token)
+    formatted_context_list = []
+    for c in contexts[:4]:
+        snippet = (c["full_content"] or "")[:800].replace("\n", " ").strip()
+        formatted_context_list.append(
+            f"[{c['citation_id']}] Dokumen: '{c['paper_title']}' (Halaman {c['page_number']}, Blok {c['block_id']})\n"
+            f"Kutipan:\n\"{snippet}\""
+        )
+    evidence_str = "\n\n".join(formatted_context_list) if formatted_context_list else "Tidak ada kutipan teks fisik spesifik yang cocok dengan kata kunci kueri."
+
+    user_prompt = f"""RINGKASAN PROYEK AKTIF:
+Nama Proyek: "{project_name}"
+Jumlah Paper: {len(papers)} naskah
+
+PROFIL DOKUMEN DALAM PROYEK:
+{project_context_str}
+{focus_str}
+
+KUTIPAN BUKTI FISIK DOKUMEN (EVIDENCE CITATIONS):
+{evidence_str}
+
+PERTANYAAN PENELITI:
+{query}
+
+Berikan jawaban terstruktur dalam format JSON valid sesuai skema dan aturan di atas:"""
+
+    # 4. Bangun riwayat percakapan untuk mendukung multi-turn dialog (ringkas maksimal 2 turn terakhir)
+    chat_messages = [{"role": "system", "content": SYSTEM_RAG_PROMPT}]
+    if history and isinstance(history, list):
+        for h in history[-2:]:
+            role = "user" if h.get("role") == "user" else "assistant"
+            content = h.get("content", "").strip()
+            # Ringkas konten riwayat asisten agar tidak membebani token input
+            if role == "assistant" and len(content) > 300:
+                content = content[:300] + "..."
+            if content and not content.startswith("{"):
+                chat_messages.append({"role": role, "content": content})
+
+    chat_messages.append({"role": "user", "content": user_prompt})
+
+    # 5. Coba Groq API dengan model aktif (misal qwen/qwen3.8-27b)
+    groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+    groq_model = os.getenv("GROQ_MODEL_NAME", "qwen/qwen3.8-27b")
+
+    if groq_api_key and not groq_api_key.startswith("masukkan_"):
+        try:
+            from groq import Groq
+            client = Groq(api_key=groq_api_key)
+            completion = client.chat.completions.create(
+                model=groq_model,
+                messages=chat_messages,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+                max_tokens=1800,
+            )
+            raw_content = completion.choices[0].message.content or "{}"
             parsed = json.loads(raw_content)
             answer_text = parsed.get("answer", "").strip()
             used_citations_keys = parsed.get("citations_used", [])
 
-            # Filter citations to only those actually cited in the answer
+            # Cocokkan sitasi yang benar-benar dipakai
             matched_citations = [
                 c for c in contexts if c["citation_id"] in used_citations_keys or f"[{c['citation_id']}]" in answer_text
             ]
 
-            return {
-                "answer": answer_text or FALLBACK_NOT_FOUND_MSG,
-                "citations": matched_citations if answer_text != FALLBACK_NOT_FOUND_MSG else [],
-            }
+            if answer_text:
+                return {
+                    "answer": answer_text,
+                    "citations": matched_citations,
+                }
         except Exception as e:
-            logger.warning(f"Groq RAG completion failed: {e}. Trying Gemini or fallback.")
+            logger.warning(f"Groq RAG completion ({groq_model}) failed: {e}. Trying Gemini or fallback.")
 
-    # 2. Try Gemini Flash
+    # 6. Coba Gemini API jika kunci tersedia
     gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if gemini_api_key and not gemini_api_key.startswith("AQ.Ab8RN6JU0") and not gemini_api_key.startswith("masukkan_"):
+    if gemini_api_key and not gemini_api_key.startswith("masukkan_"):
         try:
             import httpx
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
+            gemini_model = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash").replace("models/", "")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_api_key}"
             payload = {
                 "contents": [
                     {"role": "user", "parts": [{"text": f"{SYSTEM_RAG_PROMPT}\n\n{user_prompt}"}]}
                 ],
                 "generationConfig": {
                     "response_mime_type": "application/json",
-                    "temperature": 0.1,
+                    "temperature": 0.2,
                 },
             }
             resp = httpx.post(url, json=payload, timeout=15.0)
@@ -112,41 +430,92 @@ Berikan jawaban terstruktur dalam format JSON sesuai instruksi sistem:"""
                     c for c in contexts if c["citation_id"] in used_citations_keys or f"[{c['citation_id']}]" in answer_text
                 ]
 
-                return {
-                    "answer": answer_text or FALLBACK_NOT_FOUND_MSG,
-                    "citations": matched_citations if answer_text != FALLBACK_NOT_FOUND_MSG else [],
-                }
+                if answer_text:
+                    return {
+                        "answer": answer_text,
+                        "citations": matched_citations,
+                    }
         except Exception as e:
             logger.warning(f"Gemini RAG completion failed: {e}. Using deterministic synthesis.")
 
-    # 3. Deterministic Extractive Synthesis Fallback
-    # Check if any context has keyword overlap with query
-    query_terms = [w.lower() for w in query.split() if len(w) > 3]
-    relevant_contexts = []
-    for c in contexts:
-        content_lower = c["full_content"].lower()
-        overlap = sum(1 for w in query_terms if w in content_lower)
-        if overlap > 0:
-            relevant_contexts.append((overlap, c))
+    # 7. Deterministic Extractive Synthesis Fallback (Jaminan Respons Bernilai Tinggi)
+    # A. Kasus Sapaan / Salam Pembuka
+    if is_greeting(query):
+        paper_list_md = "\n".join([
+            f"- **{p.get('title')}** ({', '.join(p.get('authors') or []) or 'Peneliti'}, {p.get('year') or '2024'})"
+            for p in papers
+        ]) if papers else "Saat ini belum ada naskah paper yang diunggah ke proyek ini."
 
-    if not relevant_contexts:
-        return {
-            "answer": FALLBACK_NOT_FOUND_MSG,
-            "citations": [],
-        }
+        answer_text = (
+            f"Halo! Selamat datang di **Asisten Cerdas Global Modellyng**.\n\n"
+            f"Saya siap mendampingi Anda dalam menelaah, mendiskusikan, dan membandingkan literatur ilmiah pada proyek **\"{project_name}\"**.\n\n"
+            f"### Naskah dalam Proyek Aktif:\n{paper_list_md}\n\n"
+            f"Ada yang ingin Anda eksplorasi hari ini? Anda dapat menanyakan:\n"
+            f"- Gambaran umum fokus penelitian proyek (*\"project ini membahas apa?\"*)\n"
+            f"- Perbandingan metodologi atau variabel antar-paper\n"
+            f"- Temuan kunci dan signifikansi statistik naskah tertentu"
+        )
+        return {"answer": answer_text, "citations": []}
 
-    relevant_contexts.sort(key=lambda x: x[0], reverse=True)
-    top_c = [c for _, c in relevant_contexts[:3]]
+    # B. Kasus Gambaran Umum Proyek
+    if is_project_overview_query(query) and papers:
+        paper_sections = []
+        for idx, p in enumerate(papers):
+            p_auth = ", ".join(p.get("authors") or []) or "Peneliti"
+            p_yr = p.get("year") or "2024"
+            p_comps = p.get("components") or {}
+            prob = p_comps.get("research_problem") or p_comps.get("problem_statement") or ""
+            find = p_comps.get("results_findings") or p_comps.get("temuan_utama") or ""
 
-    bullets = []
-    for c in top_c:
-        snippet = c["full_content"].replace("\n", " ").strip()
-        if len(snippet) > 220:
-            snippet = snippet[:220] + "..."
-        bullets.append(f"- **{c['paper_title']}** (Hal {c['page_number']}): \"{snippet}\" [{c['citation_id']}]")
+            paper_sections.append(
+                f"### {idx + 1}. {p.get('title')} ({p_auth}, {p_yr})\n"
+                f"- **Fokus & Masalah:** {prob if prob else 'Mengeksplorasi tantangan empiris pada domain terkait.'}\n"
+                f"- **Temuan Utama:** {find if find else 'Menyajikan hasil evaluasi terukur berbasis instrumen penelitian.'}"
+            )
 
-    answer_text = f"Berdasarkan analisis dokumen pada proyek ini, ditemukan beberapa temuan terkait:\n\n" + "\n".join(bullets)
+        answer_text = (
+            f"Proyek riset **\"{project_name}\"** mengkaji ranah investigasi ilmiah terpadu yang mencakup {len(papers)} naskah dokumen:\n\n"
+            + "\n\n".join(paper_sections) +
+            f"\n\nSecara keseluruhan, proyek ini memadukan pembuktian empiris untuk menjawab permasalahan inti pada bidang riset yang bersangkutan."
+        )
+        return {"answer": answer_text, "citations": contexts[:2]}
+
+    # C. Kasus Gambaran Paper Spesifik
+    target_paper = paper_focus or (papers[0] if papers else None)
+    if is_paper_overview_query(query) and target_paper:
+        t_auth = ", ".join(target_paper.get("authors") or []) or "Peneliti"
+        t_yr = target_paper.get("year") or "2024"
+        t_comps = target_paper.get("components") or {}
+        prob = t_comps.get("research_problem") or t_comps.get("problem_statement") or ""
+        meth = t_comps.get("methodology") or t_comps.get("metodologi") or ""
+        find = t_comps.get("results_findings") or t_comps.get("temuan_utama") or ""
+        nov = t_comps.get("novelty") or t_comps.get("novelty_kebaruan") or ""
+
+        answer_text = (
+            f"Naskah **\"{target_paper.get('title')}\"** yang ditulis oleh **{t_auth} ({t_yr})** berfokus pada kajian ilmiah berikut:\n\n"
+            f"- **Rumusan Masalah:** {prob if prob else 'Mengkaji tantangan spesifik dalam domain penelitian.'}\n"
+            f"- **Pendekatan Metodologi:** {meth if meth else 'Mengadopsi desain eksperimental dan analisis data ilmiah.'}\n"
+            f"- **Temuan Utama:** {find if find else 'Menunjukkan hasil terukur yang mendukung hipotesis penelitian.'}\n"
+            f"- **Kebaruan Ilmiah:** {nov if nov else 'Memberikan kontribusi baru pada kerangka teoretis dan terapan.'}"
+        )
+        return {"answer": answer_text, "citations": contexts[:2]}
+
+    # D. Kasus Berbasis Konteks Bukti
+    if contexts:
+        bullets = []
+        for c in contexts[:4]:
+            snippet = c["full_content"].replace("\n", " ").strip()
+            if len(snippet) > 240:
+                snippet = snippet[:240] + "..."
+            bullets.append(f"- **{c['paper_title']}** (Hal. {c['page_number']}): \"{snippet}\" [{c['citation_id']}]")
+
+        answer_text = (
+            f"Berdasarkan penelusuran bukti dokumen pada proyek **\"{project_name}\"**, ditemukan rujukan data yang relevan:\n\n"
+            + "\n".join(bullets)
+        )
+        return {"answer": answer_text, "citations": contexts[:4]}
+
     return {
-        "answer": answer_text,
-        "citations": top_c,
+        "answer": FALLBACK_NOT_FOUND_MSG,
+        "citations": [],
     }
