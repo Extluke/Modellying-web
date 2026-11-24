@@ -1,13 +1,67 @@
 import logging
 import secrets
-from typing import Optional, Dict
+from typing import Optional
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-from ..database import get_db, ensure_tables
+from ..database import ensure_tables, get_db
 from .security import hash_password
 
 logger = logging.getLogger("modellyng.auth.storage")
+
+
+class DuplicateEmailError(ValueError):
+    """Raised when attempting to register an already existing email address."""
+
+
+USER_SELECT_COLUMNS = """
+    id,
+    full_name,
+    email,
+    password_hash,
+    institution,
+    role,
+    status,
+    suspension_reason,
+    subscription_tier,
+    citation_format,
+    ai_confidence_threshold,
+    admin_role,
+    admin_permissions,
+    created_at,
+    updated_at
+"""
+
+
+def _serialize_user_row(row: dict) -> dict:
+    """Normalizes a public.users record while avoiding leaking admin defaults onto researchers."""
+    role = row.get("role") or "researcher"
+    is_admin = role == "admin"
+    raw_threshold = row.get("ai_confidence_threshold")
+    raw_permissions = row.get("admin_permissions")
+    created_at = row.get("created_at")
+
+    return {
+        "id": str(row["id"]),
+        "full_name": row["full_name"],
+        "email": row["email"],
+        "password_hash": row.get("password_hash"),
+        "institution": row.get("institution"),
+        "role": role,
+        "status": row.get("status") or "active",
+        "suspension_reason": row.get("suspension_reason"),
+        "subscription_tier": row.get("subscription_tier") or "free",
+        "citation_format": row.get("citation_format") or "APA",
+        "ai_confidence_threshold": float(raw_threshold) if raw_threshold is not None else 0.80,
+        "admin_role": (row.get("admin_role") or "admin") if is_admin else None,
+        "admin_permissions": (
+            raw_permissions if isinstance(raw_permissions, list) else ["all"]
+        )
+        if is_admin
+        else [],
+        "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
+    }
 
 
 class PostgresUserStorage:
@@ -41,90 +95,114 @@ class PostgresUserStorage:
                     cur.execute("SELECT id FROM public.users WHERE lower(email) = %s;", (email_clean,))
                     if not cur.fetchone():
                         pwd_hash = hash_password(pwd)
-                        cur.execute("""
+                        cur.execute(
+                            """
                             INSERT INTO public.users (email, password_hash, full_name, role)
                             VALUES (%s, %s, %s, %s)
                             ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role;
-                        """, (email_clean, pwd_hash, name, role))
+                            """,
+                            (email_clean, pwd_hash, name, role),
+                        )
 
-    def create_user(self, full_name: str, email: str, plain_password: str, role: str = "researcher") -> dict:
+    def create_user(
+        self,
+        full_name: str,
+        email: str,
+        plain_password: str,
+        role: str = "researcher",
+        institution: Optional[str] = None,
+    ) -> dict:
         email_clean = email.strip().lower()
+        name_clean = full_name.strip()
+        inst_clean = institution.strip() if institution and institution.strip() else None
         pwd_hash = hash_password(plain_password)
+
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("SELECT id FROM public.users WHERE lower(email) = %s;", (email_clean,))
                 if cur.fetchone():
-                    raise ValueError("Email sudah terdaftar.")
+                    raise DuplicateEmailError(
+                        "Email sudah terdaftar. Silakan masuk atau gunakan alamat email Google lain."
+                    )
 
-                cur.execute("""
-                    INSERT INTO public.users (email, password_hash, full_name, role)
-                    VALUES (%s, %s, %s, %s)
-                    RETURNING id, full_name, email, role, subscription_tier, created_at;
-                """, (email_clean, pwd_hash, full_name.strip(), role))
+                try:
+                    cur.execute(
+                        f"""
+                        INSERT INTO public.users (
+                            email, password_hash, full_name, institution, role, status, subscription_tier
+                        )
+                        VALUES (%s, %s, %s, %s, %s, 'active', 'free')
+                        RETURNING {USER_SELECT_COLUMNS};
+                        """,
+                        (email_clean, pwd_hash, name_clean, inst_clean, role),
+                    )
+                except psycopg2.errors.UniqueViolation as exc:
+                    raise DuplicateEmailError(
+                        "Email sudah terdaftar. Silakan masuk atau gunakan alamat email Google lain."
+                    ) from exc
+
                 row = cur.fetchone()
-                return {
-                    "id": str(row["id"]),
-                    "full_name": row["full_name"],
-                    "email": row["email"],
-                    "password_hash": pwd_hash,
-                    "role": row["role"],
-                    "subscription_tier": row.get("subscription_tier") or "free",
-                    "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else str(row["created_at"]),
-                }
+                return _serialize_user_row(row)
 
     def find_by_email(self, email: str) -> Optional[dict]:
         email_clean = email.strip().lower()
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
-                    SELECT id, full_name, email, password_hash, role, subscription_tier, created_at
+                cur.execute(
+                    f"""
+                    SELECT {USER_SELECT_COLUMNS}
                     FROM public.users
                     WHERE lower(email) = %s;
-                """, (email_clean,))
+                    """,
+                    (email_clean,),
+                )
                 row = cur.fetchone()
                 if not row:
                     return None
-                return {
-                    "id": str(row["id"]),
-                    "full_name": row["full_name"],
-                    "email": row["email"],
-                    "password_hash": row["password_hash"],
-                    "role": row["role"],
-                    "subscription_tier": row.get("subscription_tier") or "free",
-                    "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else str(row["created_at"]),
-                }
+                return _serialize_user_row(row)
 
     def find_by_id(self, user_id: str) -> Optional[dict]:
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
-                    SELECT id, full_name, email, password_hash, role, subscription_tier, created_at
+                cur.execute(
+                    f"""
+                    SELECT {USER_SELECT_COLUMNS}
                     FROM public.users
                     WHERE id = %s;
-                """, (user_id,))
+                    """,
+                    (user_id,),
+                )
                 row = cur.fetchone()
                 if not row:
                     return None
-                return {
-                    "id": str(row["id"]),
-                    "full_name": row["full_name"],
-                    "email": row["email"],
-                    "password_hash": row["password_hash"],
-                    "role": row["role"],
-                    "subscription_tier": row.get("subscription_tier") or "free",
-                    "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else str(row["created_at"]),
-                }
+                return _serialize_user_row(row)
+
+    def update_password_hash(self, user_id: str, new_hash: str) -> None:
+        """Transparently upgrades stored Argon2 hash parameters upon successful login."""
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE public.users
+                    SET password_hash = %s, updated_at = NOW()
+                    WHERE id = %s;
+                    """,
+                    (new_hash, user_id),
+                )
 
     def update_password(self, email: str, new_plain_password: str) -> bool:
         email_clean = email.strip().lower()
         new_hash = hash_password(new_plain_password)
         with get_db() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     UPDATE public.users
                     SET password_hash = %s, updated_at = NOW()
                     WHERE lower(email) = %s;
-                """, (new_hash, email_clean))
+                    """,
+                    (new_hash, email_clean),
+                )
                 return cur.rowcount > 0
 
     def create_reset_token(self, email: str, valid_seconds: int = 900) -> str:
@@ -145,11 +223,14 @@ class PostgresUserStorage:
                 # Delete any older tokens for this user
                 cur.execute("DELETE FROM public.password_reset_tokens WHERE user_id = %s;", (user_id,))
 
-                # Insert fresh token with expiry
-                cur.execute("""
+                # Insert fresh token with parameterized expiry interval
+                cur.execute(
+                    """
                     INSERT INTO public.password_reset_tokens (token, user_id, email, expires_at)
-                    VALUES (%s, %s, %s, NOW() + INTERVAL '%s seconds');
-                """, (token, user_id, email_clean, valid_seconds))
+                    VALUES (%s, %s, %s, NOW() + make_interval(secs => %s));
+                    """,
+                    (token, user_id, email_clean, int(valid_seconds)),
+                )
                 return token
 
     def verify_reset_token(self, token: str) -> Optional[str]:
@@ -158,11 +239,14 @@ class PostgresUserStorage:
         """
         with get_db() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT email, expires_at
                     FROM public.password_reset_tokens
                     WHERE token = %s AND expires_at > NOW();
-                """, (token,))
+                    """,
+                    (token,),
+                )
                 row = cur.fetchone()
                 if not row:
                     return None

@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 import { ROUTES } from "@/app/routes"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import modellyngLogo from "@/assets/modellyng-logo.jpg"
+import { toast } from "@/lib/store/useToastStore"
 
 const navigationItems = [
   { name: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
@@ -58,6 +59,7 @@ export function Sidebar() {
 
   const handleLogout = () => {
     logout()
+    toast.info("Anda telah keluar dari sesi Modellyng.", 5000)
     navigate(ROUTES.AUTH.LOGIN, { replace: true })
   }
 

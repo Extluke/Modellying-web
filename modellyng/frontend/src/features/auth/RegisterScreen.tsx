@@ -1,59 +1,90 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Eye, EyeOff, AlertCircle, Loader2, Check } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { AuthLayout } from "./components/AuthLayout"
+import { AuthFormAlert } from "./components/AuthFormAlert"
+import { PasswordField } from "./components/PasswordField"
+import { PasswordStrengthMeter } from "./components/PasswordStrengthMeter"
+import { TermsPrivacyModal, type LegalTab } from "./components/TermsPrivacyModal"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ROUTES } from "@/app/routes"
+import { isApiError } from "@/lib/api/client"
+import { toast } from "@/lib/store/useToastStore"
+import { useRegisterMutation } from "./api/authQueries"
 import {
-  validateEmail,
+  validateFullName,
+  validateInstitution,
   validatePassword,
   validatePasswordMatch,
-  validateFullName,
+  validateRegisterEmail,
 } from "./utils/validation"
-import { useAuthStore } from "./store/authStore"
+
+interface RegisterErrors {
+  fullName?: string
+  email?: string
+  institution?: string
+  password?: string
+  confirmPassword?: string
+  terms?: string
+}
 
 export default function RegisterScreen() {
   const navigate = useNavigate()
-  const { register, isLoading } = useAuthStore()
+  const registerMutation = useRegisterMutation()
 
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
+  const [institution, setInstitution] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [agreedTerms, setAgreedTerms] = useState(false)
 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [legalModalTab, setLegalModalTab] = useState<LegalTab | null>(null)
 
-  // Validation & Error states
-  const [errors, setErrors] = useState<{
-    fullName?: string
-    email?: string
-    password?: string
-    confirmPassword?: string
-    terms?: string
-  }>({})
+  const [errors, setErrors] = useState<RegisterErrors>({})
   const [apiError, setApiError] = useState<string | null>(null)
+  const [isDuplicateEmailError, setIsDuplicateEmailError] = useState(false)
+  const [cooldownSeconds, setCooldownSeconds] = useState(0)
 
-  // Password requirement flags for dynamic helper UI
-  const hasMinLength = password.length >= 8
-  const hasLetter = /[A-Za-z]/.test(password)
-  const hasNumber = /\d/.test(password)
+  useEffect(() => {
+    if (cooldownSeconds <= 0) {
+      return
+    }
+    const timer = window.setInterval(() => {
+      setCooldownSeconds((prev) => (prev > 1 ? prev - 1 : 0))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [cooldownSeconds])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const isBusy = registerMutation.isPending
+  const isSubmitDisabled = isBusy || cooldownSeconds > 0
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (cooldownSeconds > 0) {
+      return
+    }
+
     setApiError(null)
+    setIsDuplicateEmailError(false)
 
     const nameErr = validateFullName(fullName)
-    const emailErr = validateEmail(email)
+    const emailErr = validateRegisterEmail(email)
+    const instErr = validateInstitution(institution)
     const passErr = validatePassword(password)
     const matchErr = validatePasswordMatch(password, confirmPassword)
-    const termsErr = !agreedTerms ? "Anda wajib menyetujui Syarat & Ketentuan." : null
+    const termsErr = !agreedTerms
+      ? "Anda wajib menyetujui Syarat & Ketentuan."
+      : null
 
-    if (nameErr || emailErr || passErr || matchErr || termsErr) {
+    if (nameErr || emailErr || instErr || passErr || matchErr || termsErr) {
       setErrors({
         fullName: nameErr || undefined,
         email: emailErr || undefined,
+        institution: instErr || undefined,
         password: passErr || undefined,
         confirmPassword: matchErr || undefined,
         terms: termsErr || undefined,
@@ -63,25 +94,55 @@ export default function RegisterScreen() {
 
     setErrors({})
 
+    const cleanEmail = email.trim().toLowerCase()
+    const cleanInstitution = institution.trim()
+
     try {
-      await register({
-        full_name: fullName,
-        email,
+      const registeredUser = await registerMutation.mutateAsync({
+        full_name: fullName.trim(),
+        email: cleanEmail,
+        ...(cleanInstitution ? { institution: cleanInstitution } : {}),
         password,
         confirm_password: confirmPassword,
       })
 
-      // On successful registration, redirect to dashboard
+      toast.success(
+        `Akun peneliti berhasil dibuat. Selamat datang, ${registeredUser.full_name}!`,
+        5000
+      )
       navigate(ROUTES.DASHBOARD, { replace: true })
-    } catch (err: any) {
-      setApiError(err?.message || "Pendaftaran gagal. Silakan coba kembali.")
+    } catch (err: unknown) {
+      if (isApiError(err)) {
+        if (err.status === 429 && err.retryAfter) {
+          setCooldownSeconds(err.retryAfter)
+        }
+        if (err.status === 409) {
+          setIsDuplicateEmailError(true)
+        }
+        if (err.fieldErrors) {
+          setErrors((prev) => ({
+            ...prev,
+            fullName: err.fieldErrors?.full_name || prev.fullName,
+            email: err.fieldErrors?.email || prev.email,
+            institution: err.fieldErrors?.institution || prev.institution,
+            password: err.fieldErrors?.password || prev.password,
+            confirmPassword:
+              err.fieldErrors?.confirm_password || prev.confirmPassword,
+          }))
+        }
+        setApiError(err.message)
+      } else if (err instanceof Error && err.message.trim()) {
+        setApiError(err.message)
+      } else {
+        setApiError("Pendaftaran gagal. Silakan coba kembali.")
+      }
     }
   }
 
   return (
     <AuthLayout>
-      <div>
-        <div className="text-center sm:text-left mb-6">
+      <div className="flex flex-col gap-5">
+        <div className="text-center sm:text-left">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Buat Akun Peneliti
           </h2>
@@ -90,190 +151,279 @@ export default function RegisterScreen() {
           </p>
         </div>
 
-        {/* API Error Toast Banner */}
         {apiError && (
-          <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-            <AlertCircle className="size-4 shrink-0 mt-0.5 text-destructive" />
-            <div className="flex-1">
-              <span className="font-semibold">Gagal Mendaftar: </span>
-              <span>{apiError}</span>
-            </div>
-          </div>
+          <AuthFormAlert
+            variant="error"
+            title="Gagal Mendaftar:"
+            message={
+              cooldownSeconds > 0
+                ? `${apiError} (Coba lagi dalam ${cooldownSeconds} detik)`
+                : apiError
+            }
+            action={
+              isDuplicateEmailError ? (
+                <Link
+                  to={ROUTES.AUTH.LOGIN}
+                  state={{ email: email.trim().toLowerCase() }}
+                  className="inline-flex text-[11px] font-semibold text-primary underline underline-offset-2"
+                >
+                  Masuk dengan email ini &rarr;
+                </Link>
+              ) : undefined
+            }
+          />
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           {/* Full Name */}
-          <div>
-            <label htmlFor="reg-name" className="block text-xs font-medium text-foreground mb-1">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="reg-name"
+              className="block text-xs font-medium text-foreground"
+            >
               Nama Lengkap & Gelar <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               id="reg-name"
               type="text"
               autoComplete="name"
               value={fullName}
               onChange={(e) => {
-                setFullName(e.target.value)
+                const val = e.target.value
+                setFullName(val)
                 if (errors.fullName) {
-                  setErrors((p) => ({ ...p, fullName: validateFullName(e.target.value) || undefined }))
+                  setErrors((prev) => ({
+                    ...prev,
+                    fullName: validateFullName(val) || undefined,
+                  }))
                 }
+                if (apiError) setApiError(null)
               }}
-              placeholder="Dr. Nama Lengkap, M.Sc."
-              disabled={isLoading}
-              className={`w-full rounded-lg border px-3.5 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:outline-none focus:ring-2 ${
-                errors.fullName
-                  ? "border-destructive bg-destructive/5 text-destructive focus:ring-destructive"
-                  : "border-input bg-background focus:ring-primary hover:border-muted-foreground/40"
-              }`}
+              onBlur={() =>
+                setErrors((prev) => ({
+                  ...prev,
+                  fullName: validateFullName(fullName) || undefined,
+                }))
+              }
+              placeholder="Contoh: Dr. Budi Santoso, M.Sc."
+              disabled={isBusy}
+              error={Boolean(errors.fullName)}
+              aria-invalid={Boolean(errors.fullName)}
+              aria-describedby={errors.fullName ? "reg-name-error" : undefined}
+              className="h-10 rounded-lg text-xs sm:text-sm"
             />
             {errors.fullName && (
-              <p className="mt-1 text-[11px] text-destructive animate-in fade-in-50">
+              <p
+                id="reg-name-error"
+                className="text-[11px] text-destructive animate-in fade-in-50"
+              >
                 {errors.fullName}
               </p>
             )}
           </div>
 
-          {/* Email */}
-          <div>
-            <label htmlFor="reg-email" className="block text-xs font-medium text-foreground mb-1">
-              Alamat Email <span className="text-destructive">*</span>
+          {/* Gmail Only Email */}
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="reg-email"
+              className="block text-xs font-medium text-foreground"
+            >
+              Alamat Email Google (@gmail.com){" "}
+              <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               id="reg-email"
               type="email"
               autoComplete="email"
               value={email}
               onChange={(e) => {
-                setEmail(e.target.value)
+                const val = e.target.value
+                setEmail(val)
                 if (errors.email) {
-                  setErrors((p) => ({ ...p, email: validateEmail(e.target.value) || undefined }))
+                  setErrors((prev) => ({
+                    ...prev,
+                    email: validateRegisterEmail(val) || undefined,
+                  }))
+                }
+                if (apiError) {
+                  setApiError(null)
+                  setIsDuplicateEmailError(false)
                 }
               }}
-              placeholder="nama@institusi.ac.id"
-              disabled={isLoading}
-              className={`w-full rounded-lg border px-3.5 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:outline-none focus:ring-2 ${
-                errors.email
-                  ? "border-destructive bg-destructive/5 text-destructive focus:ring-destructive"
-                  : "border-input bg-background focus:ring-primary hover:border-muted-foreground/40"
-              }`}
+              onBlur={() =>
+                setErrors((prev) => ({
+                  ...prev,
+                  email: validateRegisterEmail(email) || undefined,
+                }))
+              }
+              placeholder="nama@gmail.com"
+              disabled={isBusy}
+              error={Boolean(errors.email)}
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={
+                errors.email ? "reg-email-error" : "reg-email-hint"
+              }
+              className="h-10 rounded-lg text-xs sm:text-sm"
             />
-            {errors.email && (
-              <p className="mt-1 text-[11px] text-destructive animate-in fade-in-50">
+            {errors.email ? (
+              <p
+                id="reg-email-error"
+                className="text-[11px] text-destructive animate-in fade-in-50"
+              >
                 {errors.email}
+              </p>
+            ) : (
+              <p id="reg-email-hint" className="text-[11px] text-muted-foreground">
+                Pendaftaran publik hanya menerima alamat email Google (@gmail.com).
+              </p>
+            )}
+          </div>
+
+          {/* Optional Institution */}
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="reg-institution"
+              className="block text-xs font-medium text-foreground"
+            >
+              Institusi / Universitas{" "}
+              <span className="text-[11px] font-normal text-muted-foreground">
+                (Opsional)
+              </span>
+            </label>
+            <Input
+              id="reg-institution"
+              type="text"
+              autoComplete="organization"
+              maxLength={150}
+              value={institution}
+              onChange={(e) => {
+                const val = e.target.value
+                setInstitution(val)
+                if (errors.institution) {
+                  setErrors((prev) => ({
+                    ...prev,
+                    institution: validateInstitution(val) || undefined,
+                  }))
+                }
+              }}
+              placeholder="Contoh: Telkom University / Universitas Indonesia"
+              disabled={isBusy}
+              error={Boolean(errors.institution)}
+              aria-invalid={Boolean(errors.institution)}
+              aria-describedby={
+                errors.institution ? "reg-institution-error" : undefined
+              }
+              className="h-10 rounded-lg text-xs sm:text-sm"
+            />
+            {errors.institution && (
+              <p
+                id="reg-institution-error"
+                className="text-[11px] text-destructive animate-in fade-in-50"
+              >
+                {errors.institution}
               </p>
             )}
           </div>
 
           {/* Password */}
-          <div>
-            <label htmlFor="reg-password" className="block text-xs font-medium text-foreground mb-1">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="reg-password"
+              className="block text-xs font-medium text-foreground"
+            >
               Kata Sandi <span className="text-destructive">*</span>
             </label>
-            <div className="relative">
-              <input
-                id="reg-password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  if (errors.password) {
-                    setErrors((p) => ({ ...p, password: validatePassword(e.target.value) || undefined }))
-                  }
-                  if (confirmPassword && errors.confirmPassword) {
-                    setErrors((p) => ({
-                      ...p,
-                      confirmPassword: validatePasswordMatch(e.target.value, confirmPassword) || undefined,
-                    }))
-                  }
-                }}
-                placeholder="Minimal 8 karakter"
-                disabled={isLoading}
-                className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:outline-none focus:ring-2 ${
-                  errors.password
-                    ? "border-destructive bg-destructive/5 text-destructive focus:ring-destructive"
-                    : "border-input bg-background focus:ring-primary hover:border-muted-foreground/40"
-                }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
-              >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
+            <PasswordField
+              id="reg-password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => {
+                const val = e.target.value
+                setPassword(val)
+                if (errors.password) {
+                  setErrors((prev) => ({
+                    ...prev,
+                    password: validatePassword(val) || undefined,
+                  }))
+                }
+                if (confirmPassword && errors.confirmPassword) {
+                  setErrors((prev) => ({
+                    ...prev,
+                    confirmPassword:
+                      validatePasswordMatch(val, confirmPassword) || undefined,
+                  }))
+                }
+                if (apiError) setApiError(null)
+              }}
+              placeholder="Minimal 8 karakter (huruf & angka)"
+              disabled={isBusy}
+              showPassword={showPassword}
+              onToggleVisibility={() => setShowPassword((prev) => !prev)}
+              error={Boolean(errors.password)}
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "reg-password-error" : undefined}
+              className="h-10 rounded-lg text-xs sm:text-sm"
+            />
 
-            {/* Password dynamic strength requirement chips */}
-            <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
-              <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
-                hasMinLength ? "bg-emerald-500/10 text-emerald-600 font-semibold" : "bg-muted text-muted-foreground"
-              }`}>
-                {hasMinLength && <Check className="size-3" />} Minimal 8 karakter
-              </span>
-              <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
-                hasLetter && hasNumber ? "bg-emerald-500/10 text-emerald-600 font-semibold" : "bg-muted text-muted-foreground"
-              }`}>
-                {hasLetter && hasNumber && <Check className="size-3" />} Huruf & Angka
-              </span>
-            </div>
+            <PasswordStrengthMeter password={password} />
 
             {errors.password && (
-              <p className="mt-1 text-[11px] text-destructive animate-in fade-in-50">
+              <p
+                id="reg-password-error"
+                className="text-[11px] text-destructive animate-in fade-in-50"
+              >
                 {errors.password}
               </p>
             )}
           </div>
 
           {/* Confirm Password */}
-          <div>
-            <label htmlFor="reg-confirm" className="block text-xs font-medium text-foreground mb-1">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="reg-confirm"
+              className="block text-xs font-medium text-foreground"
+            >
               Konfirmasi Kata Sandi <span className="text-destructive">*</span>
             </label>
-            <div className="relative">
-              <input
-                id="reg-confirm"
-                type={showConfirmPassword ? "text" : "password"}
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value)
-                  if (errors.confirmPassword) {
-                    setErrors((p) => ({
-                      ...p,
-                      confirmPassword: validatePasswordMatch(password, e.target.value) || undefined,
-                    }))
-                  }
-                }}
-                placeholder="Ulangi kata sandi"
-                disabled={isLoading}
-                className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:outline-none focus:ring-2 ${
-                  errors.confirmPassword
-                    ? "border-destructive bg-destructive/5 text-destructive focus:ring-destructive"
-                    : "border-input bg-background focus:ring-primary hover:border-muted-foreground/40"
-                }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                tabIndex={-1}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showConfirmPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
-              >
-                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
+            <PasswordField
+              id="reg-confirm"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => {
+                const val = e.target.value
+                setConfirmPassword(val)
+                if (errors.confirmPassword) {
+                  setErrors((prev) => ({
+                    ...prev,
+                    confirmPassword:
+                      validatePasswordMatch(password, val) || undefined,
+                  }))
+                }
+                if (apiError) setApiError(null)
+              }}
+              placeholder="Ulangi kata sandi"
+              disabled={isBusy}
+              showPassword={showConfirmPassword}
+              onToggleVisibility={() => setShowConfirmPassword((prev) => !prev)}
+              error={Boolean(errors.confirmPassword)}
+              aria-invalid={Boolean(errors.confirmPassword)}
+              aria-describedby={
+                errors.confirmPassword ? "reg-confirm-error" : undefined
+              }
+              className="h-10 rounded-lg text-xs sm:text-sm"
+            />
             {errors.confirmPassword && (
-              <p className="mt-1 text-[11px] text-destructive animate-in fade-in-50">
+              <p
+                id="reg-confirm-error"
+                className="text-[11px] text-destructive animate-in fade-in-50"
+              >
                 {errors.confirmPassword}
               </p>
             )}
           </div>
 
           {/* Terms & Conditions */}
-          <div className="pt-1">
+          <div className="flex flex-col gap-1 pt-0.5">
             <div className="flex items-start">
               <input
                 id="terms"
@@ -281,19 +431,39 @@ export default function RegisterScreen() {
                 checked={agreedTerms}
                 onChange={(e) => {
                   setAgreedTerms(e.target.checked)
-                  if (errors.terms) setErrors((p) => ({ ...p, terms: undefined }))
+                  if (errors.terms) {
+                    setErrors((prev) => ({ ...prev, terms: undefined }))
+                  }
                 }}
-                disabled={isLoading}
+                disabled={isBusy}
+                aria-invalid={Boolean(errors.terms)}
                 className="size-4 mt-0.5 rounded border-input text-primary focus:ring-primary cursor-pointer"
               />
-              <label htmlFor="terms" className="ml-2 text-xs text-muted-foreground cursor-pointer select-none">
+              <label
+                htmlFor="terms"
+                className="ml-2 text-xs text-muted-foreground cursor-pointer select-none leading-relaxed"
+              >
                 Saya menyetujui{" "}
-                <span className="font-medium text-primary hover:underline">Syarat & Ketentuan Riset</span> serta{" "}
-                <span className="font-medium text-primary hover:underline">Kebijakan Privasi Data PDF</span>.
+                <button
+                  type="button"
+                  onClick={() => setLegalModalTab("terms")}
+                  className="font-medium text-primary hover:underline focus:outline-none"
+                >
+                  Syarat & Ketentuan Riset
+                </button>{" "}
+                serta{" "}
+                <button
+                  type="button"
+                  onClick={() => setLegalModalTab("privacy")}
+                  className="font-medium text-primary hover:underline focus:outline-none"
+                >
+                  Kebijakan Privasi Data PDF
+                </button>
+                .
               </label>
             </div>
             {errors.terms && (
-              <p className="mt-1 text-[11px] text-destructive animate-in fade-in-50">
+              <p className="text-[11px] text-destructive animate-in fade-in-50">
                 {errors.terms}
               </p>
             )}
@@ -303,21 +473,23 @@ export default function RegisterScreen() {
           <Button
             type="submit"
             size="lg"
-            disabled={isLoading}
-            className="w-full gap-2 font-semibold shadow-sm transition-all mt-3"
+            disabled={isSubmitDisabled}
+            className="w-full font-semibold shadow-sm transition-all mt-1"
           >
-            {isLoading ? (
+            {isBusy ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
                 <span>Mendaftarkan Akun...</span>
               </>
+            ) : cooldownSeconds > 0 ? (
+              <span>Tunggu {cooldownSeconds} detik...</span>
             ) : (
               <span>Daftar Akun Peneliti</span>
             )}
           </Button>
         </form>
 
-        <p className="mt-8 text-center text-xs text-muted-foreground">
+        <p className="mt-2 text-center text-xs text-muted-foreground">
           Sudah memiliki akun riset?{" "}
           <Link
             to={ROUTES.AUTH.LOGIN}
@@ -327,6 +499,17 @@ export default function RegisterScreen() {
           </Link>
         </p>
       </div>
+
+      <TermsPrivacyModal
+        isOpen={legalModalTab !== null}
+        activeTab={legalModalTab ?? "terms"}
+        onTabChange={setLegalModalTab}
+        onClose={() => setLegalModalTab(null)}
+        onAccept={() => {
+          setAgreedTerms(true)
+          setErrors((prev) => ({ ...prev, terms: undefined }))
+        }}
+      />
     </AuthLayout>
   )
 }

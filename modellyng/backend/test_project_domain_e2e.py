@@ -79,7 +79,7 @@ def run_tests():
     # 1. Login / Get Auth Token
     # -------------------------------------------------------------------------
     print("\n[TEST 1] Menguji Otentikasi & Token Akses...")
-    test_email = f"test_e2e_{int(time.time())}@modellyng.ac.id"
+    test_email = f"test_e2e_{int(time.time())}@gmail.com"
     test_password = "Password123!"
     
     # Register dedicated test user
@@ -100,7 +100,7 @@ def run_tests():
         # Fallback to login
         login_res = requests.post(
             f"{BASE_URL}/auth/login",
-            json={"email": "arby@modellyng.ac.id", "password": "Password123!"}
+            json={"email": "arby@modellyng.ac.id", "password": "Password123"}
         )
         assert login_res.status_code == 200, f"Login fallback failed: {login_res.text}"
         token = login_res.json().get("token") or login_res.json().get("access_token")

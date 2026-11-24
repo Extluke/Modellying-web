@@ -77,6 +77,7 @@ export default function SettingsScreen() {
 
   const handleLogout = () => {
     logout()
+    toast.info("Anda telah keluar dari sesi Modellyng.", 5000)
     navigate(ROUTES.AUTH.LOGIN, { replace: true })
   }
 

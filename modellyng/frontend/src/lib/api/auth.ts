@@ -1,17 +1,33 @@
 import { apiClient } from "./client"
 
+export type UserRole = "researcher" | "admin"
+export type UserStatus = "active" | "suspended" | "deactivated"
+export type SubscriptionTier =
+  | "free"
+  | "pro"
+  | "student_14"
+  | "student_30"
+  | "enterprise"
+  | "developer"
+
 export interface User {
   id: string
   full_name: string
   email: string
-  role: string
-  subscription_tier?: string
+  role: UserRole | string
+  subscription_tier?: SubscriptionTier | string
+  institution?: string | null
+  status?: UserStatus
+  citation_format?: string
+  ai_confidence_threshold?: number
+  admin_role?: string | null
   created_at: string
 }
 
 export interface AuthResponse {
   token: string
   token_type: string
+  expires_at?: string | null
   user: User
 }
 
@@ -30,6 +46,7 @@ export interface LoginPayload {
 export interface RegisterPayload {
   full_name: string
   email: string
+  institution?: string
   password: string
   confirm_password: string
 }
@@ -50,6 +67,8 @@ export const authApi = {
 
   register: (payload: RegisterPayload) =>
     apiClient.post<AuthResponse>("/auth/register", payload),
+
+  logout: () => apiClient.post<MessageResponse>("/auth/logout"),
 
   forgotPassword: (payload: ForgotPasswordPayload) =>
     apiClient.post<MessageResponse>("/auth/forgot-password", payload),

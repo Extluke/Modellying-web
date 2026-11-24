@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom"
 import { AppShell } from "@/components/layout/AppShell"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { GuestRoute } from "@/components/auth/GuestRoute"
+import { AdminRoute } from "@/components/auth/AdminRoute"
 import { ROUTES } from "@/app/routes"
 
 // Loading skeleton fallback for lazy-loaded route chunks
@@ -383,62 +384,67 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      // Admin Domain
+      // Admin Domain (Protected strictly by AdminRoute)
       {
-        path: ROUTES.ADMIN.DASHBOARD,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <AdminDashboardScreen />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN.USERS,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <UserManagementScreen />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN.SUBSCRIPTIONS,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <SubscriptionsScreen />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN.CMS,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <CmsAnnouncementsScreen />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN.API_CONFIG,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <ApiConfigScreen />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN.ADMINS,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <AdminManagementScreen />
-          </Suspense>
-        ),
-      },
-      {
-        path: ROUTES.ADMIN.MODELS,
-        element: (
-          <Suspense fallback={<RouteLoader />}>
-            <ModelQuotasScreen />
-          </Suspense>
-        ),
+        element: <AdminRoute />,
+        children: [
+          {
+            path: ROUTES.ADMIN.DASHBOARD,
+            element: (
+              <Suspense fallback={<RouteLoader />}>
+                <AdminDashboardScreen />
+              </Suspense>
+            ),
+          },
+          {
+            path: ROUTES.ADMIN.USERS,
+            element: (
+              <Suspense fallback={<RouteLoader />}>
+                <UserManagementScreen />
+              </Suspense>
+            ),
+          },
+          {
+            path: ROUTES.ADMIN.SUBSCRIPTIONS,
+            element: (
+              <Suspense fallback={<RouteLoader />}>
+                <SubscriptionsScreen />
+              </Suspense>
+            ),
+          },
+          {
+            path: ROUTES.ADMIN.CMS,
+            element: (
+              <Suspense fallback={<RouteLoader />}>
+                <CmsAnnouncementsScreen />
+              </Suspense>
+            ),
+          },
+          {
+            path: ROUTES.ADMIN.API_CONFIG,
+            element: (
+              <Suspense fallback={<RouteLoader />}>
+                <ApiConfigScreen />
+              </Suspense>
+            ),
+          },
+          {
+            path: ROUTES.ADMIN.ADMINS,
+            element: (
+              <Suspense fallback={<RouteLoader />}>
+                <AdminManagementScreen />
+              </Suspense>
+            ),
+          },
+          {
+            path: ROUTES.ADMIN.MODELS,
+            element: (
+              <Suspense fallback={<RouteLoader />}>
+                <ModelQuotasScreen />
+              </Suspense>
+            ),
+          },
+        ],
       },
       {
         path: ROUTES.STYLEGUIDE,

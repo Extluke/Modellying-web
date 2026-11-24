@@ -71,3 +71,14 @@ def ensure_tables():
             CREATE INDEX IF NOT EXISTS idx_reset_tokens_expires ON public.password_reset_tokens(expires_at);
             CREATE INDEX IF NOT EXISTS idx_reset_tokens_user ON public.password_reset_tokens(user_id);
             """)
+
+    # Defensively ensure case-insensitive unique email index without altering public.users columns/constraints
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower_unique
+                ON public.users (LOWER(email));
+                """)
+    except Exception as exc:
+        logger.warning(f"Could not ensure idx_users_email_lower_unique on startup ({exc}).")
