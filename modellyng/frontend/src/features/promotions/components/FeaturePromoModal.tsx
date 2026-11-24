@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Crown,
   X,
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "@/lib/store/useToastStore"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
-import { PRICING_PLANS } from "@/features/styleguide/components/PricingSection"
+import { useSubscriptionPlans } from "@/features/user/pricing/hooks/useSubscriptionPlans"
 import {
   ADMIN_WHATSAPP_DISPLAY,
   buildPricingWhatsAppUrl,
@@ -36,14 +36,32 @@ export function FeaturePromoModal({
 }: FeaturePromoModalProps) {
   const user = useAuthStore((s) => s.user)
   const { quota } = useUserQuota()
+  const { plans } = useSubscriptionPlans()
   const [isOpen, setIsOpen] = useState(false)
-  const [selectedPlanOption, setSelectedPlanOption] = useState<"14_days" | "30_days">("30_days")
 
-  // Pengguna Pro (student_14, student_30) dan Developer/Admin sama sekali bebas iklan dan promosi
+  // Filter paket berbayar aktif dari database (kecuali free)
+  const paidPlans = useMemo(() => {
+    return plans.filter((p) => p.priceNumeric > 0 && p.id !== "free")
+  }, [plans])
+
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("student_30")
+
+  // Sinkronisasi otomatis saat daftar paket database termuat
+  useEffect(() => {
+    if (paidPlans.length > 0 && !paidPlans.some((p) => p.id === selectedPlanId)) {
+      const popular = paidPlans.find((p) => p.isPopular)
+      setSelectedPlanId(popular?.id || paidPlans[0].id)
+    }
+  }, [paidPlans, selectedPlanId])
+
+  const activeSelectedPlan = useMemo(() => {
+    return paidPlans.find((p) => p.id === selectedPlanId) || paidPlans[0]
+  }, [paidPlans, selectedPlanId])
+
+  // Pengguna Berbayar / Pro / Developer / Admin sama sekali bebas iklan dan promosi
+  const isFreeUser = !user?.subscription_tier || user?.subscription_tier === "free"
   const isPaidOrDeveloper =
-    user?.subscription_tier === "student_14" ||
-    user?.subscription_tier === "student_30" ||
-    user?.subscription_tier === "developer" ||
+    !isFreeUser ||
     user?.role === "admin" ||
     quota?.is_developer ||
     quota?.tier_category === "student"
@@ -78,17 +96,15 @@ export function FeaturePromoModal({
   }
 
   const handleUpgradeViaWhatsApp = () => {
-    const planId = selectedPlanOption === "14_days" ? "student_14" : "student_30"
-    const targetPlan = PRICING_PLANS.find((p) => p.id === planId)
-    if (targetPlan) {
-      const waUrl = buildPricingWhatsAppUrl(targetPlan, user)
+    if (activeSelectedPlan) {
+      const waUrl = buildPricingWhatsAppUrl(activeSelectedPlan, user)
       try {
         window.open(waUrl, "_blank", "noopener,noreferrer")
       } catch {
         // Fallback
       }
       toast.success(
-        `Mengarahkan ke WhatsApp Admin (${ADMIN_WHATSAPP_DISPLAY}) untuk ${targetPlan.name}!`,
+        `Mengarahkan ke WhatsApp Admin (${ADMIN_WHATSAPP_DISPLAY}) untuk ${activeSelectedPlan.name}!`,
         5000
       )
     }
@@ -163,62 +179,68 @@ export function FeaturePromoModal({
                 })}
               </ul>
 
-              {/* Opsi Paket Radio 14 Hari vs 30 Hari */}
-              <div className="grid grid-cols-2 gap-2.5 pt-2">
-                <label
-                  onClick={() => setSelectedPlanOption("14_days")}
-                  className={`flex flex-col p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
-                    selectedPlanOption === "14_days"
-                      ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20"
-                      : "border-border/80 bg-card hover:border-primary/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name="feature-promo-plan"
-                      checked={selectedPlanOption === "14_days"}
-                      onChange={() => setSelectedPlanOption("14_days")}
-                      className="text-primary focus:ring-primary size-3 cursor-pointer"
-                    />
-                    <span className="text-[10px] font-semibold text-foreground">
-                      Student Pro – 14 Hari
-                    </span>
-                  </div>
-                  <div className="mt-1 pl-4.5">
-                    <div className="text-xs font-extrabold text-foreground">Rp29.000</div>
-                    <div className="text-[9px] text-muted-foreground">Setara Rp2.071/hari</div>
-                  </div>
-                </label>
-
-                <label
-                  onClick={() => setSelectedPlanOption("30_days")}
-                  className={`relative flex flex-col p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
-                    selectedPlanOption === "30_days"
-                      ? "border-primary bg-primary/[0.04] ring-1 ring-primary/25"
-                      : "border-border/80 bg-card hover:border-primary/40"
-                  }`}
-                >
-                  <span className="absolute -top-2 right-2 rounded-full bg-primary px-1.5 py-0.2 text-[8px] font-bold text-white shadow-2xs">
-                    Paling Populer
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name="feature-promo-plan"
-                      checked={selectedPlanOption === "30_days"}
-                      onChange={() => setSelectedPlanOption("30_days")}
-                      className="text-primary focus:ring-primary size-3 cursor-pointer"
-                    />
-                    <span className="text-[10px] font-semibold text-foreground">
-                      Student Pro – 30 Hari
-                    </span>
-                  </div>
-                  <div className="mt-1 pl-4.5">
-                    <div className="text-xs font-extrabold text-primary">Rp49.000</div>
-                    <div className="text-[9px] text-muted-foreground">Setara Rp1.633/hari</div>
-                  </div>
-                </label>
+              {/* Opsi Paket Radio Dinamis dari Database */}
+              <div
+                className={`gap-2 pt-2 ${
+                  paidPlans.length === 1
+                    ? "grid grid-cols-1"
+                    : paidPlans.length === 2
+                    ? "grid grid-cols-2"
+                    : paidPlans.length === 3
+                    ? "grid grid-cols-3"
+                    : "grid grid-cols-2 max-h-36 overflow-y-auto pr-1"
+                }`}
+              >
+                {paidPlans.map((plan) => {
+                  const isSelected = activeSelectedPlan?.id === plan.id
+                  const dailyPrice =
+                    plan.durationDays && plan.durationDays > 0
+                      ? Math.round(plan.priceNumeric / plan.durationDays)
+                      : 0
+                  return (
+                    <label
+                      key={plan.id}
+                      onClick={() => setSelectedPlanId(plan.id)}
+                      className={`relative flex flex-col p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20 shadow-xs"
+                          : "border-border/80 bg-card hover:border-primary/40"
+                      }`}
+                    >
+                      {plan.isPopular && (
+                        <span className="absolute -top-2 right-2 rounded-full bg-primary px-1.5 py-0.2 text-[8px] font-bold text-white shadow-2xs">
+                          Paling Populer
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="radio"
+                          name="feature-promo-plan"
+                          checked={isSelected}
+                          onChange={() => setSelectedPlanId(plan.id)}
+                          className="text-primary focus:ring-primary size-3 cursor-pointer"
+                        />
+                        <span className="text-[10px] font-semibold text-foreground truncate">
+                          {plan.name}
+                        </span>
+                      </div>
+                      <div className="mt-1 pl-4.5">
+                        <div
+                          className={`text-xs font-extrabold ${
+                            isSelected ? "text-primary" : "text-foreground"
+                          }`}
+                        >
+                          {plan.priceFormatted}
+                        </div>
+                        {dailyPrice > 0 && (
+                          <div className="text-[9px] text-muted-foreground">
+                            Setara Rp{dailyPrice.toLocaleString("id-ID")}/hari
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
               </div>
             </div>
 
@@ -231,9 +253,10 @@ export function FeaturePromoModal({
               >
                 <MessageCircle className="size-3.5" />
                 <span>
-                  Upgrade via WhatsApp (
-                  {selectedPlanOption === "14_days" ? "14 Hari • Rp29.000" : "30 Hari • Rp49.000"}
-                  )
+                  Upgrade via WhatsApp
+                  {activeSelectedPlan
+                    ? ` (${activeSelectedPlan.name} • ${activeSelectedPlan.priceFormatted})`
+                    : ""}
                 </span>
               </Button>
 

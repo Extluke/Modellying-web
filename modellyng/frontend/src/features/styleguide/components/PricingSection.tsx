@@ -28,10 +28,11 @@ import {
 } from "@/features/user/pricing/utils/whatsappPricing"
 
 export interface PricingPlan {
-  id: "free" | "student_14" | "student_30"
+  id: string
   name: string
   tierBadge: string
   durationText: string
+  durationDays?: number
   priceFormatted: string
   priceNumeric: number
   dailyEquivalent?: string

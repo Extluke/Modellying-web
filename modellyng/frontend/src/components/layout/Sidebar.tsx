@@ -4,7 +4,6 @@ import {
   FolderKanban,
   TableProperties,
   Network,
-  BookOpenCheck,
   Sparkles,
   Palette,
   ShieldAlert,
@@ -20,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { ROUTES } from "@/app/routes"
 import { useAuthStore } from "@/features/auth/store/authStore"
+import modellyngLogo from "@/assets/modellyng-logo.jpg"
 
 const navigationItems = [
   { name: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
@@ -69,12 +69,18 @@ export function Sidebar() {
     <aside className="hidden md:flex w-64 flex-col border-r bg-card h-full shrink-0 select-none">
       {/* 1. Header Sidebar: Logo & Badge */}
       <div className="flex h-14 items-center gap-2 border-b px-6 shrink-0">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
-          <BookOpenCheck className="size-4" />
-        </div>
-        <span className="font-bold tracking-tight text-foreground text-base">
-          Modellyng
-        </span>
+        <Link to={ROUTES.DASHBOARD} className="flex items-center gap-2.5 group">
+          <div className="size-7 rounded-lg overflow-hidden border border-border/60 shrink-0 shadow-xs group-hover:ring-2 group-hover:ring-primary/20 transition-all">
+            <img
+              src={modellyngLogo}
+              alt="Logo Modellyng"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <span className="font-bold tracking-tight text-foreground text-base group-hover:text-primary transition-colors">
+            Modellyng
+          </span>
+        </Link>
         <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground ml-auto">
           WEB
         </span>

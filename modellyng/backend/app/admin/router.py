@@ -385,12 +385,63 @@ async def update_user_subscription(
 ):
     """
     Menyetujui (ACC) atau memperbarui status paket langganan pengguna (active, pending_approval, rejected).
+    Secara otomatis melakukan sinkronisasi ganda:
+    1. Memperbarui kolom `users.subscription_tier`.
+    2. Meng-UPSERT rekaman aktif di `public.user_subscriptions` sehingga view `v_user_active_subscription`
+       dan kuota harian (15 token/dokumen) langsung berlaku instan tanpa jeda.
     """
-    new_tier = req.subscription_tier.strip().lower()
+    raw_tier = req.subscription_tier.strip().lower()
     new_status = req.subscription_status.strip().lower()
 
+    # Normalisasi tier: jika admin/input mengisi "pro" atau variannya, petakan ke paket resmi aktif
+    tier_mapping = {
+        "pro": "student_30",
+        "pro_scholar": "student_30",
+        "student": "student_30",
+        "student_pro": "student_30",
+        "student_30": "student_30",
+        "student_14": "student_14",
+        "developer": "developer",
+        "free": "free",
+    }
+    normalized_tier = tier_mapping.get(raw_tier, raw_tier)
+
     with get_db() as conn:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # 1. Pastikan pengguna ada
+            cur.execute("SELECT id, email, full_name, subscription_tier FROM public.users WHERE id = %s;", (user_id,))
+            user_row = cur.fetchone()
+            if not user_row:
+                raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+            # 2. Cari paket langganan terkait di public.subscription_plans
+            cur.execute(
+                """
+                SELECT id, code, name, price, duration_days, tier_category, is_active
+                FROM public.subscription_plans
+                WHERE code = %s
+                ORDER BY sort_order ASC
+                LIMIT 1;
+                """,
+                (normalized_tier,),
+            )
+            plan_row = cur.fetchone()
+
+            # Jika paket tidak ditemukan dan bukan free/developer, fallback ke student_30
+            if not plan_row and normalized_tier not in ("free", "developer"):
+                cur.execute(
+                    """
+                    SELECT id, code, name, price, duration_days, tier_category, is_active
+                    FROM public.subscription_plans
+                    WHERE code = 'student_30'
+                    LIMIT 1;
+                    """
+                )
+                plan_row = cur.fetchone()
+                if plan_row:
+                    normalized_tier = "student_30"
+
+            # 3. Perbarui tabel public.users
             cur.execute(
                 """
                 UPDATE public.users 
@@ -398,11 +449,79 @@ async def update_user_subscription(
                 WHERE id = %s 
                 RETURNING id, email, full_name;
                 """,
-                (new_tier, user_id),
+                (normalized_tier, user_id),
             )
             updated = cur.fetchone()
-            if not updated:
-                raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+            # 4. Sinkronisasi tabel public.user_subscriptions
+            if normalized_tier == "free" or new_status in ("rejected", "cancelled"):
+                # Nonaktifkan langganan aktif sebelumnya jika diturunkan ke free / ditolak
+                cur.execute(
+                    """
+                    UPDATE public.user_subscriptions
+                    SET status = 'cancelled', updated_at = NOW()
+                    WHERE user_id = %s AND status = 'active';
+                    """,
+                    (user_id,),
+                )
+            elif new_status == "active" and plan_row:
+                # Batalkan langganan lama agar digantikan langganan baru
+                cur.execute(
+                    """
+                    UPDATE public.user_subscriptions
+                    SET status = 'superseded', updated_at = NOW()
+                    WHERE user_id = %s AND status = 'active';
+                    """,
+                    (user_id,),
+                )
+
+                duration = plan_row.get("duration_days") or 30
+                if duration <= 0 and normalized_tier == "student_14":
+                    duration = 14
+                elif duration <= 0:
+                    duration = 30
+
+                cur.execute(
+                    """
+                    INSERT INTO public.user_subscriptions (
+                        user_id, plan_id, status, started_at, expires_at,
+                        amount_paid, payment_method, created_at
+                    ) VALUES (
+                        %s, %s, 'active', NOW(),
+                        CASE 
+                            WHEN %s = 'developer' THEN NULL 
+                            ELSE NOW() + (%s || ' days')::INTERVAL 
+                        END,
+                        %s, 'admin_manual_acc', NOW()
+                    );
+                    """,
+                    (
+                        user_id,
+                        plan_row["id"],
+                        normalized_tier,
+                        duration,
+                        plan_row["price"],
+                    ),
+                )
+            elif new_status == "pending_approval" and plan_row:
+                cur.execute(
+                    """
+                    INSERT INTO public.user_subscriptions (
+                        user_id, plan_id, status, started_at, expires_at,
+                        amount_paid, payment_method, created_at
+                    ) VALUES (
+                        %s, %s, 'pending_approval', NOW(),
+                        NOW() + (COALESCE(%s, 30) || ' days')::INTERVAL,
+                        %s, 'pending_acc', NOW()
+                    );
+                    """,
+                    (
+                        user_id,
+                        plan_row["id"],
+                        plan_row.get("duration_days") or 30,
+                        plan_row["price"],
+                    ),
+                )
 
     log_admin_action(
         admin_email=admin["email"],
@@ -410,11 +529,19 @@ async def update_user_subscription(
         action="update_user_subscription",
         target_type="user",
         target_id=user_id,
-        details={"subscription_tier": new_tier, "subscription_status": new_status},
+        details={
+            "requested_tier": raw_tier,
+            "normalized_tier": normalized_tier,
+            "subscription_status": new_status,
+            "plan_name": plan_row["name"] if plan_row else normalized_tier,
+        },
     )
 
     action_label = "disetujui (ACC)" if new_status == "active" else "diperbarui"
-    return AdminMessageResponse(message=f"Langganan paket '{new_tier}' untuk pengguna '{updated[2]}' ({updated[1]}) berhasil {action_label}.")
+    plan_display = plan_row["name"] if plan_row else normalized_tier
+    return AdminMessageResponse(
+        message=f"Langganan paket '{plan_display}' untuk pengguna '{updated['full_name']}' ({updated['email']}) berhasil {action_label}."
+    )
 
 
 @admin_router.post("/users/{user_id}/reset-password", response_model=AdminMessageResponse)
@@ -652,8 +779,8 @@ async def create_subscription_plan(
             cur.execute(
                 """
                 INSERT INTO public.subscription_plans 
-                    (code, name, description, price, currency, billing_period, paper_limit_per_month, ai_query_limit_per_day, features, is_active, is_popular, sort_order)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (code, name, description, price, currency, billing_period, paper_limit_per_month, ai_query_limit_per_day, features, is_active, is_popular, sort_order, duration_days, daily_file_limit, daily_token_limit, total_tokens_max, tier_category)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING *;
                 """,
                 (
@@ -669,6 +796,11 @@ async def create_subscription_plan(
                     req.is_active,
                     req.is_popular,
                     req.sort_order,
+                    req.duration_days if req.duration_days is not None else 30,
+                    req.daily_file_limit,
+                    req.daily_token_limit if req.daily_token_limit is not None else 15,
+                    req.total_tokens_max if req.total_tokens_max is not None else 450,
+                    req.tier_category if req.tier_category is not None else "student",
                 ),
             )
             created = cur.fetchone()
@@ -732,6 +864,21 @@ async def update_subscription_plan(
     if req.ai_query_limit_per_day is not None:
         updates.append("ai_query_limit_per_day = %s")
         params.append(req.ai_query_limit_per_day)
+    if req.duration_days is not None:
+        updates.append("duration_days = %s")
+        params.append(req.duration_days)
+    if req.daily_file_limit is not None:
+        updates.append("daily_file_limit = %s")
+        params.append(req.daily_file_limit)
+    if req.daily_token_limit is not None:
+        updates.append("daily_token_limit = %s")
+        params.append(req.daily_token_limit)
+    if req.total_tokens_max is not None:
+        updates.append("total_tokens_max = %s")
+        params.append(req.total_tokens_max)
+    if req.tier_category is not None:
+        updates.append("tier_category = %s")
+        params.append(req.tier_category)
     if req.features is not None:
         updates.append("features = %s")
         params.append(json.dumps(req.features))

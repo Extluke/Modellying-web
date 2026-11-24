@@ -1151,12 +1151,15 @@ def export_project_synthesis(
     """
     user_id = current_user["id"]
     quota = get_user_quota_status(user_id)
+    user_sub_tier = (current_user.get("subscription_tier") or "").lower()
+    quota_tier = str(quota.get("tier", "")).lower()
     is_pro = (
         current_user.get("role") == "admin"
-        or current_user.get("subscription_tier") in ("pro", "developer")
+        or user_sub_tier not in ("", "free", "basic")
         or quota.get("is_developer") is True
         or quota.get("tier_category") in ("student", "developer")
-        or quota.get("tier") in ("pro", "developer", "student")
+        or quota_tier.startswith("student")
+        or quota_tier in ("pro", "developer", "student", "pro_scholar")
     )
     if not is_pro:
         raise HTTPException(
@@ -1578,12 +1581,15 @@ def get_comparative_matrix(
 
             # Quota & Tier Evaluation for Server-Side Data Masking (Zero-Trust)
             quota = get_user_quota_status(user_id)
+            user_sub_tier = (current_user.get("subscription_tier") or "").lower()
+            quota_tier = str(quota.get("tier", "")).lower()
             is_pro = (
                 current_user.get("role") == "admin"
-                or current_user.get("subscription_tier") in ("pro", "developer")
+                or user_sub_tier not in ("", "free", "basic")
                 or quota.get("is_developer") is True
                 or quota.get("tier_category") in ("student", "developer")
-                or quota.get("tier") in ("pro", "developer", "student")
+                or quota_tier.startswith("student")
+                or quota_tier in ("pro", "developer", "student", "pro_scholar")
             )
 
             FREE_ALLOWED_PARAM_KEYS = {
@@ -1701,12 +1707,15 @@ def synthesize_knowledge_graph_gap(
 
     # Security & Anti-Tampering: Fitur sintesis AI rumusan masalah eksklusif Student Pro / Admin
     quota = get_user_quota_status(user_id)
+    user_sub_tier = (current_user.get("subscription_tier") or "").lower()
+    quota_tier = str(quota.get("tier", "")).lower()
     is_pro = (
         current_user.get("role") == "admin"
-        or current_user.get("subscription_tier") in ("pro", "developer")
+        or user_sub_tier not in ("", "free", "basic")
         or quota.get("is_developer") is True
         or quota.get("tier_category") in ("student", "developer")
-        or quota.get("tier") in ("pro", "developer", "student")
+        or quota_tier.startswith("student")
+        or quota_tier in ("pro", "developer", "student", "pro_scholar")
     )
     if not is_pro:
         raise HTTPException(

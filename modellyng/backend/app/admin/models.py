@@ -125,10 +125,15 @@ class SubscriptionPlanCreateRequest(BaseModel):
     description: Optional[str] = None
     price: float = Field(..., ge=0, description="Harga paket dalam IDR")
     currency: str = "IDR"
-    billing_period: str = "monthly"  # free, monthly, annual, lifetime
+    billing_period: str = "monthly"  # free, monthly, annual, lifetime, fixed_days
     paper_limit_per_month: int = 50
     ai_query_limit_per_day: int = 100
-    features: List[str] = Field(default_factory=list)
+    duration_days: Optional[int] = 30
+    daily_file_limit: Optional[int] = None
+    daily_token_limit: Optional[int] = 15
+    total_tokens_max: Optional[int] = 450
+    tier_category: Optional[str] = "student"
+    features: List[Union[str, Dict[str, Any]]] = Field(default_factory=list)
     is_active: bool = True
     is_popular: bool = False
     sort_order: int = 1
@@ -140,7 +145,12 @@ class SubscriptionPlanUpdateRequest(BaseModel):
     billing_period: Optional[str] = None
     paper_limit_per_month: Optional[int] = None
     ai_query_limit_per_day: Optional[int] = None
-    features: Optional[List[str]] = None
+    duration_days: Optional[int] = None
+    daily_file_limit: Optional[int] = None
+    daily_token_limit: Optional[int] = None
+    total_tokens_max: Optional[int] = None
+    tier_category: Optional[str] = None
+    features: Optional[List[Union[str, Dict[str, Any]]]] = None
     is_active: Optional[bool] = None
     is_popular: Optional[bool] = None
     sort_order: Optional[int] = None

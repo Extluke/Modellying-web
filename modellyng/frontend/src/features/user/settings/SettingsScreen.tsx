@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import {
   Settings,
   User,
@@ -22,6 +23,7 @@ import { useAuthStore } from "@/features/auth/store/authStore"
 import { ROUTES } from "@/app/routes"
 import { formatSubscriptionTierName } from "@/features/user/pricing/utils/whatsappPricing"
 import { useUserQuota, useUserUsageLogs } from "@/features/user/pricing/hooks/useUserQuota"
+import { useSubscriptionPlans } from "@/features/user/pricing/hooks/useSubscriptionPlans"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function SettingsScreen() {
@@ -29,12 +31,20 @@ export default function SettingsScreen() {
   const { user, logout } = useAuthStore()
   const { quota, isLoading: isQuotaLoading, invalidateQuota } = useUserQuota()
   const { data: usageLogs, isLoading: isLogsLoading } = useUserUsageLogs(5)
+  const { plans: subscriptionPlans } = useSubscriptionPlans()
 
-  const isDev = quota?.is_developer ?? (user?.subscription_tier === "developer")
+  const isDev = quota?.is_developer ?? (user?.subscription_tier === "developer" || user?.role === "admin")
   const isPro =
     quota?.tier_category === "student" ||
-    user?.subscription_tier === "student_30" ||
-    user?.subscription_tier === "student_14"
+    (Boolean(user?.subscription_tier) && user?.subscription_tier !== "free" && user?.subscription_tier !== "developer")
+
+  const paidPlansText = useMemo(() => {
+    const paid = subscriptionPlans.filter((p) => p.priceNumeric > 0 && p.id !== "free")
+    if (paid.length > 0) {
+      return `Tersedia paket ${paid.map((p) => `${p.name} (${p.priceFormatted})`).join(" dan ")} via WhatsApp Admin`
+    }
+    return "Pilihan paket langganan fleksibel tersedia via WhatsApp Admin"
+  }, [subscriptionPlans])
 
   const activeTierCode = quota?.tier || user?.subscription_tier || "free"
   const activeTierName = quota?.tier_name || formatSubscriptionTierName(activeTierCode)
@@ -155,7 +165,7 @@ export default function SettingsScreen() {
               <span>
                 {isPro
                   ? "Dukungan prioritas & perpanjangan paket via WhatsApp Admin"
-                  : "Tersedia paket Student Pro 14 Hari (Rp29.000) dan 30 Hari (Rp49.000) via WhatsApp Admin"}
+                  : paidPlansText}
               </span>
             </div>
 

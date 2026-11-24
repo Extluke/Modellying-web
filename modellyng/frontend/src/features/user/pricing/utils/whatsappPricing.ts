@@ -19,8 +19,12 @@ export function formatSubscriptionTierName(tier?: string): string {
     case "pro":
       return "Pro Scholar"
     case "free":
-    default:
       return "Free Plan (Akun Dasar)"
+    default:
+      if (!tier) return "Free Plan (Akun Dasar)"
+      return tier
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
   }
 }
 
@@ -35,12 +39,24 @@ export function generatePricingWhatsAppMessage(
   const userEmail = user?.email?.trim() || "Belum Login"
   const currentTier = formatSubscriptionTierName(user?.subscription_tier)
 
-  const featureHighlights =
-    plan.id === "student_30"
-      ? "15 Token/Hari (Total s.d. 450 Token), Akses Penuh Comparative Matrix & Research Gap Map"
-      : plan.id === "student_14"
-      ? "15 Token/Hari (Total s.d. 210 Token), Akses Penuh Comparative Matrix & Research Gap Map"
-      : "3 Dokumen/Hari, Reset Harian 24 Jam"
+  let featureHighlights = "3 Dokumen/Hari, Reset Harian 24 Jam"
+  if (plan.id === "student_30") {
+    featureHighlights = "15 Token/Hari (Total s.d. 450 Token), Akses Penuh Comparative Matrix & Research Gap Map"
+  } else if (plan.id === "student_14") {
+    featureHighlights = "15 Token/Hari (Total s.d. 210 Token), Akses Penuh Comparative Matrix & Research Gap Map"
+  } else if (plan.features && plan.features.length > 0) {
+    const availableFeats = plan.features
+      .filter((f) => f.isAvailable)
+      .map((f) => f.text)
+      .slice(0, 2)
+    if (availableFeats.length > 0) {
+      featureHighlights = availableFeats.join(", ")
+    } else {
+      featureHighlights = plan.targetDescription || "Akses Penuh Fitur Riset Modellyng"
+    }
+  } else if (plan.targetDescription) {
+    featureHighlights = plan.targetDescription
+  }
 
   return `Halo Admin Modellyng,
 

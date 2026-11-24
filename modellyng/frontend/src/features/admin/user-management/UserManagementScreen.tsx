@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useSubscriptionPlans } from "@/features/user/pricing/hooks/useSubscriptionPlans"
 import { 
   Users, 
   Search, 
@@ -88,16 +89,31 @@ function getTierInfo(tier?: string) {
         badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300/40",
         icon: Crown,
       }
-    default:
+    case "developer":
       return {
-        label: "Free Plan",
-        badgeClass: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200",
-        icon: BookOpen,
+        label: "Developer Access",
+        badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300/40",
+        icon: Crown,
+      }
+    default:
+      if (!tier || tier === "free") {
+        return {
+          label: "Free Plan",
+          badgeClass: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200",
+          icon: BookOpen,
+        }
+      }
+      return {
+        label: tier.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        badgeClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-300/40",
+        icon: Sparkles,
       }
   }
 }
 
 export default function UserManagementScreen() {
+  const queryClient = useQueryClient()
+  const { plans: subscriptionPlans } = useSubscriptionPlans()
   const [activeTab, setActiveTab] = useState<"users" | "bugs">("users")
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("")
@@ -367,7 +383,7 @@ export default function UserManagementScreen() {
   }
 
   // Subscription Approval & Management Handlers
-  const handleApproveSubscription = (user: AdminUserItem) => {
+  const handleApproveSubscription = async (user: AdminUserItem) => {
     const tierName = getTierInfo(user.subscription_tier).label
     setUsersList((prev) =>
       prev.map((u) =>
@@ -381,17 +397,22 @@ export default function UserManagementScreen() {
       )
     )
 
-    adminApi.updateUserSubscription(user.id, {
-      subscription_tier: user.subscription_tier,
-      subscription_status: "active",
-    }).catch(() => {})
-
-    toast.success(
-      `Permintaan langganan paket '${tierName}' untuk pengguna '${user.full_name}' berhasil disetujui (ACC). Hak akses akademik telah aktif.`
-    )
+    try {
+      await adminApi.updateUserSubscription(user.id, {
+        subscription_tier: user.subscription_tier,
+        subscription_status: "active",
+      })
+      await queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
+      await queryClient.invalidateQueries({ queryKey: ["user-quota"] })
+      toast.success(
+        `Permintaan langganan paket '${tierName}' untuk pengguna '${user.full_name}' berhasil disetujui (ACC). Hak akses akademik telah aktif.`
+      )
+    } catch {
+      toast.error(`Gagal menyetujui paket langganan untuk ${user.full_name}.`)
+    }
   }
 
-  const handleRejectSubscription = (user: AdminUserItem) => {
+  const handleRejectSubscription = async (user: AdminUserItem) => {
     setUsersList((prev) =>
       prev.map((u) =>
         u.id === user.id
@@ -404,14 +425,19 @@ export default function UserManagementScreen() {
       )
     )
 
-    adminApi.updateUserSubscription(user.id, {
-      subscription_tier: "free",
-      subscription_status: "rejected",
-    }).catch(() => {})
-
-    toast.info(
-      `Permintaan langganan untuk pengguna '${user.full_name}' telah ditolak. Akun dikembalikan ke paket Free Explorer.`
-    )
+    try {
+      await adminApi.updateUserSubscription(user.id, {
+        subscription_tier: "free",
+        subscription_status: "rejected",
+      })
+      await queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
+      await queryClient.invalidateQueries({ queryKey: ["user-quota"] })
+      toast.info(
+        `Permintaan langganan untuk pengguna '${user.full_name}' telah ditolak. Akun dikembalikan ke paket Free Explorer.`
+      )
+    } catch {
+      toast.error(`Gagal menolak paket langganan.`)
+    }
   }
 
   const handleOpenSubModal = (user: AdminUserItem) => {
@@ -421,7 +447,7 @@ export default function UserManagementScreen() {
     setIsSubModalOpen(true)
   }
 
-  const handleSaveSubscriptionChange = () => {
+  const handleSaveSubscriptionChange = async () => {
     if (!selectedUserForSub) return
     const tierName = getTierInfo(targetSubTier).label
     setUsersList((prev) =>
@@ -436,18 +462,25 @@ export default function UserManagementScreen() {
       )
     )
 
-    adminApi.updateUserSubscription(selectedUserForSub.id, {
-      subscription_tier: targetSubTier,
-      subscription_status: targetSubStatus,
-    }).catch(() => {})
+    try {
+      await adminApi.updateUserSubscription(selectedUserForSub.id, {
+        subscription_tier: targetSubTier,
+        subscription_status: targetSubStatus,
+      })
+      await queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
+      await queryClient.invalidateQueries({ queryKey: ["user-quota"] })
 
-    const statusLabel = 
-      targetSubStatus === "active" ? "Aktif Disetujui (ACC)" : 
-      targetSubStatus === "pending_approval" ? "Menunggu ACC Admin" : "Ditolak"
+      const statusLabel = 
+        targetSubStatus === "active" ? "Aktif Disetujui (ACC)" : 
+        targetSubStatus === "pending_approval" ? "Menunggu ACC Admin" : "Ditolak"
 
-    toast.success(
-      `Paket langganan pengguna '${selectedUserForSub.full_name}' berhasil diubah menjadi '${tierName}' (${statusLabel}).`
-    )
+      toast.success(
+        `Paket langganan pengguna '${selectedUserForSub.full_name}' berhasil diubah menjadi '${tierName}' (${statusLabel}).`
+      )
+    } catch {
+      toast.error(`Gagal menyimpan perubahan paket langganan ke server.`)
+    }
+
     setIsSubModalOpen(false)
     setSelectedUserForSub(null)
   }
@@ -1368,9 +1401,15 @@ export default function UserManagementScreen() {
                   onChange={(e) => setTargetSubTier(e.target.value)}
                   className="w-full rounded-md border bg-card p-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="student_30">Student Pro – 30 Hari (Rp49.000 / Paling Populer & Ekonomis)</option>
-                  <option value="student_14">Student Pro – 14 Hari (Rp29.000 / Periode Cepat)</option>
-                  <option value="free">Free Plan (Rp0 / Akun Dasar Gratis)</option>
+                  {subscriptionPlans.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.priceNumeric > 0 ? `(${p.priceFormatted} • ${p.durationText})` : `(${p.priceFormatted})`}
+                    </option>
+                  ))}
+                  {!subscriptionPlans.some((p) => p.id === "free") && (
+                    <option value="free">Free Plan (Rp0 / Akun Dasar Gratis)</option>
+                  )}
+                  <option value="developer">Developer Access (Akses Penuh Tanpa Batas Kuota)</option>
                 </select>
               </div>
 

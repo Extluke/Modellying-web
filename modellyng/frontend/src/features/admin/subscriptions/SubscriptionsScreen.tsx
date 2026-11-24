@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { 
   CreditCard, 
   Plus, 
@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function SubscriptionsScreen() {
+  const queryClient = useQueryClient()
   const [plansList, setPlansList] = useState<SubscriptionPlanItem[]>(DUMMY_SUBSCRIPTION_PLANS)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null)
@@ -128,7 +129,7 @@ export default function SubscriptionsScreen() {
     setFeatures(features.filter((_, i) => i !== idx))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (editingPlan) {
@@ -153,24 +154,28 @@ export default function SubscriptionsScreen() {
 
       setPlansList((prev) => prev.map((p) => p.id === editingPlan.id ? updatedItem : p))
       
-      // Background API call
-      adminApi.updateSubscriptionPlan(editingPlan.id, {
-        name,
-        description,
-        price,
-        billing_period: billingPeriod,
-        duration_days: durationDays,
-        daily_token_limit: dailyTokenLimit,
-        total_tokens_max: totalTokensMax,
-        daily_file_limit: dailyFileLimit,
-        paper_limit_per_month: paperLimit,
-        ai_query_limit_per_day: aiQueryLimit,
-        features,
-        is_popular: isPopular,
-        is_active: isActive,
-      }).catch(() => {})
-
-      toast.success(`Konfigurasi paket langganan '${name}' berhasil diperbarui.`)
+      try {
+        await adminApi.updateSubscriptionPlan(editingPlan.id, {
+          name,
+          description,
+          price,
+          billing_period: billingPeriod,
+          duration_days: durationDays,
+          daily_token_limit: dailyTokenLimit,
+          total_tokens_max: totalTokensMax,
+          daily_file_limit: dailyFileLimit,
+          paper_limit_per_month: paperLimit,
+          ai_query_limit_per_day: aiQueryLimit,
+          features,
+          is_popular: isPopular,
+          is_active: isActive,
+        })
+        await queryClient.invalidateQueries({ queryKey: ["admin", "subscriptions", "plans"] })
+        await queryClient.invalidateQueries({ queryKey: ["subscription-plans"] })
+        toast.success(`Konfigurasi paket langganan '${name}' berhasil diperbarui.`)
+      } catch {
+        toast.error(`Gagal menyimpan perubahan konfigurasi ke server.`)
+      }
     } else {
       // Create new plan in local state
       const newPlan: SubscriptionPlanItem = {
@@ -198,38 +203,48 @@ export default function SubscriptionsScreen() {
 
       setPlansList((prev) => [...prev, newPlan])
 
-      // Background API call
-      adminApi.createSubscriptionPlan({
-        code: code.trim().toLowerCase(),
-        name,
-        description,
-        price,
-        billing_period: billingPeriod,
-        duration_days: durationDays,
-        daily_token_limit: dailyTokenLimit,
-        total_tokens_max: totalTokensMax,
-        daily_file_limit: dailyFileLimit,
-        paper_limit_per_month: paperLimit,
-        ai_query_limit_per_day: aiQueryLimit,
-        features,
-        is_popular: isPopular,
-        is_active: isActive,
-      }).catch(() => {})
-
-      toast.success(`Paket langganan baru '${name}' berhasil diterbitkan.`)
+      try {
+        await adminApi.createSubscriptionPlan({
+          code: code.trim().toLowerCase(),
+          name,
+          description,
+          price,
+          billing_period: billingPeriod,
+          duration_days: durationDays,
+          daily_token_limit: dailyTokenLimit,
+          total_tokens_max: totalTokensMax,
+          daily_file_limit: dailyFileLimit,
+          paper_limit_per_month: paperLimit,
+          ai_query_limit_per_day: aiQueryLimit,
+          features,
+          is_popular: isPopular,
+          is_active: isActive,
+        })
+        await queryClient.invalidateQueries({ queryKey: ["admin", "subscriptions", "plans"] })
+        await queryClient.invalidateQueries({ queryKey: ["subscription-plans"] })
+        toast.success(`Paket langganan baru '${name}' berhasil diterbitkan.`)
+      } catch {
+        toast.error(`Gagal menerbitkan paket baru ke server.`)
+      }
     }
 
     setIsModalOpen(false)
     resetForm()
   }
 
-  const handleDeletePlan = (plan: SubscriptionPlanItem) => {
+  const handleDeletePlan = async (plan: SubscriptionPlanItem) => {
     if (confirm(`Yakin ingin menonaktifkan atau mengarsipkan paket '${plan.name}'?`)) {
       setPlansList((prev) =>
         prev.map((p) => p.id === plan.id ? { ...p, is_active: false } : p)
       )
-      adminApi.deleteSubscriptionPlan(plan.id).catch(() => {})
-      toast.info(`Paket langganan '${plan.name}' berhasil dinonaktifkan (diarsipkan).`)
+      try {
+        await adminApi.deleteSubscriptionPlan(plan.id)
+        await queryClient.invalidateQueries({ queryKey: ["admin", "subscriptions", "plans"] })
+        await queryClient.invalidateQueries({ queryKey: ["subscription-plans"] })
+        toast.info(`Paket langganan '${plan.name}' berhasil dinonaktifkan (diarsipkan).`)
+      } catch {
+        toast.error(`Gagal menonaktifkan paket di server.`)
+      }
     }
   }
 
