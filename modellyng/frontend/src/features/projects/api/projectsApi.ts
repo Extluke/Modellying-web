@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/client"
+import { tokenStorage } from "@/lib/auth/tokenStorage"
 import { useAuthStore } from "@/features/auth/store/authStore"
 
 export interface Project {
@@ -616,7 +617,7 @@ export async function downloadProjectExport(
   format: "pdf" | "csv" | "xlsx",
   projectName: string
 ): Promise<void> {
-  const token = localStorage.getItem("modellyng_token")
+  const token = tokenStorage.getToken()
   const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api"
   const url = `${base}/projects/${projectId}/export?format=${format}`
 

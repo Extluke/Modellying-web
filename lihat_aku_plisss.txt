@@ -22,7 +22,11 @@ Modellying-web/
 │   │   │   │   ├── dependencies.py   # Security guard RBAC (require_admin)
 │   │   │   │   ├── models.py         # Skema Pydantic respon metrik, user list, role, & kuota model
 │   │   │   │   └── router.py         # RESTful router (/api/v1/admin/*)
-│   │   │   ├── auth/                 # Modul autentikasi, JWT, & hashing Argon2id
+│   │   │   ├── auth/                 # Modul autentikasi, JWT, rate limiter, & hashing Argon2id
+│   │   │   │   ├── models.py         # Skema Pydantic Register (filter regex @gmail.com), Login, & Profil
+│   │   │   │   ├── router.py         # Router REST (/auth/*, /api/auth/*, /api/v1/auth/*) & get_current_user
+│   │   │   │   ├── security.py       # Hashing Argon2id, constant-time mitigation, JWT dinamis, & RateLimiter
+│   │   │   │   └── storage.py        # Repositori public.users & password_reset_tokens (PostgreSQL)
 │   │   │   ├── pipeline/             # Ekstraksi PDF PyMuPDF, LLM Gatekeeper, & Verifikasi DOI
 │   │   │   │   ├── source_verification.py # Layanan verifikasi keabsahan sumber paper via Crossref & DataCite
 │   │   │   │   └── ...
@@ -38,15 +42,17 @@ Modellying-web/
 │   │   │   ├── docker-compose.yml    # Layanan DB, Redis, Meta, Studio, & Mailpit
 │   │   │   └── .env.example          # Contoh variabel environment Docker
 │   │   ├── requirements.txt          # Dependensi pustaka Python
+│   │   ├── tests/                    # Suite pengujian otomatis Pytest
+│   │   │   └── test_auth_flow.py     # Uji komprehensif Register (@gmail.com), Login, JWT TTL, & status akun
 │   │   └── .env                      # Variabel konfigurasi aktif backend & API keys
 │   │
 │   └── frontend/                     # Aplikasi Web SPA (React 19 + TypeScript + Vite)
 │       ├── public/                   # Aset publik statis
 │       ├── src/                      # Sumber kode frontend (arsitektur fitur)
-│       │   ├── components/           # Komponen UI global (Shadcn UI & Radix, termasuk ui/filter-tabs & ui/search-field)
+│       │   ├── components/           # Komponen UI global (Shadcn UI & Radix, auth guards: Protected/Guest/AdminRoute, AuthSessionBootstrap)
 │       │   ├── features/             # Modul halaman & logika fitur aplikasi
 │       │   ├── hooks/                # Custom React hooks
-│       │   ├── lib/                  # Utilitas, helper, & API client
+│       │   ├── lib/                  # Utilitas, helper, tokenStorage (localStorage/sessionStorage), & API client
 │       │   ├── store/                # Manajemen global state (Zustand)
 │       │   ├── App.tsx               # Konfigurasi rute utama (React Router v7)
 │       │   ├── index.css             # Konfigurasi Tailwind CSS & token warna
@@ -63,9 +69,22 @@ Modellying-web/
 --------------------------------------------------------------------------------
 src/features/
 ├── auth/                             # Zona Publik & Autentikasi
+│   ├── api/
+│   │   └── authQueries.ts            # Hooks TanStack Query v5 & Query Key Factory autentikasi
+│   ├── components/
+│   │   ├── AuthFormAlert.tsx         # Banner umpan balik error, sukses, & sesi berakhir (role="alert")
+│   │   ├── AuthLayout.tsx            # Tata letak dua kolom halaman autentikasi
+│   │   ├── DemoAccountPicker.tsx     # Pemilih cepat 3 akun uji coba pada halaman masuk
+│   │   ├── PasswordField.tsx         # Input kata sandi berbasis Shadcn dengan toggle visibilitas
+│   │   ├── PasswordStrengthMeter.tsx # Meter kekuatan kata sandi 4 segmen & kriteria
+│   │   └── TermsPrivacyModal.tsx     # Modal Syarat & Ketentuan Riset serta Kebijakan Privasi Data PDF
+│   ├── store/
+│   │   └── authStore.ts              # Zustand store sesi, hidrasi /auth/me, & sinkronisasi lintas tab
+│   ├── utils/
+│   │   └── validation.ts             # Validator regex @gmail.com, sandi, & safe redirect resolver
 │   ├── WelcomeScreen.tsx             # /welcome (Halaman pembuka publik)
-│   ├── LoginScreen.tsx               # /login (Halaman masuk & autofill demo)
-│   ├── RegisterScreen.tsx            # /register (Pendaftaran akun baru)
+│   ├── LoginScreen.tsx               # /login (Halaman masuk, remember_me, rate-limit countdown, & autofill demo)
+│   ├── RegisterScreen.tsx            # /register (Pendaftaran akun @gmail.com & institusi opsional)
 │   ├── ForgotPasswordScreen.tsx      # /forgot-password (Permintaan reset sandi)
 │   └── ResetPasswordScreen.tsx       # /reset-password (Setel sandi baru via token)
 │
@@ -483,7 +502,12 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 +--------+-------------------------------------------------------------+------------------------------------+
 | Metode | Rute Endpoint                                               | Keterangan Fungsi                  |
 +--------+-------------------------------------------------------------+------------------------------------+
-| POST   | /api/v1/auth/login                                          | Autentikasi akun & penerbitan JWT  |
+| POST   | /api/v1/auth/register                                       | Pendaftaran akun baru (@gmail.com) & penerbitan JWT |
+| POST   | /api/v1/auth/login                                          | Autentikasi akun, cek status, & penerbitan JWT      |
+| GET    | /api/v1/auth/me                                             | Profil pengguna terotentikasi (sinkronisasi sesi)   |
+| POST   | /api/v1/auth/logout                                         | Penutupan sesi terstruktur                          |
+| POST   | /api/v1/auth/forgot-password                                | Pembuatan token pemulihan kata sandi (1 jam)        |
+| POST   | /api/v1/auth/reset-password                                 | Penyetelan kata sandi baru via token pemulihan      |
 | GET    | /api/v1/projects                                            | Daftar proyek & filter status      |
 | POST   | /api/v1/projects                                            | Buat proyek riset baru             |
 | GET    | /api/v1/projects/{id}                                       | Detail proyek & daftar paper       |
@@ -1487,6 +1511,35 @@ DETAIL FITUR & INTEGRASI SISTEM
 - Layanan Endpoint Backend:
   * `GET /admin/api-config/{provider}/token-usage`: Mengembalikan agregasi metrik token, rekap harian 14 hari terakhir, serta daftar peringkat pengguna terurut *descending* dengan data gabungan dari `public.users` dan `public.papers`.
 
+19. SISTEM AUTENTIKASI, FILTER EMAIL GOOGLE (@GMAIL.COM), & KEAMANAN SESI
+--------------------------------------------------------------------------------
+- Kebijakan Filter Regex Email Google (`@gmail.com`):
+  * Pendaftaran Akun Publik (`POST /api/auth/register` & `RegisterScreen.tsx`):
+    Menerapkan validasi regex ketat (`^(?!.*\.\.)[a-z0-9](?:[a-z0-9._+-]{0,62}[a-z0-9])?@gmail\.com$`)
+    sehingga hanya alamat email Google (`@gmail.com`) yang valid dan bebas titik beruntun yang diizinkan mendaftar.
+    Kolom opsional `institution` disimpan langsung ke kolom `public.users.institution`.
+  * Halaman Masuk & Pemulihan Sandi (`POST /api/auth/login`, `forgot-password`, & `LoginScreen.tsx`):
+    Menerima alamat `@gmail.com` serta domain internal terkonfigurasi (`AUTH_INTERNAL_EMAIL_DOMAINS`,
+    default `modellyng.ac.id`) agar seluruh akun seed uji coba tetap dapat digunakan tanpa hambatan.
+- Pengamanan Kredensial & Manajemen Token JWT:
+  * Hashing Password: Argon2id murni dengan verifikasi eksak (tanpa toleransi karakter tambahan) serta
+    mitigasi waktu konstan (*constant-time dummy check*) dan *transparent rehash* bila parameter berubah.
+  * Masa Berlaku Token Dinamis (`remember_me`):
+    - Tanpa centang "Ingat saya": token berlaku 24 jam (`JWT_EXPIRATION_HOURS`) dan disimpan pada `sessionStorage`.
+    - Dengan centang "Ingat saya": token berlaku 7 hari (`JWT_REMEMBER_EXPIRATION_HOURS`) dan disimpan pada `localStorage`.
+  * Penegakan Status Akun Real-Time (`public.users.status`):
+    Akun berstatus `suspended` atau `deactivated` ditolak pada saat login (`HTTP 403 Forbidden` beserta alasan
+    penangguhan jika ada) dan langsung dicabut sesinya saat mengakses endpoint terproteksi (`HTTP 401`).
+  * Perlindungan Brute-Force (`RateLimiter` dengan Auto-Pruning):
+    Pembatasan laju untuk `/login` (5x/menit per IP+email dan 20x/menit per IP), `/register` (5x/5 menit per IP),
+    dan `/forgot-password` (3x/5 menit per IP) dengan header standar `Retry-After` dan hitung mundur otomatis di UI.
+- Hidrasi Sesi, Sinkronisasi Lintas Tab, & Proteksi Rute Admin:
+  * `AuthSessionBootstrap.tsx` memanggil `GET /api/auth/me` saat aplikasi dimuat untuk menyinkronkan profil,
+    peran, dan `subscription_tier` terbaru dari basis data (tetap mempertahankan sesi jika terjadi gangguan sementara `5xx`).
+  * Listener `storage` event memastikan logout atau pergantian akun di satu tab peramban langsung tersinkronisasi ke tab lainnya.
+  * `AdminRoute.tsx` membatasi seluruh rute `/admin/*` khusus untuk pengguna dengan `role === "admin"`, dan
+    `ProtectedRoute.tsx` menyimpan URL tujuan (`state.from`) dengan validasi *anti-open-redirect*.
+
 
 
 ================================================================================
@@ -1619,5 +1672,23 @@ tipe data TypeScript pada frontend dengan menjalankan perintah:
     python C:/Users/aarif/.gemini/antigravity/brain/6eee6625-bc3a-47ca-a336-01a796003862/scratch/test_security_paywall.py
   Skrip akan memvalidasi bahwa 0 bukti kutipan bocor ke akun Free, seluruh kolom terkunci tersensor
   di level server, dan seluruh percobaan ekspor terblokir dengan kode status HTTP 403.
+
+10. PEMECAHAN MASALAH AUTENTIKASI (LOGIN, REGISTER @GMAIL.COM, & SESI)
+--------------------------------------------------------------------------------
+- Pendaftaran Ditolak "Hanya alamat email Google (@gmail.com) yang diperbolehkan":
+  * Sistem secara sengaja membatasi pendaftaran akun publik baru hanya untuk alamat `@gmail.com`
+    yang memenuhi format standar (tanpa spasi atau tanda titik ganda `..`).
+  * Untuk pengujian internal menggunakan akun bawaan (`admin@modellyng.ac.id`, `cahayu@modellyng.ac.id`,
+    `lawren@modellyng.ac.id`), gunakan halaman Login (`/login`) atau panel "Akun Uji Coba".
+- Pesan HTTP 429 "Terlalu banyak percobaan gagal":
+  * Batas percobaan masuk (5x dalam 60 detik per IP+email) atau pendaftaran (5x dalam 5 menit) telah terlampaui.
+  * Tunggu hitung mundur pada tombol hingga selesai sesuai nilai `Retry-After` sebelum mencoba kembali.
+- Pesan Akun Ditangguhkan (HTTP 403 / Sesi Terputus):
+  * Administrator telah mengubah status akun pada `public.users.status` menjadi `suspended` atau `deactivated`.
+  * Hubungi Administrator Sistem untuk memulihkan status menjadi `active` melalui panel `/admin/users`.
+- Konfigurasi Kunci Rahasia JWT (`JWT_SECRET_KEY`):
+  * Pada lingkungan pengembangan lokal, backend menyediakan fallback otomatis agar layanan langsung berjalan.
+  * Untuk penerapan produksi, wajib menetapkan `APP_ENV="production"` dan `JWT_SECRET_KEY` acak yang kuat
+    di dalam berkas `modellyng/backend/.env`.
 
 ================================================================================

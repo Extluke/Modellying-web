@@ -1,6 +1,8 @@
 import React from "react"
+import { Link } from "react-router-dom"
 import { ShieldCheck, Sparkles, FileSearch } from "lucide-react"
 import modellyngLogo from "@/assets/modellyng-logo.jpg"
+import { ROUTES } from "@/app/routes"
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -17,23 +19,25 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
         {/* Top Branding */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="size-11 rounded-xl overflow-hidden shadow-lg shadow-indigo-500/25 border border-white/10 shrink-0">
-            <img
-              src={modellyngLogo}
-              alt="Logo Modellyng"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xl font-extrabold tracking-tight text-white">Modellyng</span>
-              <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
-                Web 2.0
-              </span>
+        <div className="relative z-10 flex items-center">
+          <Link to={ROUTES.WELCOME} className="flex items-center gap-3 group">
+            <div className="size-11 rounded-xl overflow-hidden shadow-lg shadow-indigo-500/25 border border-white/10 shrink-0 group-hover:scale-105 transition-transform">
+              <img
+                src={modellyngLogo}
+                alt="Logo Modellyng"
+                className="w-full h-full object-cover"
+              />
             </div>
-            <p className="text-xs text-indigo-200/70">Evidence-Centered Academic PDF Analysis</p>
-          </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xl font-extrabold tracking-tight text-white">Modellyng</span>
+                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
+                  Web 2.0
+                </span>
+              </div>
+              <p className="text-xs text-indigo-200/70">Evidence-Centered Academic PDF Analysis</p>
+            </div>
+          </Link>
         </div>
 
         {/* Center Headline & Value Proposition */}
@@ -51,7 +55,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           </h1>
 
           <p className="mt-4 text-sm leading-relaxed text-indigo-100/80">
-            Ekstraksi otomatis 11 komponen metodologi ilmiah, penelusuran kalimat kutipan langsung ke blok teks PDF, serta kanvas peta alur riset terintegrasi.
+            Ekstraksi otomatis 13 komponen metodologi ilmiah, penelusuran kalimat kutipan langsung ke blok teks PDF, serta kanvas peta alur riset terintegrasi.
           </p>
 
           <div className="mt-8 grid grid-cols-2 gap-4 pt-4 border-t border-indigo-500/20">
@@ -61,7 +65,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             </div>
             <div className="flex items-center gap-2 text-xs text-indigo-200">
               <FileSearch className="size-4 text-primary" />
-              <span>Matriks Komparasi 10 Parameter</span>
+              <span>Matriks Komparasi 13 Parameter</span>
             </div>
           </div>
         </div>
@@ -77,7 +81,10 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       <div className="flex w-full flex-1 items-center justify-center p-6 sm:p-12 lg:w-1/2 lg:p-16">
         <div className="w-full max-w-md">
           {/* Mobile Logo Header */}
-          <div className="mb-8 flex flex-col items-center text-center lg:hidden">
+          <Link
+            to={ROUTES.WELCOME}
+            className="mb-8 flex flex-col items-center text-center lg:hidden"
+          >
             <div className="size-12 rounded-2xl overflow-hidden shadow-lg mb-2">
               <img
                 src={modellyngLogo}
@@ -87,7 +94,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">Modellyng</span>
             <span className="text-xs text-muted-foreground">Evidence-Centered Academic PDF Analysis</span>
-          </div>
+          </Link>
 
           {/* Form Content */}
           <div className="animate-in fade-in-50 duration-300">

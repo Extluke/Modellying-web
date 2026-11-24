@@ -8,13 +8,15 @@ interface GuestRouteProps {
 
 /**
  * Route guard that prevents already authenticated users from accessing login/register.
- * Redirects to /dashboard if already logged in.
+ * Redirects admins to /admin/dashboard and researchers to /dashboard.
  */
 export function GuestRoute({ children }: GuestRouteProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const role = useAuthStore((state) => state.user?.role)
 
   if (isAuthenticated) {
-    return <Navigate to={ROUTES.DASHBOARD} replace />
+    const target = role === "admin" ? ROUTES.ADMIN.DASHBOARD : ROUTES.DASHBOARD
+    return <Navigate to={target} replace />
   }
 
   return children ? <>{children}</> : <Outlet />
