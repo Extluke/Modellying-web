@@ -1578,6 +1578,27 @@ Seluruh elemen branding visual aplikasi Modellyng Web telah diselaraskan menggun
    - `AuthLayout.tsx`: Logo resmi di panel branding desktop serta header layar otentikasi seluler (Login, Register, Forgot Password, Reset Password).
 
 
+21. TATA LETAK & WIDGET INTERAKTIF DASBOR PENELITI (DASHBOARDSCREEN.TSX)
+--------------------------------------------------------------------------------
+Halaman Dasbor Peneliti (`/dashboard`) mengadopsi tata letak modern berbasis widget terstruktur:
+1. Hero Workspace Banner (2 Kolom):
+   - Kolom Kiri: Badge `AI-POWERED LITERATURE INTELLIGENCE`, headline `Dari Paper Menjadi Peta Pengetahuan`, deskripsi, tombol aksi cepat (`Mulai Analisis Paper`, `Matriks Komparasi`, `Graf Pengetahuan`), dan indikator ketertelusuran bukti ke PDF & verifikasi DOI.
+   - Kolom Kanan: 3D Workspace Preview interaktif yang menampilkan simulasi ekstraksi paper dengan teks highlight, mini peta node research gap, mini tabel matriks komparasi multi-paper, dan lencana kualitas `100% Traceable`.
+2. Capabilities Ribbon Strip:
+   - Bilah ringkas penegasan kemampuan sistem: `EKSTRAKSI PAPER 11 KOMPONEN • PERBANDINGAN LITERATUR • RESEARCH GAP MAP • TRACEABLE AI PROOF`.
+3. Kartu Metrik Riset Dinamis (4 Kolom Real-Time):
+   - Terhubung langsung dengan TanStack Query (`useProjects`): Total Proyek Riset, Total Paper Terunggah, Paper Siap Dianalisis, dan Paper Perlu Ditinjau.
+4. Alur Kerja Riset 4 Langkah (How Modellyng Works):
+   - Panduan alur riset terstruktur: Step 01 (Upload Paper) → Step 02 (Ekstraksi 11 Parameter) → Step 03 (Matriks Komparasi) → Step 04 (Peta Riset & Gap).
+5. Tantangan Riset & Solusi Modellyng (Interactive Cards & Modal):
+   - 4 Kartu tantangan: Jurnal Predatory, Halusinasi Ringkasan AI, Research Gap Sulit Ditemukan, dan Analisis Manual Memakan Puluhan Jam.
+   - Mengklik kartu akan membuka modal dialog interaktif yang menjelaskan permasalahan dan solusi arsitektur Modellyng beserta tombol aksi langsung.
+6. Fitur Unggulan (Built for Research):
+   - 4 Kartu fitur inti: Ekstraksi Paper Otomatis, Comparative Paper Matrix, Research Gap & Knowledge Graph, serta Keterlacakan Sumber & Verifikasi DOI.
+7. Akses Cepat Proyek Aktif & Empty State:
+   - Menampilkan daftar hingga 3 proyek riset aktif pengguna lengkap dengan status paper dan tombol buka, atau empty state yang ramah untuk inisialisasi proyek baru jika belum ada data.
+
+
 
 ================================================================================
 CATATAN TEKNIS & PEMECAHAN MASALAH (TROUBLESHOOTING)
