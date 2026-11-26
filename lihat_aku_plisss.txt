@@ -22,11 +22,12 @@ Modellying-web/
 │   │   │   │   ├── dependencies.py   # Security guard RBAC (require_admin)
 │   │   │   │   ├── models.py         # Skema Pydantic respon metrik, user list, role, & kuota model
 │   │   │   │   └── router.py         # RESTful router (/api/v1/admin/*)
-│   │   │   ├── auth/                 # Modul autentikasi, JWT, rate limiter, & hashing Argon2id
-│   │   │   │   ├── models.py         # Skema Pydantic Register (filter regex @gmail.com), Login, & Profil
+│   │   │   ├── auth/                 # Modul autentikasi, verifikasi email, JWT, rate limiter, & hashing Argon2id
+│   │   │   │   ├── email_service.py  # Pengirim email verifikasi & reset sandi (Auto-Detect Gmail SMTP -> Mailpit -> Dev Preview)
+│   │   │   │   ├── models.py         # Skema Pydantic Register (@gmail.com), VerifyEmail (OTP/Token), Login, & Profil
 │   │   │   │   ├── router.py         # Router REST (/auth/*, /api/auth/*, /api/v1/auth/*) & get_current_user
-│   │   │   │   ├── security.py       # Hashing Argon2id, constant-time mitigation, JWT dinamis, & RateLimiter
-│   │   │   │   └── storage.py        # Repositori public.users & password_reset_tokens (PostgreSQL)
+│   │   │   │   ├── security.py       # Hashing Argon2id, OTP/token SHA-256, JWT dinamis, & RateLimiter
+│   │   │   │   └── storage.py        # Repositori public.users, email_verification_tokens, & password_reset_tokens
 │   │   │   ├── pipeline/             # Ekstraksi PDF PyMuPDF, LLM Gatekeeper, & Verifikasi DOI
 │   │   │   │   ├── source_verification.py # Layanan verifikasi keabsahan sumber paper via Crossref & DataCite
 │   │   │   │   └── ...
@@ -37,7 +38,7 @@ Modellying-web/
 │   │   │   ├── database.py           # Connection pool PostgreSQL
 │   │   │   └── main.py               # Titik masuk FastAPI & registrasi router
 │   │   ├── database/                 # Skema & skrip migrasi SQL PostgreSQL
-│   │   │   └── migrations/           # Riwayat migrasi DDL/DML (001 s.d. 009_student_subscription_and_quota.sql)
+│   │   │   └── migrations/           # Riwayat migrasi DDL/DML (001 s.d. 011_add_email_verification.sql)
 │   │   ├── docker/                   # Konfigurasi Docker Compose stack terisolasi
 │   │   │   ├── docker-compose.yml    # Layanan DB, Redis, Meta, Studio, & Mailpit
 │   │   │   └── .env.example          # Contoh variabel environment Docker
@@ -75,6 +76,7 @@ src/features/
 │   │   ├── AuthFormAlert.tsx         # Banner umpan balik error, sukses, & sesi berakhir (role="alert")
 │   │   ├── AuthLayout.tsx            # Tata letak dua kolom halaman autentikasi
 │   │   ├── DemoAccountPicker.tsx     # Pemilih cepat 3 akun uji coba pada halaman masuk
+│   │   ├── OtpCodeInput.tsx          # Input kode OTP 6 digit aksesibel dengan dukungan tempel (paste)
 │   │   ├── PasswordField.tsx         # Input kata sandi berbasis Shadcn dengan toggle visibilitas
 │   │   ├── PasswordStrengthMeter.tsx # Meter kekuatan kata sandi 4 segmen & kriteria
 │   │   └── TermsPrivacyModal.tsx     # Modal Syarat & Ketentuan Riset serta Kebijakan Privasi Data PDF
@@ -85,6 +87,7 @@ src/features/
 │   ├── WelcomeScreen.tsx             # /welcome (Halaman pembuka publik)
 │   ├── LoginScreen.tsx               # /login (Halaman masuk, remember_me, rate-limit countdown, & autofill demo)
 │   ├── RegisterScreen.tsx            # /register (Pendaftaran akun @gmail.com & institusi opsional)
+│   ├── VerifyEmailScreen.tsx         # /verify-email (Verifikasi email OTP 6 digit & tautan konfirmasi)
 │   ├── ForgotPasswordScreen.tsx      # /forgot-password (Permintaan reset sandi)
 │   └── ResetPasswordScreen.tsx       # /reset-password (Setel sandi baru via token)
 │
@@ -314,6 +317,18 @@ Layanan backend membutuhkan konfigurasi koneksi basis data, Redis, dan kunci API
    - *Catatan:* Jika kunci API AI belum diisi, sistem tetap dapat beroperasi normal menggunakan
      mekanisme ekstraksi kanonik PyMuPDF bawaan dengan bukti kutipan nyata.
 
+   *Konfigurasi Opsional Pengiriman Email Verifikasi (Gmail SMTP Nyata vs Mailpit Lokal):*
+   - Secara default (`EMAIL_PROVIDER="auto"`), jika kredensial SMTP kosong, sistem mengirim email
+     verifikasi ke **Mailpit Docker** lokal (`127.0.0.1:28025` -> buka inbox di `http://localhost:28024`).
+   - Untuk mengirim email verifikasi nyata langsung ke kotak masuk Gmail pendaftar, tambahkan pada `.env`:
+     FRONTEND_BASE_URL="http://localhost:3000"
+     SMTP_HOST="smtp.gmail.com"
+     SMTP_PORT=587
+     SMTP_USERNAME="email_pengirim_anda@gmail.com"
+     SMTP_PASSWORD="16_karakter_google_app_password"
+     SMTP_USE_TLS=true
+     SMTP_FROM_EMAIL="email_pengirim_anda@gmail.com"
+
 
 --------------------------------------------------------------------------------
 LANGKAH 3: MENJALANKAN BASIS DATA & CACHE (DOCKER SUPABASE & REDIS)
@@ -493,7 +508,8 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 | Supabase Studio   | 28023      | http://localhost:28023/                     |
 | PostgreSQL DB     | 28022      | postgresql://postgres:modellying_web_...    |
 | Redis Server      | 6381       | redis://127.0.0.1:6381/0                    |
-| Mailpit Sandbox   | 28024      | http://localhost:28024/                     |
+| Mailpit Web UI    | 28024      | http://localhost:28024/                     |
+| Mailpit SMTP      | 28025      | smtp://127.0.0.1:28025                      |
 +-------------------+------------+---------------------------------------------+
 
 
@@ -502,8 +518,10 @@ CHEATSHEET DAFTAR PORT, URL AKSES, & KREDENSIAL UJI COBA
 +--------+-------------------------------------------------------------+------------------------------------+
 | Metode | Rute Endpoint                                               | Keterangan Fungsi                  |
 +--------+-------------------------------------------------------------+------------------------------------+
-| POST   | /api/v1/auth/register                                       | Pendaftaran akun baru (@gmail.com) & penerbitan JWT |
-| POST   | /api/v1/auth/login                                          | Autentikasi akun, cek status, & penerbitan JWT      |
+| POST   | /api/v1/auth/register                                       | Pendaftaran akun baru (@gmail.com) & kirim verifikasi |
+| POST   | /api/v1/auth/verify-email                                   | Verifikasi email via kode OTP 6 digit atau magic link |
+| POST   | /api/v1/auth/resend-verification                            | Kirim ulang kode OTP & magic link (cooldown 60 detik) |
+| POST   | /api/v1/auth/login                                          | Autentikasi akun, cek status & verifikasi, terbit JWT |
 | GET    | /api/v1/auth/me                                             | Profil pengguna terotentikasi (sinkronisasi sesi)   |
 | POST   | /api/v1/auth/logout                                         | Penutupan sesi terstruktur                          |
 | POST   | /api/v1/auth/forgot-password                                | Pembuatan token pemulihan kata sandi (1 jam)        |
@@ -1534,7 +1552,7 @@ DETAIL FITUR & INTEGRASI SISTEM
 - Layanan Endpoint Backend:
   * `GET /admin/api-config/{provider}/token-usage`: Mengembalikan agregasi metrik token, rekap harian 14 hari terakhir, serta daftar peringkat pengguna terurut *descending* dengan data gabungan dari `public.users` dan `public.papers`.
 
-19. SISTEM AUTENTIKASI, FILTER EMAIL GOOGLE (@GMAIL.COM), & KEAMANAN SESI
+19. SISTEM AUTENTIKASI, VERIFIKASI EMAIL (@GMAIL.COM), & KEAMANAN SESI
 --------------------------------------------------------------------------------
 - Kebijakan Filter Regex Email Google (`@gmail.com`):
   * Pendaftaran Akun Publik (`POST /api/auth/register` & `RegisterScreen.tsx`):
@@ -1544,6 +1562,20 @@ DETAIL FITUR & INTEGRASI SISTEM
   * Halaman Masuk & Pemulihan Sandi (`POST /api/auth/login`, `forgot-password`, & `LoginScreen.tsx`):
     Menerima alamat `@gmail.com` serta domain internal terkonfigurasi (`AUTH_INTERNAL_EMAIL_DOMAINS`,
     default `modellyng.ac.id`) agar seluruh akun seed uji coba tetap dapat digunakan tanpa hambatan.
+- Alur Verifikasi Email Pendaftaran (`public.email_verification_tokens` & `/verify-email`):
+  * Akun baru pendaftar publik dibuat dengan status `email_verified = FALSE` (tanpa menerbitkan JWT
+    sebelum email diverifikasi), sedangkan akun bawaan/seed dan akun buatan admin tetap terverifikasi (`TRUE`).
+  * Layanan email (`app/auth/email_service.py`) bekerja secara otomatis (*Auto-Detect*):
+    1) Mengirim email nyata ke inbox Gmail via SMTP jika `SMTP_USERNAME` & `SMTP_PASSWORD` terisi di `.env`.
+    2) Jika kredensial SMTP kosong, otomatis mengirim ke kotak masuk lokal Mailpit Docker (`127.0.0.1:28025` -> Web UI `http://localhost:28024`).
+    3) Jika keduanya tidak aktif pada mode `development`, menampilkan kode & tautan uji lokal (`dev_preview`).
+  * Setiap email verifikasi memuat **Kode OTP 6 Digit** dan **Tautan Konfirmasi 1-Klik** (`/verify-email?token=...`)
+    yang disimpan dalam bentuk hash SHA-256 (`token_hash`, `otp_code_hash`), berlaku 15 menit, sekali pakai,
+    maksimal 5 kali percobaan salah OTP, dan cooldown kirim ulang 60 detik (`/api/auth/resend-verification`).
+  * Setelah verifikasi berhasil (`POST /api/auth/verify-email`), pengguna diarahkan ke halaman `/login` dengan
+    banner konfirmasi serta email terisi otomatis untuk masuk menggunakan kata sandi yang didaftarkan.
+  * Percobaan login pada akun yang belum diverifikasi ditolak dengan `HTTP 403` (`code: EMAIL_NOT_VERIFIED`)
+    dan dilengkapi tautan pintas langsung menuju `/verify-email`.
 - Pengamanan Kredensial & Manajemen Token JWT:
   * Hashing Password: Argon2id murni dengan verifikasi eksak (tanpa toleransi karakter tambahan) serta
     mitigasi waktu konstan (*constant-time dummy check*) dan *transparent rehash* bila parameter berubah.
@@ -1751,6 +1783,11 @@ tipe data TypeScript pada frontend dengan menjalankan perintah:
 - Pesan Akun Ditangguhkan (HTTP 403 / Sesi Terputus):
   * Administrator telah mengubah status akun pada `public.users.status` menjadi `suspended` atau `deactivated`.
   * Hubungi Administrator Sistem untuk memulihkan status menjadi `active` melalui panel `/admin/users`.
+- Pesan HTTP 403 "Email Anda belum diverifikasi":
+  * Pendaftar baru wajib menyelesaikan verifikasi kode OTP 6 digit atau tautan pada email sebelum dapat masuk.
+  * Jika email belum dikirim via Gmail SMTP nyata, periksa kotak masuk sandbox **Mailpit** di `http://localhost:28024`
+    atau klik tautan pintas "Verifikasi Email Sekarang" pada pesan peringatan di layar Login untuk memasukkan OTP
+    atau meminta pengiriman ulang kode (jeda cooldown 60 detik).
 - Konfigurasi Kunci Rahasia JWT (`JWT_SECRET_KEY`):
   * Pada lingkungan pengembangan lokal, backend menyediakan fallback otomatis agar layanan langsung berjalan.
   * Untuk penerapan produksi, wajib menetapkan `APP_ENV="production"` dan `JWT_SECRET_KEY` acak yang kuat

@@ -5,7 +5,8 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
+from unittest.mock import MagicMock
 
 import jwt
 import psycopg2
@@ -16,9 +17,10 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from app.auth import email_service  # noqa: E402
 from app.auth import router as auth_router_module  # noqa: E402
 from app.auth import security as auth_security  # noqa: E402
-from app.auth.storage import DuplicateEmailError  # noqa: E402
+from app.auth.storage import DuplicateEmailError, UnverifiedEmailExistsError  # noqa: E402
 from app.main import app  # noqa: E402
 
 
@@ -27,16 +29,18 @@ class InMemoryUserStorage:
 
     def __init__(self) -> None:
         self.users: Dict[str, dict] = {}
+        self.verification_tokens: Dict[str, dict] = {}
         self.reset_tokens: Dict[str, dict] = {}
         self.raise_db_error_on_find_by_id = False
 
-        # Seed accounts mimicking production public.users defaults
+        # Seed accounts mimicking production public.users defaults (pre-verified)
         self.create_user(
             full_name="Super Administrator",
             email="admin@modellyng.ac.id",
             plain_password="Password123",
             role="admin",
             admin_role="super_admin",
+            email_verified=True,
         )
         self.create_user(
             full_name="Cahayu UI Specialist",
@@ -44,6 +48,7 @@ class InMemoryUserStorage:
             plain_password="Password123",
             role="researcher",
             subscription_tier="student_30",
+            email_verified=True,
         )
 
     def create_user(
@@ -55,15 +60,22 @@ class InMemoryUserStorage:
         institution: Optional[str] = None,
         subscription_tier: str = "free",
         admin_role: Optional[str] = None,
+        email_verified: bool = False,
     ) -> dict:
         email_clean = email.strip().lower()
-        if any(u["email"] == email_clean for u in self.users.values()):
+        existing = next((u for u in self.users.values() if u["email"] == email_clean), None)
+        if existing:
+            if not existing.get("email_verified", True):
+                raise UnverifiedEmailExistsError(
+                    "Email ini sudah terdaftar namun belum diverifikasi. Silakan lanjutkan verifikasi email Anda."
+                )
             raise DuplicateEmailError(
                 "Email sudah terdaftar. Silakan masuk atau gunakan alamat email Google lain."
             )
 
         uid = str(uuid.uuid4())
         is_admin = role == "admin"
+        now_iso = datetime.now(timezone.utc).isoformat()
         user = {
             "id": uid,
             "full_name": full_name.strip(),
@@ -78,7 +90,9 @@ class InMemoryUserStorage:
             "ai_confidence_threshold": 0.80,
             "admin_role": (admin_role or "admin") if is_admin else None,
             "admin_permissions": ["all"] if is_admin else [],
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "email_verified": email_verified,
+            "email_verified_at": now_iso if email_verified else None,
+            "created_at": now_iso,
         }
         self.users[uid] = user
         return dict(user)
@@ -95,6 +109,83 @@ class InMemoryUserStorage:
             raise psycopg2.OperationalError("Simulated database outage")
         user = self.users.get(str(user_id))
         return dict(user) if user else None
+
+    def create_email_verification(
+        self,
+        user_id: str,
+        email: str,
+        token_hash: str,
+        otp_code_hash: str,
+        valid_seconds: int = 900,
+    ) -> None:
+        email_clean = email.strip().lower()
+        self.verification_tokens = {
+            k: v for k, v in self.verification_tokens.items() if v["user_id"] != user_id
+        }
+        self.verification_tokens[token_hash] = {
+            "user_id": user_id,
+            "email": email_clean,
+            "token_hash": token_hash,
+            "otp_code_hash": otp_code_hash,
+            "attempts": 0,
+            "expires_at": time.time() + valid_seconds,
+            "created_at": time.time(),
+        }
+
+    def verify_email_by_token_hash(self, token_hash: str) -> Optional[dict]:
+        entry = self.verification_tokens.get(token_hash)
+        if not entry or entry["expires_at"] <= time.time():
+            return None
+        user_id = entry["user_id"]
+        user = self.users.get(user_id)
+        if not user:
+            return None
+        user["email_verified"] = True
+        user["email_verified_at"] = datetime.now(timezone.utc).isoformat()
+        self.verification_tokens = {
+            k: v for k, v in self.verification_tokens.items() if v["user_id"] != user_id
+        }
+        return dict(user)
+
+    def verify_email_by_otp(
+        self,
+        email: str,
+        otp_code_hash: str,
+        max_attempts: int = 5,
+    ) -> Tuple[str, Optional[dict]]:
+        email_clean = email.strip().lower()
+        candidates = [
+            v for v in self.verification_tokens.values() if v["email"] == email_clean
+        ]
+        if not candidates:
+            return "not_found", None
+        entry = max(candidates, key=lambda item: item["created_at"])
+
+        if entry["expires_at"] <= time.time():
+            self.verification_tokens.pop(entry["token_hash"], None)
+            return "expired", None
+
+        if entry["attempts"] >= max_attempts:
+            self.verification_tokens.pop(entry["token_hash"], None)
+            return "too_many_attempts", None
+
+        if not auth_security.constant_time_equals(entry["otp_code_hash"], otp_code_hash):
+            entry["attempts"] += 1
+            if entry["attempts"] >= max_attempts:
+                self.verification_tokens.pop(entry["token_hash"], None)
+                return "too_many_attempts", None
+            return "invalid_code", None
+
+        user_id = entry["user_id"]
+        user = self.users.get(user_id)
+        if not user:
+            return "not_found", None
+        user["email_verified"] = True
+        user["email_verified_at"] = datetime.now(timezone.utc).isoformat()
+        self.verification_tokens = {
+            k: v for k, v in self.verification_tokens.items() if v["user_id"] != user_id
+        }
+        return "verified", dict(user)
 
     def update_password_hash(self, user_id: str, new_hash: str) -> None:
         if user_id in self.users:
@@ -132,16 +223,63 @@ class InMemoryUserStorage:
 def fake_storage(monkeypatch: pytest.MonkeyPatch) -> InMemoryUserStorage:
     storage = InMemoryUserStorage()
     monkeypatch.setattr(auth_router_module, "user_storage", storage)
+    monkeypatch.setattr(auth_router_module, "APP_ENV", "development")
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("EMAIL_PROVIDER", "auto")
+    monkeypatch.delenv("SMTP_USERNAME", raising=False)
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    # Prevent live TCP calls to Mailpit during deterministic router tests
+    monkeypatch.setattr(
+        email_service,
+        "_send_via_mailpit",
+        MagicMock(side_effect=OSError("Mailpit offline in unit tests")),
+    )
     auth_security.login_rate_limiter.attempts.clear()
     auth_security.login_ip_rate_limiter.attempts.clear()
     auth_security.register_rate_limiter.attempts.clear()
     auth_security.forgot_rate_limiter.attempts.clear()
+    auth_security.verify_email_rate_limiter.attempts.clear()
+    auth_security.resend_verification_rate_limiter.attempts.clear()
+    auth_security.resend_verification_ip_rate_limiter.attempts.clear()
     return storage
 
 
 @pytest.fixture()
 def client(fake_storage: InMemoryUserStorage) -> TestClient:
     return TestClient(app)
+
+
+def _register_and_verify(
+    client: TestClient,
+    email: str,
+    password: str = "Password123",
+    full_name: str = "Peneliti Uji",
+    institution: Optional[str] = None,
+) -> dict:
+    payload = {
+        "full_name": full_name,
+        "email": email,
+        "password": password,
+        "confirm_password": password,
+    }
+    if institution is not None:
+        payload["institution"] = institution
+
+    reg = client.post("/api/auth/register", json=payload)
+    assert reg.status_code == 201
+    reg_data = reg.json()
+    assert reg_data["requires_verification"] is True
+    assert "token" not in reg_data
+
+    code = reg_data["dev_verification_code"]
+    assert code and len(code) == 6
+    verify = client.post("/api/auth/verify-email", json={"email": reg_data["email"], "code": code})
+    assert verify.status_code == 200
+    assert verify.json()["verified"] is True
+
+    login = client.post("/api/auth/login", json={"email": reg_data["email"], "password": password})
+    assert login.status_code == 200
+    return login.json()
 
 
 def test_auth_routes_mounted_cleanly_without_duplicate_api_prefix() -> None:
@@ -151,6 +289,10 @@ def test_auth_routes_mounted_cleanly_without_duplicate_api_prefix() -> None:
     assert "/api/v1/auth/login" in auth_paths
     assert "/api/auth/register" in auth_paths
     assert "/api/v1/auth/register" in auth_paths
+    assert "/api/auth/verify-email" in auth_paths
+    assert "/api/v1/auth/verify-email" in auth_paths
+    assert "/api/auth/resend-verification" in auth_paths
+    assert "/api/v1/auth/resend-verification" in auth_paths
     assert "/api/auth/me" in auth_paths
     assert "/api/v1/auth/me" in auth_paths
     assert "/api/auth/logout" in auth_paths
@@ -158,7 +300,7 @@ def test_auth_routes_mounted_cleanly_without_duplicate_api_prefix() -> None:
     assert not any("/api/api/" in p or "/v1/api/" in p for p in auth_paths)
 
 
-def test_register_success_with_gmail_and_optional_institution(
+def test_register_requires_verification_no_jwt_and_blocks_unverified_login(
     client: TestClient, fake_storage: InMemoryUserStorage
 ) -> None:
     response = client.post(
@@ -173,20 +315,149 @@ def test_register_success_with_gmail_and_optional_institution(
     )
     assert response.status_code == 201
     data = response.json()
-    assert data["token"]
-    assert data["token_type"] == "bearer"
-    assert data["expires_at"]
+    assert data["requires_verification"] is True
+    assert "token" not in data
+    assert data["delivery_channel"] == "dev_preview"
+    assert len(data["dev_verification_code"]) == 6
+    assert "/verify-email?token=" in data["dev_verification_url"]
     assert data["user"]["full_name"] == "Dr. Siti Aisyah"
     assert data["user"]["email"] == "siti.aisyah@gmail.com"
     assert data["user"]["institution"] == "Telkom University"
-    assert data["user"]["role"] == "researcher"
-    assert data["user"]["status"] == "active"
-    assert data["user"]["subscription_tier"] == "free"
+    assert data["user"]["email_verified"] is False
     assert data["user"]["admin_role"] is None
 
     stored = fake_storage.find_by_email("siti.aisyah@gmail.com")
     assert stored is not None
     assert stored["password_hash"].startswith("$argon2id$")
+    assert stored["email_verified"] is False
+
+    # Re-registering unverified email yields 409 EMAIL_UNVERIFIED
+    rereg = client.post(
+        "/api/auth/register",
+        json={
+            "full_name": "Siti Lagi",
+            "email": "siti.aisyah@gmail.com",
+            "password": "Password123",
+            "confirm_password": "Password123",
+        },
+    )
+    assert rereg.status_code == 409
+    assert rereg.json()["detail"]["code"] == "EMAIL_UNVERIFIED"
+
+    # Wrong password on unverified user must still return generic 401 (no unverified leak)
+    wrong_pw = client.post(
+        "/api/auth/login",
+        json={"email": "siti.aisyah@gmail.com", "password": "WrongPassword9"},
+    )
+    assert wrong_pw.status_code == 401
+    assert wrong_pw.json()["detail"] == "Email atau kata sandi salah."
+
+    # Correct password on unverified user returns 403 EMAIL_NOT_VERIFIED
+    unverified_login = client.post(
+        "/api/auth/login",
+        json={"email": "siti.aisyah@gmail.com", "password": "Password123"},
+    )
+    assert unverified_login.status_code == 403
+    assert unverified_login.json()["detail"]["code"] == "EMAIL_NOT_VERIFIED"
+
+
+def test_verify_email_via_otp_enforces_5_attempts_and_redirects_without_jwt(
+    client: TestClient,
+) -> None:
+    reg = client.post(
+        "/api/auth/register",
+        json={
+            "full_name": "Peneliti OTP",
+            "email": "otp.tester@gmail.com",
+            "password": "Password123",
+            "confirm_password": "Password123",
+        },
+    )
+    assert reg.status_code == 201
+    valid_otp = reg.json()["dev_verification_code"]
+    wrong_otp = "000000" if valid_otp != "000000" else "999999"
+
+    # 5 wrong attempts invalidate the issued OTP
+    for _ in range(5):
+        bad = client.post(
+            "/api/auth/verify-email",
+            json={"email": "otp.tester@gmail.com", "code": wrong_otp},
+        )
+        assert bad.status_code == 400
+
+    # Even the previously valid OTP is now invalidated
+    locked = client.post(
+        "/api/auth/verify-email",
+        json={"email": "otp.tester@gmail.com", "code": valid_otp},
+    )
+    assert locked.status_code == 400
+
+    # Resend generates a fresh OTP
+    auth_security.verify_email_rate_limiter.attempts.clear()
+    resend = client.post(
+        "/api/auth/resend-verification",
+        json={"email": "otp.tester@gmail.com"},
+    )
+    assert resend.status_code == 200
+    fresh_otp = resend.json()["dev_verification_code"]
+    assert fresh_otp and len(fresh_otp) == 6
+
+    # Immediate second resend hits 60s cooldown (429)
+    cooldown = client.post(
+        "/api/auth/resend-verification",
+        json={"email": "otp.tester@gmail.com"},
+    )
+    assert cooldown.status_code == 429
+    assert "Retry-After" in cooldown.headers
+
+    # Valid OTP verifies email and returns VerifyEmailResponse (no JWT — user goes to /login)
+    verified = client.post(
+        "/api/v1/auth/verify-email",
+        json={"email": "otp.tester@gmail.com", "code": fresh_otp},
+    )
+    assert verified.status_code == 200
+    v_data = verified.json()
+    assert v_data["verified"] is True
+    assert v_data["email"] == "otp.tester@gmail.com"
+    assert "token" not in v_data
+
+    # Single-use: reusing OTP fails
+    reused = client.post(
+        "/api/auth/verify-email",
+        json={"email": "otp.tester@gmail.com", "code": fresh_otp},
+    )
+    assert reused.status_code == 400
+
+    # Now user can log in cleanly
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "otp.tester@gmail.com", "password": "Password123"},
+    )
+    assert login.status_code == 200
+    assert login.json()["user"]["email_verified"] is True
+
+
+def test_verify_email_via_magic_link_token(client: TestClient) -> None:
+    reg = client.post(
+        "/api/auth/register",
+        json={
+            "full_name": "Peneliti Magic Link",
+            "email": "magic.link@gmail.com",
+            "password": "Password123",
+            "confirm_password": "Password123",
+        },
+    )
+    assert reg.status_code == 201
+    magic_url = reg.json()["dev_verification_url"]
+    raw_token = magic_url.split("token=")[-1]
+
+    verify = client.post("/api/auth/verify-email", json={"token": raw_token})
+    assert verify.status_code == 200
+    assert verify.json()["verified"] is True
+
+    # Single-use: reusing magic token fails
+    reuse = client.post("/api/auth/verify-email", json={"token": raw_token})
+    assert reuse.status_code == 400
 
 
 @pytest.mark.parametrize(
@@ -242,16 +513,7 @@ def test_register_rejects_whitespace_name_weak_password_and_duplicate_gmail(
     )
     assert weak_pwd.status_code == 422
 
-    first = client.post(
-        "/api/auth/register",
-        json={
-            "full_name": "Peneliti Satu",
-            "email": "peneliti.sama@gmail.com",
-            "password": "Password123",
-            "confirm_password": "Password123",
-        },
-    )
-    assert first.status_code == 201
+    _register_and_verify(client, "peneliti.sama@gmail.com")
 
     duplicate = client.post(
         "/api/auth/register",
@@ -306,7 +568,7 @@ def test_login_exact_password_no_exclamation_backdoor_and_remember_me_ttl(
     assert backdoor_attempt.status_code == 401
     assert backdoor_attempt.json()["detail"] == "Email atau kata sandi salah."
 
-    # Standard login without remember_me (~24h)
+    # Seeded accounts remain verified and login normally
     login_short = client.post(
         "/api/auth/login",
         json={
@@ -320,7 +582,6 @@ def test_login_exact_password_no_exclamation_backdoor_and_remember_me_ttl(
     ttl_short_hours = (payload_short["exp"] - payload_short["iat"]) / 3600
     assert 23.9 <= ttl_short_hours <= 24.1
 
-    # Remember me login (~168h / 7 days)
     login_long = client.post(
         "/api/v1/auth/login",
         json={
@@ -361,38 +622,32 @@ def test_login_rejects_external_non_gmail_and_enforces_rate_limit(
     assert "Retry-After" in limited.headers
 
 
-def test_suspended_and_deactivated_account_enforcement(
+def test_suspended_deactivated_and_unverified_jwt_enforcement(
     client: TestClient, fake_storage: InMemoryUserStorage
 ) -> None:
-    reg = client.post(
-        "/api/auth/register",
-        json={
-            "full_name": "Peneliti Aktif",
-            "email": "status.check@gmail.com",
-            "password": "Password123",
-            "confirm_password": "Password123",
-        },
-    )
-    assert reg.status_code == 201
-    token = reg.json()["token"]
-    user_id = reg.json()["user"]["id"]
+    auth_data = _register_and_verify(client, "status.check@gmail.com")
+    token = auth_data["token"]
+    user_id = auth_data["user"]["id"]
 
-    # Active session succeeds
     me_ok = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me_ok.status_code == 200
 
-    # Admin suspends the user
+    # If user becomes unverified, existing JWT must be rejected with 401
+    fake_storage.users[user_id]["email_verified"] = False
+    me_unverified = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me_unverified.status_code == 401
+    fake_storage.users[user_id]["email_verified"] = True
+
+    # Admin suspends user
     fake_storage.users[user_id]["status"] = "suspended"
     fake_storage.users[user_id]["suspension_reason"] = "Pelanggaran kebijakan unggah."
 
-    # Wrong password on suspended user must still yield generic 401 (no status enumeration)
     wrong_pw = client.post(
         "/api/auth/login",
         json={"email": "status.check@gmail.com", "password": "WrongPassword1"},
     )
     assert wrong_pw.status_code == 401
 
-    # Valid password on suspended user returns 403 with reason
     login_suspended = client.post(
         "/api/auth/login",
         json={"email": "status.check@gmail.com", "password": "Password123"},
@@ -400,13 +655,11 @@ def test_suspended_and_deactivated_account_enforcement(
     assert login_suspended.status_code == 403
     assert "Pelanggaran kebijakan unggah." in login_suspended.json()["detail"]
 
-    # Existing active JWT is immediately rejected by /auth/me
     me_suspended = client.get(
         "/api/auth/me", headers={"Authorization": f"Bearer {token}"}
     )
     assert me_suspended.status_code == 401
 
-    # Deactivated account enforcement
     fake_storage.users[user_id]["status"] = "deactivated"
     login_deactivated = client.post(
         "/api/auth/login",
@@ -418,7 +671,6 @@ def test_suspended_and_deactivated_account_enforcement(
 def test_get_current_user_token_validation_and_db_outage_503(
     client: TestClient, fake_storage: InMemoryUserStorage
 ) -> None:
-    # Malformed & non-UUID subject token -> 401
     bad_sub_token = jwt.encode(
         {
             "sub": "not-a-uuid",
@@ -435,7 +687,6 @@ def test_get_current_user_token_validation_and_db_outage_503(
     )
     assert res_bad_sub.status_code == 401
 
-    # Expired token -> 401
     expired_token = jwt.encode(
         {
             "sub": str(uuid.uuid4()),
@@ -452,7 +703,6 @@ def test_get_current_user_token_validation_and_db_outage_503(
     )
     assert res_expired.status_code == 401
 
-    # Database outage returns 503 (must NOT force 401 logout)
     login_res = client.post(
         "/api/auth/login",
         json={"email": "cahayu@modellyng.ac.id", "password": "Password123"},
@@ -472,8 +722,8 @@ def test_logout_and_password_reset_regression(
     assert logout_res.status_code == 200
     assert logout_res.json()["success"] is True
 
-    # In production mode, dev reset link must NOT leak
     monkeypatch.setattr(auth_router_module, "APP_ENV", "production")
+    monkeypatch.setenv("APP_ENV", "production")
     forgot_prod = client.post(
         "/api/auth/forgot-password",
         json={"email": "cahayu@modellyng.ac.id"},
@@ -481,9 +731,9 @@ def test_logout_and_password_reset_regression(
     assert forgot_prod.status_code == 200
     assert forgot_prod.json()["details"] is None
 
-    # Reset flow in development mode
     auth_security.forgot_rate_limiter.attempts.clear()
     monkeypatch.setattr(auth_router_module, "APP_ENV", "development")
+    monkeypatch.setenv("APP_ENV", "development")
     forgot_dev = client.post(
         "/api/auth/forgot-password",
         json={"email": "cahayu@modellyng.ac.id"},
@@ -508,3 +758,58 @@ def test_logout_and_password_reset_regression(
         json={"email": "cahayu@modellyng.ac.id", "password": "NewPassword99"},
     )
     assert login_new.status_code == 200
+
+
+def test_email_service_auto_detect_smtp_mailpit_and_production_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 1. SMTP mode when credentials are configured
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("EMAIL_PROVIDER", "auto")
+    monkeypatch.setenv("SMTP_HOST", "smtp.gmail.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USERNAME", "sender@gmail.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "abcd efgh ijkl mnop")
+    smtp_mock = MagicMock()
+    monkeypatch.setattr(email_service, "_send_via_smtp", smtp_mock)
+
+    res_smtp = email_service.send_verification_email(
+        to_email="user@gmail.com",
+        full_name="Peneliti",
+        otp_code="123456",
+        verification_url="http://localhost:3000/verify-email?token=abc",
+    )
+    assert res_smtp.delivered is True
+    assert res_smtp.channel == "smtp"
+    assert smtp_mock.called
+
+    # 2. Mailpit fallback when SMTP credentials are absent
+    monkeypatch.delenv("SMTP_USERNAME", raising=False)
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    mailpit_mock = MagicMock()
+    monkeypatch.setattr(email_service, "_send_via_mailpit", mailpit_mock)
+
+    res_mailpit = email_service.send_verification_email(
+        to_email="user@gmail.com",
+        full_name="Peneliti",
+        otp_code="123456",
+        verification_url="http://localhost:3000/verify-email?token=abc",
+    )
+    assert res_mailpit.delivered is True
+    assert res_mailpit.channel == "mailpit"
+    assert mailpit_mock.called
+
+    # 3. Production mode raises EmailDeliveryError when no transport succeeds
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setattr(
+        email_service,
+        "_send_via_mailpit",
+        MagicMock(side_effect=OSError("Mailpit not available")),
+    )
+    with pytest.raises(email_service.EmailDeliveryError):
+        email_service.send_verification_email(
+            to_email="user@gmail.com",
+            full_name="Peneliti",
+            otp_code="123456",
+            verification_url="http://localhost:3000/verify-email?token=abc",
+        )

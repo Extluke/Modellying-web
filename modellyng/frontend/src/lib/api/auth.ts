@@ -18,6 +18,7 @@ export interface User {
   subscription_tier?: SubscriptionTier | string
   institution?: string | null
   status?: UserStatus
+  email_verified?: boolean
   citation_format?: string
   ai_confidence_threshold?: number
   admin_role?: string | null
@@ -31,10 +32,45 @@ export interface AuthResponse {
   user: User
 }
 
+export interface RegisterResponse {
+  requires_verification: boolean
+  message: string
+  email: string
+  expires_in_seconds: number
+  resend_cooldown_seconds: number
+  delivery_channel: string
+  dev_verification_code?: string | null
+  dev_verification_url?: string | null
+  user: User
+}
+
+export type VerifyEmailPayload =
+  | { token: string }
+  | { email: string; code: string }
+
+export interface VerifyEmailResponse {
+  success: boolean
+  verified: boolean
+  email: string
+  message: string
+}
+
+export interface ResendVerificationPayload {
+  email: string
+}
+
 export interface MessageResponse {
   success: boolean
   message: string
   details?: string
+}
+
+export interface ResendVerificationResponse extends MessageResponse {
+  resend_cooldown_seconds?: number
+  expires_in_seconds?: number
+  delivery_channel?: string | null
+  dev_verification_code?: string | null
+  dev_verification_url?: string | null
 }
 
 export interface LoginPayload {
@@ -66,7 +102,13 @@ export const authApi = {
     apiClient.post<AuthResponse>("/auth/login", payload),
 
   register: (payload: RegisterPayload) =>
-    apiClient.post<AuthResponse>("/auth/register", payload),
+    apiClient.post<RegisterResponse>("/auth/register", payload),
+
+  verifyEmail: (payload: VerifyEmailPayload) =>
+    apiClient.post<VerifyEmailResponse>("/auth/verify-email", payload),
+
+  resendVerification: (payload: ResendVerificationPayload) =>
+    apiClient.post<ResendVerificationResponse>("/auth/resend-verification", payload),
 
   logout: () => apiClient.post<MessageResponse>("/auth/logout"),
 

@@ -95,7 +95,29 @@ def run_tests():
         }
     )
     if reg_res.status_code == 201:
-        token = reg_res.json().get("token") or reg_res.json().get("access_token")
+        reg_json = reg_res.json()
+        token = reg_json.get("token") or reg_json.get("access_token")
+        if not token and reg_json.get("requires_verification"):
+            dev_code = reg_json.get("dev_verification_code")
+            if dev_code:
+                verify_res = requests.post(
+                    f"{BASE_URL}/auth/verify-email",
+                    json={"email": test_email, "code": dev_code},
+                )
+                assert verify_res.status_code == 200, f"Email verification failed: {verify_res.text}"
+                login_res = requests.post(
+                    f"{BASE_URL}/auth/login",
+                    json={"email": test_email, "password": test_password},
+                )
+                assert login_res.status_code == 200, f"Post-verify login failed: {login_res.text}"
+                token = login_res.json().get("token") or login_res.json().get("access_token")
+            else:
+                login_res = requests.post(
+                    f"{BASE_URL}/auth/login",
+                    json={"email": "arby@modellyng.ac.id", "password": "Password123"},
+                )
+                assert login_res.status_code == 200, f"Login fallback failed: {login_res.text}"
+                token = login_res.json().get("token") or login_res.json().get("access_token")
     else:
         # Fallback to login
         login_res = requests.post(

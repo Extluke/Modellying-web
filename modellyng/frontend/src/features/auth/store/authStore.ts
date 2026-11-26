@@ -1,5 +1,11 @@
 import { create } from "zustand"
-import { authApi, type User, type LoginPayload, type RegisterPayload } from "@/lib/api/auth"
+import {
+  authApi,
+  type LoginPayload,
+  type RegisterPayload,
+  type RegisterResponse,
+  type User,
+} from "@/lib/api/auth"
 import { isApiError } from "@/lib/api/client"
 import { tokenStorage } from "@/lib/auth/tokenStorage"
 import { queryClient } from "@/lib/query-client"
@@ -21,7 +27,7 @@ interface AuthState {
   sessionNotice: string | null
 
   login: (payload: LoginPayload) => Promise<User>
-  register: (payload: RegisterPayload) => Promise<User>
+  register: (payload: RegisterPayload) => Promise<RegisterResponse>
   logout: (options?: LogoutOptions) => void
   hydrateSession: () => Promise<void>
   clearError: () => void
@@ -95,26 +101,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (payload: RegisterPayload) => {
     set({ isLoading: true, error: null, sessionNotice: null })
     try {
-      // Purge query cache on registration
+      // Purge query cache before redirecting to email verification
       queryClient.clear()
       const response = await authApi.register(payload)
-      tokenStorage.setSession(
-        response.token,
-        response.user,
-        true,
-        response.expires_at
-      )
-
       set({
-        user: response.user,
-        token: response.token,
-        isAuthenticated: true,
         isLoading: false,
-        hasHydrated: true,
         error: null,
-        sessionNotice: null,
       })
-      return response.user
+      return response
     } catch (err: unknown) {
       const msg = getErrorMessage(err, "Gagal melakukan pendaftaran.")
       set({ isLoading: false, error: msg })

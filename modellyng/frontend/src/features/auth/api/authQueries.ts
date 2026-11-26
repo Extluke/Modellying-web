@@ -5,8 +5,13 @@ import {
   type LoginPayload,
   type MessageResponse,
   type RegisterPayload,
+  type RegisterResponse,
+  type ResendVerificationPayload,
+  type ResendVerificationResponse,
   type ResetPasswordPayload,
   type User,
+  type VerifyEmailPayload,
+  type VerifyEmailResponse,
 } from "@/lib/api/auth"
 import { useAuthStore } from "@/features/auth/store/authStore"
 
@@ -23,8 +28,22 @@ export function useLoginMutation() {
 }
 
 export function useRegisterMutation() {
-  return useMutation<User, unknown, RegisterPayload>({
+  return useMutation<RegisterResponse, unknown, RegisterPayload>({
     mutationFn: (payload) => useAuthStore.getState().register(payload),
+    retry: false,
+  })
+}
+
+export function useVerifyEmailMutation() {
+  return useMutation<VerifyEmailResponse, unknown, VerifyEmailPayload>({
+    mutationFn: (payload) => authApi.verifyEmail(payload),
+    retry: false,
+  })
+}
+
+export function useResendVerificationMutation() {
+  return useMutation<ResendVerificationResponse, unknown, ResendVerificationPayload>({
+    mutationFn: (payload) => authApi.resendVerification(payload),
     retry: false,
   })
 }

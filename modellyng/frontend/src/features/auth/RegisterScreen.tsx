@@ -47,6 +47,7 @@ export default function RegisterScreen() {
   const [errors, setErrors] = useState<RegisterErrors>({})
   const [apiError, setApiError] = useState<string | null>(null)
   const [isDuplicateEmailError, setIsDuplicateEmailError] = useState(false)
+  const [duplicateKind, setDuplicateKind] = useState<"verified" | "unverified">("verified")
   const [cooldownSeconds, setCooldownSeconds] = useState(0)
 
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function RegisterScreen() {
     const cleanInstitution = institution.trim()
 
     try {
-      const registeredUser = await registerMutation.mutateAsync({
+      const registration = await registerMutation.mutateAsync({
         full_name: fullName.trim(),
         email: cleanEmail,
         ...(cleanInstitution ? { institution: cleanInstitution } : {}),
@@ -106,11 +107,21 @@ export default function RegisterScreen() {
         confirm_password: confirmPassword,
       })
 
-      toast.success(
-        `Akun peneliti berhasil dibuat. Selamat datang, ${registeredUser.full_name}!`,
+      toast.info(
+        `Kode verifikasi telah dikirim ke ${registration.email}. Periksa kotak masuk Gmail Anda.`,
         5000
       )
-      navigate(ROUTES.DASHBOARD, { replace: true })
+      navigate(ROUTES.AUTH.VERIFY_EMAIL, {
+        state: {
+          email: registration.email,
+          expiresInSeconds: registration.expires_in_seconds,
+          resendCooldownSeconds: registration.resend_cooldown_seconds,
+          deliveryChannel: registration.delivery_channel,
+          devVerificationCode: registration.dev_verification_code ?? null,
+          devVerificationUrl: registration.dev_verification_url ?? null,
+        },
+        replace: true,
+      })
     } catch (err: unknown) {
       if (isApiError(err)) {
         if (err.status === 429 && err.retryAfter) {
@@ -118,6 +129,9 @@ export default function RegisterScreen() {
         }
         if (err.status === 409) {
           setIsDuplicateEmailError(true)
+          setDuplicateKind(
+            err.code === "EMAIL_UNVERIFIED" ? "unverified" : "verified"
+          )
         }
         if (err.fieldErrors) {
           setErrors((prev) => ({
@@ -162,13 +176,23 @@ export default function RegisterScreen() {
             }
             action={
               isDuplicateEmailError ? (
-                <Link
-                  to={ROUTES.AUTH.LOGIN}
-                  state={{ email: email.trim().toLowerCase() }}
-                  className="inline-flex text-[11px] font-semibold text-primary underline underline-offset-2"
-                >
-                  Masuk dengan email ini &rarr;
-                </Link>
+                duplicateKind === "unverified" ? (
+                  <Link
+                    to={ROUTES.AUTH.VERIFY_EMAIL}
+                    state={{ email: email.trim().toLowerCase() }}
+                    className="inline-flex text-[11px] font-semibold text-primary underline underline-offset-2"
+                  >
+                    Lanjutkan Verifikasi Email &rarr;
+                  </Link>
+                ) : (
+                  <Link
+                    to={ROUTES.AUTH.LOGIN}
+                    state={{ email: email.trim().toLowerCase() }}
+                    className="inline-flex text-[11px] font-semibold text-primary underline underline-offset-2"
+                  >
+                    Masuk dengan email ini &rarr;
+                  </Link>
+                )
               ) : undefined
             }
           />

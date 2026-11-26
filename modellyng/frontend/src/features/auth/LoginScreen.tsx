@@ -52,6 +52,7 @@ export default function LoginScreen() {
 
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
   const [apiError, setApiError] = useState<string | null>(null)
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
   const [cooldownSeconds, setCooldownSeconds] = useState(0)
   const [successBanner, setSuccessBanner] = useState<string | null>(
     locationState.message || null
@@ -77,6 +78,7 @@ export default function LoginScreen() {
       setErrors((prev) => ({ ...prev, email: validateLoginEmail(val) || undefined }))
     }
     if (apiError) setApiError(null)
+    if (unverifiedEmail) setUnverifiedEmail(null)
     if (successBanner) setSuccessBanner(null)
     if (sessionNotice) clearSessionNotice()
   }
@@ -91,6 +93,7 @@ export default function LoginScreen() {
       }))
     }
     if (apiError) setApiError(null)
+    if (unverifiedEmail) setUnverifiedEmail(null)
     if (sessionNotice) clearSessionNotice()
   }
 
@@ -99,6 +102,7 @@ export default function LoginScreen() {
     setPassword(demoPassword)
     setErrors({})
     setApiError(null)
+    setUnverifiedEmail(null)
     if (sessionNotice) clearSessionNotice()
   }
 
@@ -109,6 +113,7 @@ export default function LoginScreen() {
     }
 
     setApiError(null)
+    setUnverifiedEmail(null)
     if (sessionNotice) clearSessionNotice()
 
     const emailErr = validateLoginEmail(email)
@@ -141,6 +146,9 @@ export default function LoginScreen() {
       if (isApiError(err)) {
         if (err.status === 429 && err.retryAfter) {
           setCooldownSeconds(err.retryAfter)
+        }
+        if (err.status === 403 && err.code === "EMAIL_NOT_VERIFIED") {
+          setUnverifiedEmail(email.trim().toLowerCase())
         }
         if (err.fieldErrors) {
           setErrors((prev) => ({
@@ -183,12 +191,23 @@ export default function LoginScreen() {
 
         {apiError && (
           <AuthFormAlert
-            variant="error"
-            title="Gagal Masuk:"
+            variant={unverifiedEmail ? "warning" : "error"}
+            title={unverifiedEmail ? "Verifikasi Diperlukan:" : "Gagal Masuk:"}
             message={
               cooldownSeconds > 0
                 ? `${apiError} (Coba lagi dalam ${cooldownSeconds} detik)`
                 : apiError
+            }
+            action={
+              unverifiedEmail ? (
+                <Link
+                  to={ROUTES.AUTH.VERIFY_EMAIL}
+                  state={{ email: unverifiedEmail }}
+                  className="inline-flex text-[11px] font-semibold text-primary underline underline-offset-2"
+                >
+                  Verifikasi Email Sekarang &rarr;
+                </Link>
+              ) : undefined
             }
           />
         )}

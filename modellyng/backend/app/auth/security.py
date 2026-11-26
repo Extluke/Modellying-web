@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import logging
 import os
 import secrets
@@ -118,6 +120,24 @@ def decode_access_token(token: str) -> Dict:
     )
 
 
+def generate_verification_credentials() -> Tuple[str, str]:
+    """Generates (raw_magic_link_token, 6_digit_numeric_otp)."""
+    raw_token = secrets.token_urlsafe(32)
+    otp_code = f"{secrets.randbelow(1_000_000):06d}"
+    return raw_token, otp_code
+
+
+def hash_verification_secret(raw_value: str, salt: str = "") -> str:
+    """Computes a deterministic SHA-256 hex digest for storing verification secrets safely."""
+    payload = f"{salt}:{raw_value}".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def constant_time_equals(a: str, b: str) -> bool:
+    """Constant-time string comparison for verification digests."""
+    return hmac.compare_digest(a, b)
+
+
 class RateLimiter:
     """
     In-memory rate limiter to prevent brute force and spam attacks on auth endpoints.
@@ -179,7 +199,10 @@ class RateLimiter:
 
 
 # Global rate limiters
-login_rate_limiter = RateLimiter(max_attempts=5, window_seconds=60)       # Max 5 attempts / 1 min per IP+email
-login_ip_rate_limiter = RateLimiter(max_attempts=20, window_seconds=60)   # Max 20 attempts / 1 min per IP
-register_rate_limiter = RateLimiter(max_attempts=5, window_seconds=300)   # Max 5 registrations / 5 min per IP
-forgot_rate_limiter = RateLimiter(max_attempts=3, window_seconds=300)     # Max 3 attempts / 5 min per IP
+login_rate_limiter = RateLimiter(max_attempts=5, window_seconds=60)                     # Max 5 attempts / 1 min per IP+email
+login_ip_rate_limiter = RateLimiter(max_attempts=20, window_seconds=60)                 # Max 20 attempts / 1 min per IP
+register_rate_limiter = RateLimiter(max_attempts=5, window_seconds=300)                 # Max 5 registrations / 5 min per IP
+forgot_rate_limiter = RateLimiter(max_attempts=3, window_seconds=300)                   # Max 3 attempts / 5 min per IP
+verify_email_rate_limiter = RateLimiter(max_attempts=10, window_seconds=300)            # Max 10 attempts / 5 min per IP
+resend_verification_rate_limiter = RateLimiter(max_attempts=1, window_seconds=60)       # Max 1 resend / 60s per IP+email
+resend_verification_ip_rate_limiter = RateLimiter(max_attempts=5, window_seconds=900)   # Max 5 resends / 15 min per IP

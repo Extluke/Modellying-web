@@ -12,6 +12,8 @@ const API_BASE_URL =
 const PUBLIC_AUTH_ENDPOINTS = [
   "/auth/login",
   "/auth/register",
+  "/auth/verify-email",
+  "/auth/resend-verification",
   "/auth/forgot-password",
   "/auth/reset-password",
 ]
@@ -19,6 +21,7 @@ const PUBLIC_AUTH_ENDPOINTS = [
 export interface ApiError {
   status: number
   message: string
+  code?: string
   detail?: unknown
   retryAfter?: number
   fieldErrors?: Record<string, string>
@@ -90,7 +93,7 @@ function formatIndonesianFieldError(raw: string, fieldName?: string): string {
 function extractErrorInfo(
   errorDetail: unknown,
   fallbackStatusText: string
-): { message: string; fieldErrors?: Record<string, string> } {
+): { message: string; code?: string; fieldErrors?: Record<string, string> } {
   if (isRecord(errorDetail) && "detail" in errorDetail) {
     const detail = errorDetail.detail
 
@@ -129,10 +132,16 @@ function extractErrorInfo(
     }
 
     if (isRecord(detail) && typeof detail.message === "string" && detail.message.trim()) {
-      return { message: formatIndonesianFieldError(detail.message) }
+      return {
+        message: formatIndonesianFieldError(detail.message),
+        code: typeof detail.code === "string" ? detail.code : undefined,
+      }
     }
 
-    return { message: "Permintaan gagal diproses." }
+    return {
+      message: "Permintaan gagal diproses.",
+      code: isRecord(detail) && typeof detail.code === "string" ? detail.code : undefined,
+    }
   }
 
   if (typeof errorDetail === "string" && errorDetail.trim()) {
@@ -208,7 +217,10 @@ async function request<T>(
 
   if (!response.ok) {
     const errorDetail = await parseErrorBody(response)
-    const { message, fieldErrors } = extractErrorInfo(errorDetail, response.statusText)
+    const { message, code: errorCode, fieldErrors } = extractErrorInfo(
+      errorDetail,
+      response.statusText
+    )
 
     if (response.status === 401) {
       notifyUnauthorized(endpoint, Boolean(token), message)
@@ -234,6 +246,7 @@ async function request<T>(
     const error: ApiError = {
       status: response.status,
       message,
+      code: errorCode,
       detail: errorDetail,
       retryAfter,
       fieldErrors,

@@ -22,6 +22,9 @@ function RouteLoader() {
 const WelcomeScreen = lazy(() => import("@/features/auth/WelcomeScreen"))
 const LoginScreen = lazy(() => import("@/features/auth/LoginScreen"))
 const RegisterScreen = lazy(() => import("@/features/auth/RegisterScreen"))
+const VerifyEmailScreen = lazy(
+  () => import("@/features/auth/VerifyEmailScreen")
+)
 const ForgotPasswordScreen = lazy(
   () => import("@/features/auth/ForgotPasswordScreen")
 )
@@ -154,6 +157,18 @@ export const router = createBrowserRouter([
       {
         path: "/auth/register",
         element: <Navigate to={ROUTES.AUTH.REGISTER} replace />,
+      },
+      {
+        path: ROUTES.AUTH.VERIFY_EMAIL,
+        element: (
+          <Suspense fallback={<RouteLoader />}>
+            <VerifyEmailScreen />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/auth/verify-email",
+        element: <Navigate to={ROUTES.AUTH.VERIFY_EMAIL} replace />,
       },
       {
         path: ROUTES.AUTH.FORGOT_PASSWORD,

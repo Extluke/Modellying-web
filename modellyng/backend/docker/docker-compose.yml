@@ -118,5 +118,6 @@ services:
     restart: unless-stopped
     ports:
       - "28024:8025"
+      - "28025:1025"
     networks:
       - modellying_web_network

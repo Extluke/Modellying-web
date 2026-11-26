@@ -149,6 +149,7 @@ class UserResponse(BaseModel):
     subscription_tier: str = "free"
     institution: Optional[str] = None
     status: str = "active"
+    email_verified: bool = True
     citation_format: str = "APA"
     ai_confidence_threshold: float = 0.80
     admin_role: Optional[str] = None
@@ -162,7 +163,74 @@ class AuthResponse(BaseModel):
     user: UserResponse
 
 
+class RegisterResponse(BaseModel):
+    requires_verification: bool = True
+    message: str
+    email: str
+    expires_in_seconds: int = 900
+    resend_cooldown_seconds: int = 60
+    delivery_channel: str = "smtp"
+    dev_verification_code: Optional[str] = None
+    dev_verification_url: Optional[str] = None
+    user: UserResponse
+
+
+class VerifyEmailRequest(BaseModel):
+    token: Optional[str] = Field(default=None, min_length=16, max_length=256)
+    email: Optional[str] = Field(default=None, max_length=255)
+    code: Optional[str] = Field(default=None, min_length=6, max_length=6)
+
+    @field_validator("email")
+    @classmethod
+    def validate_optional_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not v.strip():
+            return None
+        return validate_gmail_only(v)
+
+    @field_validator("code")
+    @classmethod
+    def validate_otp_digits(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not re.fullmatch(r"\d{6}", cleaned):
+            raise ValueError("Kode verifikasi harus berupa 6 digit angka.")
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_method(self):
+        has_token = bool(self.token and self.token.strip())
+        has_otp = bool(self.email and self.code)
+        if not has_token and not has_otp:
+            raise ValueError("Sertakan token tautan verifikasi atau alamat email beserta kode OTP 6 digit.")
+        return self
+
+
+class VerifyEmailResponse(BaseModel):
+    success: bool = True
+    verified: bool = True
+    email: str
+    message: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str = Field(..., max_length=255, description="Alamat email Google (@gmail.com)")
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return validate_gmail_only(v)
+
+
 class MessageResponse(BaseModel):
     success: bool = True
     message: str
     details: Optional[str] = None
+
+
+class ResendVerificationResponse(MessageResponse):
+    resend_cooldown_seconds: int = 60
+    expires_in_seconds: int = 900
+    delivery_channel: Optional[str] = None
+    dev_verification_code: Optional[str] = None
+    dev_verification_url: Optional[str] = None
