@@ -31,6 +31,7 @@ import { DUMMY_USERS, DUMMY_BUG_REPORTS } from "../data/dummyAdminData"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 
 function getInitials(name?: string | null): string {
@@ -47,7 +48,7 @@ function getSeverityBadge(severity: string) {
     case "high":
       return "bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300"
     case "medium":
-      return "bg-blue-100 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border-blue-300"
+      return "bg-primary-soft text-primary dark:bg-primary/15 border-primary/25"
     default:
       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300"
   }
@@ -62,7 +63,7 @@ function getStatusBadge(status: string) {
     case "closed":
       return "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400"
     default:
-      return "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300"
+      return "bg-primary-soft text-primary border-primary/25 dark:bg-primary/15"
   }
 }
 
@@ -73,26 +74,26 @@ function getTierInfo(tier?: string) {
     case "pro":
       return {
         label: "Student Pro 30 Hari",
-        badgeClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-300/40",
+        badgeClass: "bg-primary-soft text-primary dark:bg-primary/15 border-primary/25",
         icon: Sparkles,
       }
     case "student_14":
     case "pro_14":
       return {
         label: "Student Pro 14 Hari",
-        badgeClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300/40",
+        badgeClass: "bg-muted text-foreground border-border",
         icon: Sparkles,
       }
     case "enterprise":
       return {
         label: "Lab Enterprise",
-        badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300/40",
+        badgeClass: "bg-primary text-primary-foreground border-primary",
         icon: Crown,
       }
     case "developer":
       return {
         label: "Developer Access",
-        badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300/40",
+        badgeClass: "bg-muted text-foreground border-border",
         icon: Crown,
       }
     default:
@@ -140,6 +141,10 @@ export default function UserManagementScreen() {
   const [selectedUserForSub, setSelectedUserForSub] = useState<AdminUserItem | null>(null)
   const [targetSubTier, setTargetSubTier] = useState<string>("student_30")
   const [targetSubStatus, setTargetSubStatus] = useState<"active" | "pending_approval" | "rejected">("active")
+
+  useEscapeKey(isPasswordModalOpen && Boolean(selectedUser), () => setIsPasswordModalOpen(false))
+  useEscapeKey(isStatusModalOpen && Boolean(selectedUser), () => setIsStatusModalOpen(false))
+  useEscapeKey(isSubModalOpen && Boolean(selectedUserForSub), () => setIsSubModalOpen(false))
 
   // Email Inbox Bug states (Gmail Style)
   const [selectedBugId, setSelectedBugId] = useState<string | null>(null)
@@ -647,7 +652,7 @@ export default function UserManagementScreen() {
                               <div className="font-semibold text-foreground flex items-center gap-1.5">
                                 <span>{u.full_name}</span>
                                 {u.role === "admin" && (
-                                  <Badge className="text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                                  <Badge className="text-[9px] bg-primary-soft text-primary dark:bg-primary/15 border border-primary/25">
                                     Admin
                                   </Badge>
                                 )}
@@ -770,7 +775,7 @@ export default function UserManagementScreen() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenPasswordModal(u)}
-                                className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
                                 title="Bantu Pengguna: Reset Kata Sandi"
                               >
                                 <KeyRound className="size-3.5 mr-1" />
@@ -1247,16 +1252,28 @@ export default function UserManagementScreen() {
 
       {/* MODAL 1: RESET PASSWORD */}
       {isPasswordModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsPasswordModalOpen(false)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                 <KeyRound className="size-4 text-primary" />
                 <span>Reset Kata Sandi Pengguna</span>
               </div>
               <button 
+                type="button"
+                aria-label="Tutup modal reset sandi"
                 onClick={() => setIsPasswordModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>
@@ -1308,8 +1325,18 @@ export default function UserManagementScreen() {
 
       {/* MODAL 2: SUSPEND / ACTIVATE USER */}
       {isStatusModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsStatusModalOpen(false)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                 <ShieldAlert className="size-4 text-rose-600" />
@@ -1318,8 +1345,10 @@ export default function UserManagementScreen() {
                 </span>
               </div>
               <button 
+                type="button"
+                aria-label="Tutup modal status akun"
                 onClick={() => setIsStatusModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>
@@ -1370,16 +1399,28 @@ export default function UserManagementScreen() {
 
       {/* MODAL 3: UBAH PAKET & STATUS LANGGANAN */}
       {isSubModalOpen && selectedUserForSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsSubModalOpen(false)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                 <Sparkles className="size-4 text-primary" />
                 <span>Kelola Paket Langganan & Status ACC</span>
               </div>
               <button 
+                type="button"
+                aria-label="Tutup modal langganan"
                 onClick={() => setIsSubModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>

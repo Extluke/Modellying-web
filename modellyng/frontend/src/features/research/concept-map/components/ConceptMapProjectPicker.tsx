@@ -15,6 +15,7 @@ import {
   Workflow,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { AnimatedContent, CountUp, SpotlightCard } from "@/components/react-bits"
 import { useProjects, Project } from "@/features/projects/api/projectsApi"
 
 type ReadinessFilter = "all" | "ready" | "not_ready"
@@ -99,41 +100,41 @@ export function ConceptMapProjectPicker({ onSelectProject }: ConceptMapProjectPi
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs">
+            <SpotlightCard className="border-border/80 bg-card p-3 shadow-2xs">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
                 Total Proyek
               </span>
-              <span className="text-lg font-bold text-foreground">
-                {projects.length}
+              <span className="text-lg font-bold text-foreground tabular-nums">
+                <CountUp to={projects.length} />
               </span>
-            </div>
+            </SpotlightCard>
 
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 shadow-2xs">
+            <SpotlightCard spotlightColor="rgba(16, 185, 129, 0.12)" className="border-emerald-500/20 bg-emerald-500/5 p-3 shadow-2xs">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">
                 Siap Evaluasi (&ge; 2 Paper)
               </span>
-              <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                {readyProjectsCount}
+              <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                <CountUp to={readyProjectsCount} />
               </span>
-            </div>
+            </SpotlightCard>
 
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 shadow-2xs">
+            <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.12)" className="border-amber-500/20 bg-amber-500/5 p-3 shadow-2xs">
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 block">
                 Perlu Tambah Paper (&lt; 2)
               </span>
-              <span className="text-lg font-bold text-amber-600 dark:text-amber-400">
-                {notReadyProjectsCount}
+              <span className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                <CountUp to={notReadyProjectsCount} />
               </span>
-            </div>
+            </SpotlightCard>
 
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 shadow-2xs">
+            <SpotlightCard spotlightColor="rgba(81, 71, 229, 0.12)" className="border-primary/20 bg-primary/5 p-3 shadow-2xs">
               <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
                 Total Paper Tervalidasi
               </span>
-              <span className="text-lg font-bold text-primary">
-                {totalReadyPapers}
+              <span className="text-lg font-bold text-primary tabular-nums">
+                <CountUp to={totalReadyPapers} />
               </span>
-            </div>
+            </SpotlightCard>
           </div>
         </div>
       </div>
@@ -273,15 +274,22 @@ export function ConceptMapProjectPicker({ onSelectProject }: ConceptMapProjectPi
         {/* Project Cards Grid */}
         {!isLoading && !isError && filteredProjects.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProjects.map((project: Project) => {
+            {filteredProjects.map((project: Project, idx: number) => {
               const isReady = (project.ready_count || 0) >= 2
               const readyPapers = project.ready_count || 0
               const totalPapers = project.paper_count || 0
 
               return (
-                <div
+                <AnimatedContent
                   key={project.id}
-                  className={`rounded-2xl border p-5 shadow-2xs flex flex-col justify-between transition-all duration-200 hover:shadow-xs group ${
+                  delay={Math.min(idx, 8) * 40}
+                  distance={14}
+                  duration={420}
+                  immediate={idx < 6}
+                  className="h-full"
+                >
+                  <div
+                    className={`rounded-2xl border p-5 shadow-2xs h-full flex flex-col justify-between transition-all duration-200 hover:shadow-xs group ${
                     isReady
                       ? "bg-card border-border hover:border-primary/40"
                       : "bg-muted/15 border-border/70 hover:border-amber-500/30"
@@ -383,7 +391,8 @@ export function ConceptMapProjectPicker({ onSelectProject }: ConceptMapProjectPi
                       </Button>
                     )}
                   </div>
-                </div>
+                  </div>
+                </AnimatedContent>
               )
             })}
           </div>

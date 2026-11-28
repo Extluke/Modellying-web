@@ -1,12 +1,15 @@
 import { X, Quote, FileText, Copy, Check } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 import { useGlobalChatStore } from "../store/useGlobalChatStore"
 
 export function CitationPreviewModal() {
   const { activeCitationForModal, closeCitationModal } = useGlobalChatStore()
   const [copied, setCopied] = useState(false)
+
+  useEscapeKey(Boolean(activeCitationForModal), closeCitationModal)
 
   if (!activeCitationForModal) return null
 
@@ -22,7 +25,12 @@ export function CitationPreviewModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) closeCitationModal()
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150"
+    >
       <div
         className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
         role="dialog"

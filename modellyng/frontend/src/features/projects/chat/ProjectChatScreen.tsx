@@ -178,12 +178,12 @@ export default function ProjectChatScreen() {
 
   return (
     <div className="relative flex h-screen w-screen flex-col bg-background text-foreground overflow-hidden font-sans select-none">
-      {/* Soft Ambient Aurora Mesh Glow (Aligned with Modellyng Light Theme) */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
-        <div className="absolute -top-32 -left-32 size-[500px] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
-        <div className="absolute top-1/3 -right-32 size-[550px] rounded-full bg-purple-500/5 blur-[140px] pointer-events-none" />
-        <div className="absolute -bottom-32 left-1/3 size-[600px] rounded-full bg-blue-500/5 blur-[150px] pointer-events-none" />
-      </div>
+      {/* Subtle single-hue header wash (replaces multi-color aurora blur orbs) */}
+      <div
+        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[360px] z-0"
+        style={{ background: "radial-gradient(closest-side, rgba(81, 71, 229, 0.04), transparent 72%)" }}
+        aria-hidden="true"
+      />
 
       {/* Top Header Bar (Modellyng Light Academic Header) */}
       <header className="relative z-10 flex h-14 items-center justify-between border-b bg-card/90 backdrop-blur-md px-4 sm:px-6 shrink-0 shadow-xs">
@@ -268,7 +268,7 @@ export default function ProjectChatScreen() {
                 </span>
               </div>
             ) : messages.length === 0 ? (
-              <div className="rounded-2xl border border-border/80 bg-card p-6 sm:p-8 text-center space-y-4 my-8 max-w-lg mx-auto shadow-xs">
+              <div className="rounded-2xl border border-border/80 bg-card p-6 sm:p-8 text-center space-y-4 my-8 max-w-lg mx-auto shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-xs">
                   <Sparkles className="size-6" />
                 </div>
@@ -288,14 +288,15 @@ export default function ProjectChatScreen() {
                   {suggestedPrompts.map((p, idx) => (
                     <button
                       key={idx}
+                      type="button"
                       onClick={() => {
                         setInputText(p)
                         inputRef.current?.focus()
                       }}
-                      className="text-left text-xs p-2.5 rounded-xl border border-border/70 bg-card hover:bg-primary/5 hover:border-primary/40 text-foreground transition-all flex items-center justify-between group cursor-pointer shadow-2xs"
+                      className="text-left text-xs p-2.5 rounded-xl border border-border/70 bg-card hover:bg-primary/5 hover:border-primary/40 active:scale-[0.99] text-foreground transition-all flex items-center justify-between group cursor-pointer shadow-2xs"
                     >
                       <span>{p}</span>
-                      <Sparkles className="size-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <Sparkles className="size-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-2" />
                     </button>
                   ))}
                 </div>
@@ -308,7 +309,7 @@ export default function ProjectChatScreen() {
                 return (
                   <div
                     key={msg.id}
-                    className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}
+                    className={`flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200 ${isUser ? "justify-end" : "justify-start"}`}
                   >
                     {!isUser && (
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
@@ -438,12 +439,11 @@ export default function ProjectChatScreen() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Chat Input Bar (Light Theme with Indigo Glow Box) */}
-          <div className="p-3 sm:p-5 border-t bg-card/90 backdrop-blur-md">
+          {/* Chat Input Bar */}
+          <div className="p-3 sm:p-5 border-t bg-card/95">
             <form onSubmit={handleSendMessage} className="relative">
-              {/* Outer Glowing Border Container */}
-              <div className="relative group p-[2px] rounded-2xl bg-gradient-to-r from-primary/30 via-purple-500/30 to-indigo-500/30 hover:from-primary hover:via-purple-500 hover:to-indigo-500 shadow-xs hover:shadow-md transition-all duration-300">
-                <div className="flex items-center gap-2 bg-card rounded-2xl px-3 py-1.5">
+              <div className="relative rounded-2xl border border-border bg-card shadow-xs transition-colors duration-150 hover:border-primary/40 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
+                <div className="flex items-center gap-2 rounded-2xl px-3 py-1.5">
                   <input
                     ref={inputRef}
                     type="text"

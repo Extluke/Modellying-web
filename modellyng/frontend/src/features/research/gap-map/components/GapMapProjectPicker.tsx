@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { AnimatedContent, CountUp } from "@/components/react-bits"
 import { useProjects } from "@/features/projects/api/projectsApi"
 import { GapMapProjectCard } from "./GapMapProjectCard"
 
@@ -108,25 +109,33 @@ export function GapMapProjectPicker({ onSelectProject }: GapMapProjectPickerProp
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-card border text-muted-foreground shadow-2xs">
               <FolderKanban className="size-3.5 text-primary" />
               <span>Total Proyek:</span>
-              <strong className="text-foreground font-mono">{projects.length}</strong>
+              <strong className="text-foreground font-mono tabular-nums">
+                <CountUp to={projects.length} />
+              </strong>
             </div>
 
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 shadow-2xs">
               <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Siap Celah Riset:</span>
-              <strong className="font-mono font-bold">{readyProjectsCount}</strong>
+              <strong className="font-mono font-bold tabular-nums">
+                <CountUp to={readyProjectsCount} />
+              </strong>
             </div>
 
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 shadow-2xs">
               <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400" />
               <span>Belum Memenuhi Syarat:</span>
-              <strong className="font-mono font-bold">{notReadyProjectsCount}</strong>
+              <strong className="font-mono font-bold tabular-nums">
+                <CountUp to={notReadyProjectsCount} />
+              </strong>
             </div>
 
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary border text-muted-foreground shadow-2xs">
               <FileText className="size-3.5 text-primary" />
               <span>Total Paper Siap:</span>
-              <strong className="text-foreground font-mono">{totalReadyPapers}</strong>
+              <strong className="text-foreground font-mono tabular-nums">
+                <CountUp to={totalReadyPapers} />
+              </strong>
             </div>
           </div>
         </div>
@@ -278,12 +287,20 @@ export function GapMapProjectPicker({ onSelectProject }: GapMapProjectPickerProp
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProjects.map((project) => (
-              <GapMapProjectCard
+            {filteredProjects.map((project, idx) => (
+              <AnimatedContent
                 key={project.id}
-                project={project}
-                onSelect={() => onSelectProject(project.id)}
-              />
+                delay={Math.min(idx, 8) * 40}
+                distance={14}
+                duration={420}
+                immediate={idx < 6}
+                className="h-full"
+              >
+                <GapMapProjectCard
+                  project={project}
+                  onSelect={() => onSelectProject(project.id)}
+                />
+              </AnimatedContent>
             ))}
           </div>
         )}

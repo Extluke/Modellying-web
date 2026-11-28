@@ -19,6 +19,7 @@ import { DUMMY_SUBSCRIPTION_PLANS } from "../data/dummyAdminData"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function SubscriptionsScreen() {
@@ -26,6 +27,8 @@ export default function SubscriptionsScreen() {
   const [plansList, setPlansList] = useState<SubscriptionPlanItem[]>(DUMMY_SUBSCRIPTION_PLANS)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null)
+
+  useEscapeKey(isModalOpen, () => setIsModalOpen(false))
 
   // Form state
   const [code, setCode] = useState("")
@@ -319,9 +322,9 @@ export default function SubscriptionsScreen() {
               key={plan.id}
               className={`rounded-2xl border bg-card p-5 shadow-sm flex flex-col justify-between relative transition-all hover:shadow-md ${
                 isStudent30
-                  ? "border-primary ring-2 ring-primary/40 shadow-indigo-100 dark:shadow-none"
+                  ? "border-primary ring-2 ring-primary/40 shadow-sm"
                   : isStudent14
-                  ? "border-blue-300 dark:border-blue-800"
+                  ? "border-border/90"
                   : "border-slate-200 dark:border-slate-800"
               } ${!plan.is_active ? "opacity-60 bg-muted/20" : ""}`}
             >
@@ -337,8 +340,8 @@ export default function SubscriptionsScreen() {
 
               {isStudent14 && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-semibold px-3 py-0.5 shadow-sm flex items-center gap-1">
-                    <Sparkles className="size-3" />
+                  <Badge variant="outline" className="bg-card text-foreground border-border text-[10px] font-semibold px-3 py-0.5 shadow-2xs flex items-center gap-1">
+                    <Sparkles className="size-3 text-primary" />
                     <span>Paket Tugas & Kajian Cepat</span>
                   </Badge>
                 </div>
@@ -504,16 +507,28 @@ export default function SubscriptionsScreen() {
 
       {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsModalOpen(false)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                 <CreditCard className="size-4 text-primary" />
                 <span>{editingPlan ? "Modifikasi Paket Langganan Mahasiswa" : "Buat Paket Langganan Baru"}</span>
               </div>
               <button 
+                type="button"
+                aria-label="Tutup modal paket langganan"
                 onClick={() => setIsModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>

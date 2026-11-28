@@ -11,6 +11,7 @@ import {
   MessageSquare,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 import { useConceptMapStore } from "../store/useConceptMapStore"
 import { GapValidationStatus } from "../types/conceptMapTypes"
@@ -30,6 +31,8 @@ export function GapDecisionModal({ onSaveDecision }: GapDecisionModalProps) {
   const [selectedStatus, setSelectedStatus] =
     useState<GapValidationStatus>("accepted")
   const [notes, setNotes] = useState("")
+
+  useEscapeKey(decisionModalOpen && Boolean(activeGapForDecision), closeDecisionModal)
 
   useEffect(() => {
     if (activeGapForDecision) {
@@ -61,7 +64,12 @@ export function GapDecisionModal({ onSaveDecision }: GapDecisionModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) closeDecisionModal()
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
+    >
       <div
         className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
         role="dialog"

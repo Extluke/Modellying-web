@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { AnimatedContent } from "@/components/react-bits"
 import { cn } from "@/lib/utils"
 import { ROUTES } from "@/app/routes"
 import { useProjects, Project } from "@/features/projects/api/projectsApi"
@@ -248,12 +249,20 @@ export function KnowledgeGraphProjectPicker({
       {/* Project Catalog Grid */}
       {!isLoading && !isError && filteredProjects.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProjects.map((project) => (
-            <ProjectKnowledgeGraphCard
+          {filteredProjects.map((project, idx) => (
+            <AnimatedContent
               key={project.id}
-              project={project}
-              onSelect={() => onSelectProject(project.id)}
-            />
+              delay={Math.min(idx, 8) * 40}
+              distance={14}
+              duration={420}
+              immediate={idx < 6}
+              className="h-full"
+            >
+              <ProjectKnowledgeGraphCard
+                project={project}
+                onSelect={() => onSelectProject(project.id)}
+              />
+            </AnimatedContent>
           ))}
         </div>
       )}
@@ -365,7 +374,7 @@ function ProjectKnowledgeGraphCard({
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Kesiapan paper</span>
-            <span className="font-semibold text-foreground">
+            <span className="font-semibold text-foreground tabular-nums">
               {project.ready_count} dari {project.paper_count} siap
             </span>
           </div>

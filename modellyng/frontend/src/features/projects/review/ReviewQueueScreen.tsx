@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
+import { toast } from "@/lib/store/useToastStore"
 import {
   Check,
   X,
@@ -32,12 +34,8 @@ export default function ReviewQueueScreen() {
 
   const [editingItem, setEditingItem] = useState<ReviewQueueItem | null>(null)
   const [editText, setEditText] = useState<string>("")
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg)
-    setTimeout(() => setToastMessage(null), 3500)
-  }
+  useEscapeKey(Boolean(editingItem), () => setEditingItem(null))
 
   // Mutation helper for each component update
   const updateMutation = useUpdateComponent(projectId || "", "")
@@ -61,15 +59,15 @@ export default function ReviewQueueScreen() {
       })
 
       if (action === "accepted") {
-        showToast(`Komponen "${item.label?.id || item.parameter_key}" disetujui.`)
+        toast.success(`Komponen "${item.label?.id || item.parameter_key}" disetujui.`, 5000)
       } else if (action === "rejected") {
-        showToast(`Komponen "${item.label?.id || item.parameter_key}" ditolak.`)
+        toast.info(`Komponen "${item.label?.id || item.parameter_key}" ditolak.`, 5000)
       } else {
-        showToast(`Revisi komponen berhasil disimpan.`)
+        toast.success(`Revisi komponen "${item.label?.id || item.parameter_key}" berhasil disimpan.`, 5000)
       }
       setEditingItem(null)
     } catch {
-      showToast("Gagal memperbarui status komponen.")
+      toast.error("Gagal memperbarui status komponen.", 5000)
     }
   }
 
@@ -82,9 +80,9 @@ export default function ReviewQueueScreen() {
           payload: { status: "accepted" },
         })
       }
-      showToast("Seluruh komponen berhasil disetujui secara massal.")
+      toast.success("Seluruh komponen berhasil disetujui secara massal.", 5000)
     } catch {
-      showToast("Gagal memproses persetujuan massal.")
+      toast.error("Gagal memproses persetujuan massal.", 5000)
     }
   }
 
@@ -118,12 +116,6 @@ export default function ReviewQueueScreen() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-16 right-6 z-50 rounded-lg bg-slate-900 text-white px-4 py-2 text-xs font-medium shadow-xl border border-slate-700 animate-in fade-in slide-in-from-top-2">
-          {toastMessage}
-        </div>
-      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -257,13 +249,21 @@ export default function ReviewQueueScreen() {
 
       {/* Edit Component Modal */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-card border shadow-2xl p-6 space-y-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-component-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingItem(null)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-card border shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-150">
             <div>
               <span className="text-[10px] font-semibold uppercase text-primary">
-                Koreksi Manual Hasil AI
+                Koreksi Manual Hasil Analisis
               </span>
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 id="edit-component-modal-title" className="text-sm font-semibold text-foreground">
                 {editingItem.label?.id || editingItem.parameter_key} ({editingItem.paper_title})
               </h3>
             </div>
@@ -272,7 +272,7 @@ export default function ReviewQueueScreen() {
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               rows={5}
-              className="w-full rounded-lg border bg-background p-3 text-xs leading-relaxed text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+              className="w-full rounded-lg border bg-background p-3 text-xs leading-relaxed text-foreground fx-input-glow focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Tuliskan koreksi formulasi teks..."
             />
 

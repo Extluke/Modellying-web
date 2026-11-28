@@ -5,6 +5,7 @@ import {
   MessageCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
@@ -95,6 +96,8 @@ export function FeaturePromoModal({
     }
   }
 
+  useEscapeKey(!isPaidOrDeveloper && isOpen, handleClose)
+
   const handleUpgradeViaWhatsApp = () => {
     if (activeSelectedPlan) {
       const waUrl = buildPricingWhatsAppUrl(activeSelectedPlan, user)
@@ -116,7 +119,14 @@ export function FeaturePromoModal({
   const content = PROMO_FEATURE_CONTENT[feature]
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose()
+      }}
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-sm animate-in fade-in duration-200"
+    >
       <div
         className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -125,6 +135,7 @@ export function FeaturePromoModal({
         <button
           type="button"
           onClick={handleClose}
+          aria-label="Tutup Promosi"
           className="absolute top-4 right-4 z-20 size-8 rounded-full bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-xs"
           title="Tutup Promosi"
         >
@@ -133,15 +144,7 @@ export function FeaturePromoModal({
 
         <div className="grid md:grid-cols-12 min-h-[440px]">
           {/* SISI KIRI: Ilustrasi Fitur Terkunci Khusus per Fitur */}
-          <div
-            className={`md:col-span-5 p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-border/60 ${
-              feature === "matrix"
-                ? "bg-gradient-to-br from-[#F1EFFF] via-[#ECE8FF] to-[#E5E0FF] dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-background"
-                : feature === "gap_map"
-                ? "bg-gradient-to-br from-[#EBF8F2] via-[#E2F4EB] to-[#D5EFE3] dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-background"
-                : "bg-gradient-to-br from-[#FFF7ED] via-[#FFEDD5] to-[#FED7AA] dark:from-amber-950/30 dark:via-orange-950/20 dark:to-background"
-            }`}
-          >
+          <div className="md:col-span-5 p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-border/60 bg-primary-soft/50 dark:bg-primary/10">
             <FeatureThumbnailPreview feature={feature} />
           </div>
 

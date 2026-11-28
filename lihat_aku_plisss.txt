@@ -50,9 +50,9 @@ Modellying-web/
 │   └── frontend/                     # Aplikasi Web SPA (React 19 + TypeScript + Vite)
 │       ├── public/                   # Aset publik statis (favicon.ico, favicon.png, apple-touch-icon.png, modellyng-logo.jpg)
 │       ├── src/                      # Sumber kode frontend (arsitektur fitur)
-│       │   ├── components/           # Komponen UI global (Shadcn UI & Radix, auth guards: Protected/Guest/AdminRoute, AuthSessionBootstrap)
+│       │   ├── components/           # Komponen UI global (Shadcn UI & Radix, layout shell/drawer, auth guards, & `react-bits/`: AnimatedContent, BlurText, CountUp, GradientText, RotatingText, SplitText, SpotlightCard, TiltedCard)
 │       │   ├── features/             # Modul halaman & logika fitur aplikasi
-│       │   ├── hooks/                # Custom React hooks
+│       │   ├── hooks/                # Custom React hooks (`useEscapeKey`, `usePrefersReducedMotion`, dll.)
 │       │   ├── lib/                  # Utilitas, helper, tokenStorage (localStorage/sessionStorage), & API client
 │       │   ├── store/                # Manajemen global state (Zustand)
 │       │   ├── App.tsx               # Konfigurasi rute utama (React Router v7)
@@ -264,6 +264,7 @@ src/features/
     ├── subscriptions/                # /admin/subscriptions (Job 3: CMS paket langganan, harga IDR, kuota & fasilitas)
     ├── cms/                          # /admin/cms (Job 4: CMS berita, promo, diskon, perubahan syarat & jadwal kirim)
     ├── api-config/                   # /admin/api-config (Job 5: Konfigurasi dinamis API Key AI & switching failover)
+    ├── model-quotas/                 # /admin/models (Monitor rantai failover Gemini Core -> Groq Cloud & kuota RPM/TPM)
     └── admins/                       # /admin/admins (Job 6: Tata kelola sesama admin, granular permissions & audit log)
 
 
@@ -1614,21 +1615,44 @@ Seluruh elemen branding visual aplikasi Modellyng Web telah diselaraskan menggun
 --------------------------------------------------------------------------------
 Halaman Dasbor Peneliti (`/dashboard`) mengadopsi tata letak modern berbasis widget terstruktur:
 1. Hero Workspace Banner (2 Kolom):
-   - Kolom Kiri: Badge `AI-POWERED LITERATURE INTELLIGENCE`, headline `Dari Paper Menjadi Peta Pengetahuan`, deskripsi, tombol aksi cepat (`Mulai Analisis Paper`, `Matriks Komparasi`, `Graf Pengetahuan`), dan indikator ketertelusuran bukti ke PDF & verifikasi DOI.
-   - Kolom Kanan: 3D Workspace Preview interaktif yang menampilkan simulasi ekstraksi paper dengan teks highlight, mini peta node research gap, mini tabel matriks komparasi multi-paper, dan lencana kualitas `100% Traceable`.
+   - Kolom Kiri: Badge `ANALISIS LITERATUR BERBASIS BUKTI NYATA`, headline `Dari Paper Menjadi Peta Pengetahuan.` dengan penegasan aksen solid warna utama `#5147E5` (`text-primary`), deskripsi, tombol aksi cepat (`Mulai Analisis Paper`, `Matriks Komparasi`, `Graf Pengetahuan`), dan indikator ketertelusuran bukti ke PDF & verifikasi DOI.
+   - Kolom Kanan: Pratinjau Workspace interaktif dibungkus `TiltedCard` (`maxTiltDeg={2.5}`) yang menampilkan cuplikan teks paper riil dengan highlight bukti kutipan halaman, mini peta node research gap, mini tabel matriks komparasi multi-paper, dan lencana kualitas `100% Traceable`.
 2. Capabilities Ribbon Strip:
-   - Bilah ringkas penegasan kemampuan sistem: `EKSTRAKSI PAPER 11 KOMPONEN • PERBANDINGAN LITERATUR • RESEARCH GAP MAP • TRACEABLE AI PROOF`.
+   - Bilah ringkas penegasan kemampuan sistem dengan ikon seragam warna utama `#5147E5`: `EKSTRAKSI PAPER 11 KOMPONEN • PERBANDINGAN LITERATUR • RESEARCH GAP MAP • TRACEABLE AI PROOF`.
 3. Kartu Metrik Riset Dinamis (4 Kolom Real-Time):
-   - Terhubung langsung dengan TanStack Query (`useProjects`): Total Proyek Riset, Total Paper Terunggah, Paper Siap Dianalisis, dan Paper Perlu Ditinjau.
+   - Terhubung langsung dengan TanStack Query (`useProjects`), dibungkus `SpotlightCard` dengan transisi hitung numerik `CountUp` (`tabular-nums`) dan palet netral terstruktur: Total Proyek Riset, Paper Terunggah, Paper Siap Dianalisis, dan Paper Perlu Ditinjau (menampilkan penanda amber halus hanya saat terdapat antrean > 0).
 4. Alur Kerja Riset 4 Langkah (How Modellyng Works):
-   - Panduan alur riset terstruktur: Step 01 (Upload Paper) → Step 02 (Ekstraksi 11 Parameter) → Step 03 (Matriks Komparasi) → Step 04 (Peta Riset & Gap).
+   - Panduan alur riset terstruktur dengan `AnimatedContent` stagger dan ikon konsisten warna utama `#5147E5`: Step 01 (Upload Paper) → Step 02 (Ekstraksi 11 Parameter) → Step 03 (Matriks Komparasi) → Step 04 (Peta Riset & Gap).
 5. Tantangan Riset & Solusi Modellyng (Interactive Cards & Modal):
-   - 4 Kartu tantangan: Jurnal Predatory, Halusinasi Ringkasan AI, Research Gap Sulit Ditemukan, dan Analisis Manual Memakan Puluhan Jam.
-   - Mengklik kartu akan membuka modal dialog interaktif yang menjelaskan permasalahan dan solusi arsitektur Modellyng beserta tombol aksi langsung.
+   - 4 Kartu tantangan berbasis `<button>` aksesibel di dalam `SpotlightCard`: Jurnal Predatory, Halusinasi Ringkasan AI, Research Gap Sulit Ditemukan, dan Analisis Manual Memakan Puluhan Jam.
+   - Mengklik kartu atau menekan Enter/Spasi membuka modal dialog aksesibel (`role="dialog"`, tutup via tombol `Escape` lewat `useEscapeKey` maupun klik area latar).
 6. Fitur Unggulan (Built for Research):
    - 4 Kartu fitur inti: Ekstraksi Paper Otomatis, Comparative Paper Matrix, Research Gap & Knowledge Graph, serta Keterlacakan Sumber & Verifikasi DOI.
 7. Akses Cepat Proyek Aktif & Empty State:
    - Menampilkan daftar hingga 3 proyek riset aktif pengguna lengkap dengan status paper dan tombol buka, atau empty state yang ramah untuk inisialisasi proyek baru jika belum ada data.
+
+
+22. PENINGKATAN ANTARMUKA, ANIMASI REACT BITS, & AKSESIBILITAS MENYELURUH
+--------------------------------------------------------------------------------
+Untuk menjaga responsivitas tinggi pada desktop maupun peramban seluler tanpa membebani ukuran bundle awal, komponen gerakan ringan ditambahkan tanpa dependensi eksternal berat:
+1. Komponen Gerakan `src/components/react-bits/` & Preferensi Gerak:
+   - Tersedia komponen modular GPU-accelerated (`AnimatedContent`, `BlurText`, `CountUp`, `GradientText`, `RotatingText`, `SplitText`, `SpotlightCard`, dan `TiltedCard`). `SpotlightCard` memakai batas isolasi `contain: layout paint` + `rAF` untuk kilau kursor di dasbor & ruang kerja internal, sedangkan `/welcome` menghindari tilt dan filter *blur* berat agar tetap mulus di Safari & perangkat mobile.
+   - `WelcomeScreen.tsx` (`/welcome`): Memadukan headline `SplitText`, `RotatingText` (pil solid warna utama resmi logo Modellyng `#5147E5` / token `primary` dengan transisi huruf bertahap & lebar adaptif), tombol CTA solid `#5147E5` `.fx-cta-sheen`, serta 3 tab fitur interaktif seragam warna `#5147E5` (`Ekstraksi Otomatis`, `Kutipan Langsung`, `Peta Alur Riset`) yang terhubung ke pratinjau layar workspace secara manual saat diklik.
+   - Seluruh animasi menghormati preferensi aksesibilitas sistem (`usePrefersReducedMotion` dan `@media (prefers-reduced-motion: reduce)` di `src/index.css`).
+   - Keyframe transisi standar (`animate-in`, `fade-in`, `zoom-in-95`, `slide-in-from-*`, `.fx-page-enter`, dan `.fx-input-glow`) didefinisikan langsung di `src/index.css` sehingga seluruh modal, tab, dan peralihan rute berjalan mulus.
+2. Navigasi Shell, Pencarian Global, & Drawer Seluler:
+   - `AppShell.tsx` menyediakan *Skip Link* keyboard menuju `#main-content` serta mengelola state laci navigasi seluler (*mobile slide-over sidebar drawer*) dengan pengembalian fokus otomatis.
+   - `Sidebar.tsx` mendukung navigasi penuh pada layar kecil (`< md`) lengkap dengan tombol tutup, penutupan via `Escape`, dan indikator item aktif.
+   - `Header.tsx` dilengkapi bilah pencarian proyek cepat (*live filter dropdown* + Enter menuju `/projects?q=...`) dan tombol menu berlabel untuk tampilan ponsel/tablet.
+3. Kepatuhan Modal Keyboard & Standar Notifikasi 5 Detik:
+   - Seluruh dialog modal (`DashboardScreen`, `ProjectsScreen`, `UploadPdfModal`, `ProjectOverviewScreen`, `ReviewQueueScreen`, `WhatsAppPaymentModal`, `ClearHistoryConfirmModal`, `CitationPreviewModal`, `GapDecisionModal`, `FeaturePromoModal`, dan panel Admin) terhubung ke `hooks/useEscapeKey.ts` serta mendukung klik latar untuk menutup.
+   - Halaman peninjauan (`ReviewQueueScreen.tsx`) dan katalog proyek (`ProjectsScreen.tsx`) telah diseragamkan menggunakan `useToastStore` berdurasi 5000 ms (`src/components/ui/app-toast.tsx` dengan `role="status"` & `aria-live="polite"`).
+4. Fungsionalitas Nyata Halaman Sintesis, Ekspor, Pengaturan, Pemberitahuan, & Kuota Model:
+   - `SynthesisScreen.tsx` (`/synthesis`): Pemilih proyek aktif, sintesis naskah komparatif via `generateProjectSynthesis()`, dan tombol salin paragraf akademik ke clipboard.
+   - `ExportScreen.tsx` (`/export`): Pemilih proyek target dan unduhan nyata laporan Word (`.doc`), Excel (`.xlsx`), CSV, serta ringkasan presentasi PDF/Markdown melalui `downloadProjectExport` / pembuat berkas lokal.
+   - `SettingsScreen.tsx` (`/settings`): Form terkontrol nama lengkap peneliti dan format sitasi (`APA`/`IEEE`/`Harvard`/`Chicago`) tersimpan ke `localStorage` saat tombol "Simpan Perubahan" diklik.
+   - `NotificationsScreen.tsx` (`/notifications`): Filter kategori tab (`Semua`, `Sistem & Promo`, `Ekstraksi Paper`), penanda status dibaca, serta empty state terstruktur.
+   - `ModelQuotasScreen.tsx` (`/admin/models`): Memantau rantai failover aktif resmi Modellyng (**Google Gemini Core -> Groq Cloud**) beserta limit RPM, TPM, dan latensi langsung dari `adminApi.getApiConfigs()`.
 
 
 

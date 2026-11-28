@@ -283,7 +283,7 @@ export default function StyleGuideScreen() {
             <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1 max-w-xl">
                 <p className="text-body-lg text-foreground">
-                  Body Large (16px) — Teks naratif konten, paragraf sintesis rekomendasi riset, dan analisis komparatif mendalam.
+                  Body Large (16px): Teks naratif konten, paragraf sintesis rekomendasi riset, dan analisis komparatif mendalam.
                 </p>
                 <MutedCaption>Teks narasi panjang</MutedCaption>
               </div>
@@ -295,7 +295,7 @@ export default function StyleGuideScreen() {
             <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1 max-w-xl">
                 <BodyText>
-                  Body Medium (14px) — Teks penjelasan, kutipan evidence quote, deskripsi form, dan teks default UI.
+                  Body Medium (14px): Teks penjelasan, kutipan evidence quote, deskripsi form, dan teks default UI.
                 </BodyText>
                 <MutedCaption>Standar teks aplikasi</MutedCaption>
               </div>
@@ -306,7 +306,7 @@ export default function StyleGuideScreen() {
 
             <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
-                <MutedCaption>Caption Muted (12px) — Metadata, nomor halaman PDF, Block ID, timestamp</MutedCaption>
+                <MutedCaption>Caption Muted (12px): Metadata, nomor halaman PDF, Block ID, timestamp</MutedCaption>
               </div>
               <code className="text-[11px] font-mono text-muted-foreground bg-muted px-2 py-1 rounded self-start">
                 text-caption-muted (Medium 500)
@@ -315,7 +315,7 @@ export default function StyleGuideScreen() {
 
             <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
-                <span className="text-badge-mini uppercase tracking-wider text-primary">Badge Mini (11px) — Status Chips</span>
+                <span className="text-badge-mini uppercase tracking-wider text-primary">Badge Mini (11px): Status Chips</span>
               </div>
               <code className="text-[11px] font-mono text-muted-foreground bg-muted px-2 py-1 rounded self-start">
                 text-badge-mini (Bold 700)
@@ -391,7 +391,7 @@ export default function StyleGuideScreen() {
                 <Badge variant="review"><Clock className="size-3" /> Needs Review</Badge>
                 <Badge variant="error"><AlertTriangle className="size-3" /> Error / Rejected</Badge>
                 <Badge variant="paper"><FileText className="size-3" /> 18 Papers</Badge>
-                <Badge variant="primary"><Sparkles className="size-3" /> Gemini 1.5 Pro</Badge>
+                <Badge variant="primary"><Sparkles className="size-3" /> Gemini Core</Badge>
                 <Badge variant="outline">Netral / Draft</Badge>
               </div>
             </div>

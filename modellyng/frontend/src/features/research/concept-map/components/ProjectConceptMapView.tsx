@@ -13,6 +13,7 @@ import {
   Lightbulb,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CountUp, SpotlightCard } from "@/components/react-bits"
 import { toast } from "@/lib/store/useToastStore"
 import {
   useComparativeMatrix,
@@ -214,9 +215,9 @@ export function ProjectConceptMapView({
           <div className="flex items-center gap-2 self-end sm:self-auto">
             {/* Polling Timer Pill */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/40 border border-border/80 text-[11px] text-muted-foreground">
-              <Activity className="size-3 text-emerald-500 animate-pulse" />
+              <Activity className="size-3 text-emerald-500" />
               <span>Polling Otomatis:</span>
-              <span className="font-mono font-bold text-foreground">
+              <span className="font-mono font-bold text-foreground tabular-nums">
                 {pollingSecondsLeft}s
               </span>
             </div>
@@ -239,45 +240,45 @@ export function ProjectConceptMapView({
 
         {/* Aggregate Stats Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3">
-          <div className="rounded-xl border bg-muted/20 px-3 py-2 flex items-center justify-between">
+          <SpotlightCard hoverLift={false} className="bg-muted/20 px-3 py-2 flex items-center justify-between">
             <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <GitCompare className="size-3 text-primary" />
               <span>Total Pasangan:</span>
             </span>
-            <span className="text-xs font-bold font-mono text-foreground">
-              {totalPairsCount}
+            <span className="text-xs font-bold font-mono text-foreground tabular-nums">
+              <CountUp to={totalPairsCount} />
             </span>
-          </div>
+          </SpotlightCard>
 
-          <div className="rounded-xl border bg-muted/20 px-3 py-2 flex items-center justify-between">
+          <SpotlightCard hoverLift={false} spotlightColor="rgba(245, 158, 11, 0.12)" className="bg-muted/20 px-3 py-2 flex items-center justify-between">
             <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <Lightbulb className="size-3 text-amber-500" />
               <span>Kandidat Celah:</span>
             </span>
-            <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
-              {detectedGapsCount}
+            <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 tabular-nums">
+              <CountUp to={detectedGapsCount} />
             </span>
-          </div>
+          </SpotlightCard>
 
-          <div className="rounded-xl border bg-muted/20 px-3 py-2 flex items-center justify-between">
+          <SpotlightCard hoverLift={false} spotlightColor="rgba(16, 185, 129, 0.12)" className="bg-muted/20 px-3 py-2 flex items-center justify-between">
             <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <CheckCircle2 className="size-3 text-emerald-500" />
               <span>Layak Diteliti:</span>
             </span>
-            <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
-              {acceptedGapsCount}
+            <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 tabular-nums">
+              <CountUp to={acceptedGapsCount} />
             </span>
-          </div>
+          </SpotlightCard>
 
-          <div className="rounded-xl border bg-muted/20 px-3 py-2 flex items-center justify-between">
+          <SpotlightCard hoverLift={false} className="bg-muted/20 px-3 py-2 flex items-center justify-between">
             <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <Layers className="size-3 text-primary" />
               <span>Keterbatasan Terpetakan:</span>
             </span>
-            <span className="text-xs font-bold font-mono text-foreground">
-              {limitationNodesCount}
+            <span className="text-xs font-bold font-mono text-foreground tabular-nums">
+              <CountUp to={limitationNodesCount} />
             </span>
-          </div>
+          </SpotlightCard>
         </div>
 
         {/* Tab Navigation Segmented Bar */}

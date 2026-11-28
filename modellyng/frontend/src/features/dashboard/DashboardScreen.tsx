@@ -25,6 +25,13 @@ import {
 import { adminApi } from "@/features/admin/api/adminApi"
 import { useProjects } from "@/features/projects/api/projectsApi"
 import { useAuthStore } from "@/features/auth/store/authStore"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
+import {
+  AnimatedContent,
+  CountUp,
+  SpotlightCard,
+  TiltedCard,
+} from "@/components/react-bits"
 
 interface ResearchChallenge {
   key: string
@@ -87,6 +94,8 @@ export default function DashboardScreen() {
   const [dismissedBanner, setDismissedBanner] = useState(false)
   const [activeChallenge, setActiveChallenge] = useState<ResearchChallenge | null>(null)
 
+  useEscapeKey(Boolean(activeChallenge), () => setActiveChallenge(null))
+
   const user = useAuthStore((state) => state.user)
   const { data: projects = [], isLoading: isLoadingProjects } = useProjects()
 
@@ -109,7 +118,7 @@ export default function DashboardScreen() {
   const totalPending = Math.max(0, totalPapers - totalReady)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto select-none">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
       {/* =========================================================================
           1. HEADER DASHBOARD UTAMA
           ========================================================================= */}
@@ -153,7 +162,7 @@ export default function DashboardScreen() {
           2. PENGUMUMAN DINAMIS DARI CMS ADMIN
           ========================================================================= */}
       {topAnnouncement && !dismissedBanner && (
-        <div className="relative overflow-hidden rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-purple-500/10 p-4 shadow-xs animate-in fade-in duration-200">
+        <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-primary-soft/50 dark:bg-primary/10 p-4 shadow-xs animate-in fade-in duration-200">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-primary text-primary-foreground shrink-0 mt-0.5 shadow-xs">
@@ -188,25 +197,30 @@ export default function DashboardScreen() {
       {/* =========================================================================
           3. HERO WORKSPACE BANNER (2 KOLOM: HERO INTRO + 3D WORKSPACE PREVIEW)
           ========================================================================= */}
-      <section className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-card via-card/95 to-primary/[0.04] p-6 sm:p-8 lg:p-10 shadow-sm">
-        {/* Ambient Background Glow */}
-        <div className="absolute top-0 right-1/4 -mt-12 size-72 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-0 size-80 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
+      <section className="relative overflow-hidden rounded-2xl border bg-card p-6 sm:p-8 lg:p-10 shadow-sm">
+        {/* Subtle single brand corner tint */}
+        <div
+          className="absolute -top-24 -right-24 size-96 pointer-events-none"
+          style={{ background: "radial-gradient(closest-side, rgba(81, 71, 229, 0.05), transparent 72%)" }}
+          aria-hidden="true"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center relative z-10">
           {/* Kolom Kiri: Headline & Value Proposition */}
           <div className="lg:col-span-6 flex flex-col items-start space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>AI-POWERED LITERATURE INTELLIGENCE</span>
-            </div>
+            <AnimatedContent distance={12} duration={420} immediate>
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-soft/80 dark:bg-primary/15 px-3.5 py-1 text-xs font-semibold text-primary">
+                <ShieldCheck className="size-3.5 text-primary" />
+                <span>ANALISIS LITERATUR BERBASIS BUKTI NYATA</span>
+              </div>
+            </AnimatedContent>
 
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-[1.12]">
-              Dari Paper Menjadi{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-indigo-500 to-purple-600">
-                Peta Pengetahuan.
-              </span>
-            </h2>
+            <AnimatedContent distance={16} delay={60} duration={480} immediate>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-[1.12]">
+                Dari Paper Menjadi{" "}
+                <span className="text-primary">Peta Pengetahuan.</span>
+              </h2>
+            </AnimatedContent>
 
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-xl">
               Bukan cuma merangkum jurnal. Ekstraksi 11 komponen metodologi ilmiah,
@@ -231,29 +245,30 @@ export default function DashboardScreen() {
 
               <Button asChild variant="ghost" size="default" className="gap-2">
                 <Link to={ROUTES.RESEARCH.GRAPH}>
-                  <Network className="size-4 text-purple-500" />
+                  <Network className="size-4 text-primary" />
                   <span>Graf Pengetahuan</span>
                 </Link>
               </Button>
             </div>
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
-              <span className="text-emerald-500 font-bold">✦</span>
+              <ShieldCheck className="size-3.5 text-primary shrink-0" aria-hidden="true" />
               <span>
                 Ketertelusuran bukti kutipan langsung ke halaman blok teks PDF dengan verifikasi DOI.
               </span>
             </div>
           </div>
 
-          {/* Kolom Kanan: 3D Perspective Workspace Preview */}
-          <div className="lg:col-span-6 relative">
-            <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur-md p-4 sm:p-5 shadow-xl ring-1 ring-border/50">
+          {/* Kolom Kanan: Interactive Workspace Preview */}
+          <AnimatedContent distance={18} delay={80} duration={460} immediate className="lg:col-span-6 relative">
+            <TiltedCard maxTiltDeg={2.5} scaleOnHover={1.008}>
+              <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xl ring-1 ring-border/50">
               {/* Window Header */}
               <div className="flex items-center justify-between pb-3 border-b border-border/60 mb-3">
                 <div className="flex items-center gap-1.5">
-                  <div className="size-2.5 rounded-full bg-red-400/80" />
-                  <div className="size-2.5 rounded-full bg-amber-400/80" />
-                  <div className="size-2.5 rounded-full bg-emerald-400/80" />
+                  <div className="size-2.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <div className="size-2.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <div className="size-2.5 rounded-full bg-slate-300 dark:bg-slate-600" />
                   <span className="ml-2 text-[11px] font-mono font-medium text-muted-foreground">
                     MODELlyng / workspace preview
                   </span>
@@ -271,7 +286,7 @@ export default function DashboardScreen() {
                     <span className="font-semibold text-foreground text-[11px]">
                       Paper Extraction
                     </span>
-                    <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.2 rounded">
+                    <span className="text-[9px] bg-primary-soft text-primary dark:bg-primary/20 font-bold px-1.5 py-0.5 rounded">
                       98% Akurasi
                     </span>
                   </div>
@@ -280,12 +295,15 @@ export default function DashboardScreen() {
                     <div className="text-[10px] font-bold text-foreground line-clamp-1">
                       Deep Learning for Literature Analysis
                     </div>
-                    <div className="h-1.5 w-full bg-muted rounded" />
-                    <div className="h-1.5 w-5/6 bg-primary/30 rounded" />
-                    <div className="p-1 rounded bg-primary/10 text-[9px] text-primary font-medium border border-primary/20">
-                      Bukti Teks [Halaman 4]: &quot;Akurasi F1 meningkat 14.2%...&quot;
+                    <p className="text-[9px] text-muted-foreground leading-snug">
+                      Evaluasi komparatif model ekstraksi pada 1.240 abstrak ilmiah terverifikasi.
+                    </p>
+                    <div className="p-1.5 rounded bg-primary/10 text-[9px] text-primary font-medium border border-primary/20">
+                      Bukti Teks [Hal. 4]: &quot;Akurasi F1 meningkat 14,2% pada ekstraksi klaim...&quot;
                     </div>
-                    <div className="h-1.5 w-3/4 bg-muted rounded" />
+                    <p className="text-[9px] text-muted-foreground leading-snug">
+                      Batasan: cakupan korpus jurnal berbahasa Inggris &amp; Indonesia.
+                    </p>
                   </div>
                   <span className="text-[10px] text-muted-foreground">
                     Ekstraksi 11 Komponen Ilmiah
@@ -298,7 +316,7 @@ export default function DashboardScreen() {
                     <span className="font-semibold text-foreground text-[11px]">
                       Research Gap Map
                     </span>
-                    <span className="size-2 rounded-full bg-purple-500 animate-ping" />
+                    <span className="size-2 rounded-full bg-primary ring-2 ring-primary/20" />
                   </div>
 
                   <div className="rounded-lg bg-background p-2 border border-border/60 flex items-center justify-center relative h-28 shadow-2xs">
@@ -309,14 +327,14 @@ export default function DashboardScreen() {
                       <line x1="80" y1="25" x2="90" y2="80" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.5" />
                       <line x1="90" y1="80" x2="130" y2="45" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.5" />
 
-                      <circle cx="30" cy="50" r="10" className="fill-primary/20 stroke-primary" strokeWidth="1.5" />
-                      <circle cx="80" cy="25" r="8" className="fill-purple-500/20 stroke-purple-500" strokeWidth="1.5" />
-                      <circle cx="170" cy="20" r="8" className="fill-blue-500/20 stroke-blue-500" strokeWidth="1.5" />
+                      <circle cx="30" cy="50" r="10" className="fill-muted stroke-border" strokeWidth="1.5" />
+                      <circle cx="80" cy="25" r="8" className="fill-primary/15 stroke-primary" strokeWidth="1.5" />
+                      <circle cx="170" cy="20" r="8" className="fill-muted stroke-border" strokeWidth="1.5" />
                       <circle cx="90" cy="80" r="8" className="fill-muted stroke-border" strokeWidth="1.5" />
 
                       {/* Gap Node Highlight */}
-                      <circle cx="130" cy="45" r="14" className="fill-purple-600/30 stroke-purple-500" strokeWidth="2" />
-                      <text x="130" y="48" textAnchor="middle" fontSize="9" className="fill-foreground font-bold">
+                      <circle cx="130" cy="45" r="14" className="fill-primary/20 stroke-primary" strokeWidth="2" />
+                      <text x="130" y="48" textAnchor="middle" fontSize="9" className="fill-primary font-bold">
                         GAP
                       </text>
                     </svg>
@@ -375,13 +393,14 @@ export default function DashboardScreen() {
               {/* Floating Quality Badge */}
               <div className="mt-3 flex items-center justify-between rounded-lg bg-primary/10 border border-primary/20 px-3 py-1.5 text-[11px] font-semibold text-primary">
                 <div className="flex items-center gap-1.5">
-                  <Check className="size-3.5 text-emerald-500 font-bold" />
+                  <Check className="size-3.5 text-primary font-bold" />
                   <span>Analisis dapat ditelusuri langsung ke blok teks PDF</span>
                 </div>
                 <span className="text-[10px] text-muted-foreground">100% Traceable</span>
               </div>
             </div>
-          </div>
+            </TiltedCard>
+          </AnimatedContent>
         </div>
       </section>
 
@@ -393,19 +412,19 @@ export default function DashboardScreen() {
           <FileText className="size-3.5 text-primary" />
           <span>Ekstraksi Paper 11 Komponen</span>
         </span>
-        <span className="text-primary font-bold">•</span>
+        <span className="text-border" aria-hidden="true">•</span>
         <span className="flex items-center gap-1.5 text-foreground">
-          <TableProperties className="size-3.5 text-purple-500" />
+          <TableProperties className="size-3.5 text-primary" />
           <span>Perbandingan Literatur</span>
         </span>
-        <span className="text-primary font-bold">•</span>
+        <span className="text-border" aria-hidden="true">•</span>
         <span className="flex items-center gap-1.5 text-foreground">
-          <Network className="size-3.5 text-blue-500" />
+          <Network className="size-3.5 text-primary" />
           <span>Research Gap Map</span>
         </span>
-        <span className="text-primary font-bold">•</span>
+        <span className="text-border" aria-hidden="true">•</span>
         <span className="flex items-center gap-1.5 text-foreground">
-          <ShieldCheck className="size-3.5 text-emerald-500" />
+          <ShieldCheck className="size-3.5 text-primary" />
           <span>Traceable AI Proof</span>
         </span>
       </div>
@@ -415,68 +434,81 @@ export default function DashboardScreen() {
           ========================================================================= */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Proyek */}
-        <div className="rounded-xl border bg-card p-4 shadow-xs hover:border-primary/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Total Proyek Riset</span>
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <FolderKanban className="size-4" />
+        <AnimatedContent delay={0} distance={16} duration={460}>
+          <SpotlightCard className="p-4 shadow-xs h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground">Total Proyek Riset</span>
+              <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/15">
+                <FolderKanban className="size-4" />
+              </div>
             </div>
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-foreground tracking-tight">
-            {isLoadingProjects ? "..." : totalProjects}
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Ruang kerja riset aktif Anda
-          </p>
-        </div>
+            <div className="mt-2 text-2xl font-extrabold text-foreground tracking-tight tabular-nums">
+              {isLoadingProjects ? "..." : <CountUp to={totalProjects} />}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Ruang kerja riset aktif Anda
+            </p>
+          </SpotlightCard>
+        </AnimatedContent>
 
         {/* Paper Terunggah */}
-        <div className="rounded-xl border bg-card p-4 shadow-xs hover:border-primary/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Paper Terunggah</span>
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
-              <FileText className="size-4" />
+        <AnimatedContent delay={60} distance={16} duration={460}>
+          <SpotlightCard className="p-4 shadow-xs h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground">Paper Terunggah</span>
+              <div className="p-2 rounded-lg bg-muted/80 text-foreground/75 border border-border/60">
+                <FileText className="size-4" />
+              </div>
             </div>
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-foreground tracking-tight">
-            {isLoadingProjects ? "..." : totalPapers}
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            PDF ilmiah tersimpan di database
-          </p>
-        </div>
+            <div className="mt-2 text-2xl font-extrabold text-foreground tracking-tight tabular-nums">
+              {isLoadingProjects ? "..." : <CountUp to={totalPapers} />}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              PDF ilmiah tersimpan di database
+            </p>
+          </SpotlightCard>
+        </AnimatedContent>
 
         {/* Siap Dianalisis */}
-        <div className="rounded-xl border bg-card p-4 shadow-xs hover:border-primary/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Siap Dianalisis</span>
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600">
-              <CheckCircle2 className="size-4" />
+        <AnimatedContent delay={120} distance={16} duration={460}>
+          <SpotlightCard className="p-4 shadow-xs h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground">Siap Dianalisis</span>
+              <div className="p-2 rounded-lg bg-muted/80 text-foreground/75 border border-border/60">
+                <CheckCircle2 className="size-4" />
+              </div>
             </div>
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">
-            {isLoadingProjects ? "..." : totalReady}
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Ekstraksi sukses & siap disintesis
-          </p>
-        </div>
+            <div className="mt-2 text-2xl font-extrabold text-foreground tracking-tight tabular-nums">
+              {isLoadingProjects ? "..." : <CountUp to={totalReady} />}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Ekstraksi sukses &amp; siap disintesis
+            </p>
+          </SpotlightCard>
+        </AnimatedContent>
 
         {/* Perlu Ditinjau */}
-        <div className="rounded-xl border bg-card p-4 shadow-xs hover:border-primary/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Perlu Ditinjau</span>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-              <Clock className="size-4" />
+        <AnimatedContent delay={180} distance={16} duration={460}>
+          <SpotlightCard className="p-4 shadow-xs h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <span>Perlu Ditinjau</span>
+                {totalPending > 0 && (
+                  <span className="size-2 rounded-full bg-amber-500" aria-hidden="true" />
+                )}
+              </span>
+              <div className="p-2 rounded-lg bg-muted/80 text-foreground/75 border border-border/60">
+                <Clock className="size-4" />
+              </div>
             </div>
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-amber-500 tracking-tight">
-            {isLoadingProjects ? "..." : totalPending}
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Dalam proses verifikasi & telaah
-          </p>
-        </div>
+            <div className="mt-2 text-2xl font-extrabold text-foreground tracking-tight tabular-nums">
+              {isLoadingProjects ? "..." : <CountUp to={totalPending} />}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Dalam proses verifikasi &amp; telaah
+            </p>
+          </SpotlightCard>
+        </AnimatedContent>
       </div>
 
       {/* =========================================================================
@@ -498,60 +530,68 @@ export default function DashboardScreen() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Step 1 */}
-          <div className="relative rounded-xl border bg-muted/20 p-5 space-y-3 hover:border-primary/40 transition-colors">
-            <span className="text-[10px] font-extrabold text-primary tracking-widest uppercase">
-              STEP 01
-            </span>
-            <div className="p-2.5 size-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <UploadCloud className="size-5" />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">Upload Paper</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Unggah file PDF artikel ilmiah ke dalam ruang kerja proyek riset Anda.
-            </p>
-          </div>
+          <AnimatedContent delay={0} distance={16} duration={460}>
+            <SpotlightCard className="relative bg-muted/20 p-5 space-y-3 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+              <span className="text-[10px] font-mono font-bold text-muted-foreground tracking-widest uppercase">
+                STEP 01
+              </span>
+              <div className="p-2.5 size-11 rounded-xl bg-primary/10 text-primary border border-primary/15 flex items-center justify-center">
+                <UploadCloud className="size-5" />
+              </div>
+              <h4 className="text-sm font-bold text-foreground">Upload Paper</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Unggah file PDF artikel ilmiah ke dalam ruang kerja proyek riset Anda.
+              </p>
+            </SpotlightCard>
+          </AnimatedContent>
 
           {/* Step 2 */}
-          <div className="relative rounded-xl border bg-muted/20 p-5 space-y-3 hover:border-primary/40 transition-colors">
-            <span className="text-[10px] font-extrabold text-primary tracking-widest uppercase">
-              STEP 02
-            </span>
-            <div className="p-2.5 size-11 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
-              <FileSearch className="size-5" />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">Ekstraksi 11 Parameter</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              PyMuPDF & AI mengekstraksi latar belakang, tujuan, metode, hasil, dan batasan.
-            </p>
-          </div>
+          <AnimatedContent delay={70} distance={16} duration={460}>
+            <SpotlightCard className="relative bg-muted/20 p-5 space-y-3 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+              <span className="text-[10px] font-mono font-bold text-muted-foreground tracking-widest uppercase">
+                STEP 02
+              </span>
+              <div className="p-2.5 size-11 rounded-xl bg-primary/10 text-primary border border-primary/15 flex items-center justify-center">
+                <FileSearch className="size-5" />
+              </div>
+              <h4 className="text-sm font-bold text-foreground">Ekstraksi 11 Parameter</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                PyMuPDF &amp; AI mengekstraksi latar belakang, tujuan, metode, hasil, dan batasan.
+              </p>
+            </SpotlightCard>
+          </AnimatedContent>
 
           {/* Step 3 */}
-          <div className="relative rounded-xl border bg-muted/20 p-5 space-y-3 hover:border-primary/40 transition-colors">
-            <span className="text-[10px] font-extrabold text-primary tracking-widest uppercase">
-              STEP 03
-            </span>
-            <div className="p-2.5 size-11 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
-              <TableProperties className="size-5" />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">Matriks Komparasi</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Bandingkan variabel dan temuan sejumlah paper dalam satu tabel sintesis terstruktur.
-            </p>
-          </div>
+          <AnimatedContent delay={140} distance={16} duration={460}>
+            <SpotlightCard className="relative bg-muted/20 p-5 space-y-3 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+              <span className="text-[10px] font-mono font-bold text-muted-foreground tracking-widest uppercase">
+                STEP 03
+              </span>
+              <div className="p-2.5 size-11 rounded-xl bg-primary/10 text-primary border border-primary/15 flex items-center justify-center">
+                <TableProperties className="size-5" />
+              </div>
+              <h4 className="text-sm font-bold text-foreground">Matriks Komparasi</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Bandingkan variabel dan temuan sejumlah paper dalam satu tabel sintesis terstruktur.
+              </p>
+            </SpotlightCard>
+          </AnimatedContent>
 
           {/* Step 4 */}
-          <div className="relative rounded-xl border bg-muted/20 p-5 space-y-3 hover:border-primary/40 transition-colors">
-            <span className="text-[10px] font-extrabold text-primary tracking-widest uppercase">
-              STEP 04
-            </span>
-            <div className="p-2.5 size-11 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-              <Network className="size-5" />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">Peta Riset & Gap</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Visualisasikan peta pengetahuan spasial dan temukan research gap untuk kebaruan skripsi/tesis.
-            </p>
-          </div>
+          <AnimatedContent delay={210} distance={16} duration={460}>
+            <SpotlightCard className="relative bg-muted/20 p-5 space-y-3 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+              <span className="text-[10px] font-mono font-bold text-muted-foreground tracking-widest uppercase">
+                STEP 04
+              </span>
+              <div className="p-2.5 size-11 rounded-xl bg-primary/10 text-primary border border-primary/15 flex items-center justify-center">
+                <Network className="size-5" />
+              </div>
+              <h4 className="text-sm font-bold text-foreground">Peta Riset &amp; Gap</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Visualisasikan peta pengetahuan spasial dan temukan research gap untuk kebaruan skripsi/tesis.
+              </p>
+            </SpotlightCard>
+          </AnimatedContent>
         </div>
       </section>
 
@@ -575,29 +615,33 @@ export default function DashboardScreen() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {RESEARCH_CHALLENGES.map((item) => (
-            <div
-              key={item.key}
-              onClick={() => setActiveChallenge(item)}
-              className="group rounded-xl border bg-card p-5 flex flex-col justify-between space-y-4 hover:border-primary/60 hover:shadow-md cursor-pointer transition-all duration-200"
-            >
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold tracking-widest text-primary">
-                  {item.badge}
-                </span>
-                <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                  {item.title}
-                </h4>
-                <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                  {item.problem}
-                </p>
-              </div>
+          {RESEARCH_CHALLENGES.map((item, idx) => (
+            <AnimatedContent key={item.key} delay={idx * 60} distance={16} duration={460}>
+              <SpotlightCard className="h-full p-0 overflow-hidden" spotlightColor="rgba(81, 71, 229, 0.12)">
+                <button
+                  type="button"
+                  onClick={() => setActiveChallenge(item)}
+                  className="group w-full h-full p-5 text-left flex flex-col justify-between space-y-4 cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                >
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold tracking-widest text-primary">
+                      {item.badge}
+                    </span>
+                    <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                      {item.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                      {item.problem}
+                    </p>
+                  </div>
 
-              <div className="pt-2 flex items-center gap-1.5 text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
-                <span>Pelajari Solusi</span>
-                <ChevronRight className="size-3.5" />
-              </div>
-            </div>
+                  <div className="pt-2 flex items-center gap-1.5 text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
+                    <span>Pelajari Solusi</span>
+                    <ChevronRight className="size-3.5" />
+                  </div>
+                </button>
+              </SpotlightCard>
+            </AnimatedContent>
           ))}
         </div>
       </section>
@@ -620,65 +664,73 @@ export default function DashboardScreen() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-start gap-4 p-4 rounded-xl border bg-muted/20">
-            <div className="p-3 rounded-xl bg-primary/10 text-primary shrink-0">
-              <FileText className="size-6" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-foreground">
-                Ekstraksi Paper Otomatis
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Ambil latar belakang, rumusan masalah, tujuan, metode, hasil, dan batasan
-                langsung dari naskah publikasi PDF.
-              </p>
-            </div>
-          </div>
+          <AnimatedContent delay={0} distance={14} duration={440}>
+            <SpotlightCard className="flex items-start gap-4 p-4 bg-muted/20 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+              <div className="p-3 rounded-xl bg-background border border-border/80 text-primary shadow-2xs shrink-0">
+                <FileText className="size-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-foreground">
+                  Ekstraksi Paper Otomatis
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Ambil latar belakang, rumusan masalah, tujuan, metode, hasil, dan batasan
+                  langsung dari naskah publikasi PDF.
+                </p>
+              </div>
+            </SpotlightCard>
+          </AnimatedContent>
 
-          <div className="flex items-start gap-4 p-4 rounded-xl border bg-muted/20">
-            <div className="p-3 rounded-xl bg-purple-500/10 text-purple-500 shrink-0">
-              <TableProperties className="size-6" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-foreground">
-                Comparative Paper Matrix
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Bandingkan metode, dataset, dan temuan lintas paper dalam matriks sintesis
-                yang siap diekspor ke Excel dan PDF.
-              </p>
-            </div>
-          </div>
+          <AnimatedContent delay={60} distance={14} duration={440}>
+            <SpotlightCard className="flex items-start gap-4 p-4 bg-muted/20 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+              <div className="p-3 rounded-xl bg-background border border-border/80 text-primary shadow-2xs shrink-0">
+                <TableProperties className="size-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-foreground">
+                  Comparative Paper Matrix
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Bandingkan metode, dataset, dan temuan lintas paper dalam matriks sintesis
+                  yang siap diekspor ke Excel dan PDF.
+                </p>
+              </div>
+            </SpotlightCard>
+          </AnimatedContent>
 
-          <div className="flex items-start gap-4 p-4 rounded-xl border bg-muted/20">
-            <div className="p-3 rounded-xl bg-blue-500/10 text-blue-500 shrink-0">
-              <Network className="size-6" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-foreground">
-                Research Gap & Knowledge Graph
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Petakan klaster hubungan antar paper dan temukan peluang celah riset baru
-                yang belum pernah dieksplorasi sebelumnya.
-              </p>
-            </div>
-          </div>
+          <AnimatedContent delay={120} distance={14} duration={440}>
+            <SpotlightCard className="flex items-start gap-4 p-4 bg-muted/20 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+              <div className="p-3 rounded-xl bg-background border border-border/80 text-primary shadow-2xs shrink-0">
+                <Network className="size-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-foreground">
+                  Research Gap &amp; Knowledge Graph
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Petakan klaster hubungan antar paper dan temukan peluang celah riset baru
+                  yang belum pernah dieksplorasi sebelumnya.
+                </p>
+              </div>
+            </SpotlightCard>
+          </AnimatedContent>
 
-          <div className="flex items-start gap-4 p-4 rounded-xl border bg-muted/20">
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 shrink-0">
-              <ShieldCheck className="size-6" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-foreground">
-                Keterlacakan Sumber & Verifikasi DOI
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Hubungkan setiap kalimat hasil analisis langsung ke halaman sumber PDF
-                dan verifikasi keaslian DOI melalui Crossref/DataCite.
-              </p>
-            </div>
-          </div>
+          <AnimatedContent delay={180} distance={14} duration={440}>
+            <SpotlightCard className="flex items-start gap-4 p-4 bg-muted/20 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+              <div className="p-3 rounded-xl bg-background border border-border/80 text-primary shadow-2xs shrink-0">
+                <ShieldCheck className="size-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-foreground">
+                  Keterlacakan Sumber &amp; Verifikasi DOI
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Hubungkan setiap kalimat hasil analisis langsung ke halaman sumber PDF
+                  dan verifikasi keaslian DOI melalui Crossref/DataCite.
+                </p>
+              </div>
+            </SpotlightCard>
+          </AnimatedContent>
         </div>
       </section>
 
@@ -705,40 +757,39 @@ export default function DashboardScreen() {
 
         {projects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            {projects.slice(0, 3).map((project) => (
-              <div
-                key={project.id}
-                className="rounded-xl border bg-muted/20 p-4 space-y-3 hover:border-primary/50 transition-colors flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
-                      {project.status === "active" ? "Aktif" : "Arsip"}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-medium">
-                      {project.paper_count} Paper
-                    </span>
+            {projects.slice(0, 3).map((project, idx) => (
+              <AnimatedContent key={project.id} delay={idx * 65} distance={14} duration={440}>
+                <SpotlightCard className="p-4 bg-muted/20 flex flex-col justify-between space-y-3 h-full">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
+                        {project.status === "active" ? "Aktif" : "Arsip"}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
+                        {project.paper_count} Paper
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-sm text-foreground mt-1 line-clamp-1">
+                      {project.name}
+                    </h4>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                      {project.description || "Tidak ada deskripsi proyek."}
+                    </p>
                   </div>
-                  <h4 className="font-bold text-sm text-foreground mt-1 line-clamp-1">
-                    {project.name}
-                  </h4>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                    {project.description || "Tidak ada deskripsi proyek."}
-                  </p>
-                </div>
 
-                <div className="pt-2 border-t border-border/60 flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground">
-                    Siap: {project.ready_count} / {project.paper_count}
-                  </span>
-                  <Button asChild variant="ghost" size="sm" className="h-7 text-xs text-primary px-2 gap-1">
-                    <Link to={`${ROUTES.PROJECTS.ROOT}/${project.id}/overview`}>
-                      <span>Buka</span>
-                      <ArrowRight className="size-3" />
-                    </Link>
-                  </Button>
-                </div>
-              </div>
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                      Siap: {project.ready_count} / {project.paper_count}
+                    </span>
+                    <Button asChild variant="ghost" size="sm" className="h-7 text-xs text-primary px-2 gap-1">
+                      <Link to={`${ROUTES.PROJECTS.ROOT}/${project.id}/overview`}>
+                        <span>Buka</span>
+                        <ArrowRight className="size-3" />
+                      </Link>
+                    </Button>
+                  </div>
+                </SpotlightCard>
+              </AnimatedContent>
             ))}
           </div>
         ) : (
@@ -768,11 +819,21 @@ export default function DashboardScreen() {
           10. MODAL INSIGHT & SOLUSI TANTANGAN RISET
           ========================================================================= */}
       {activeChallenge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="challenge-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveChallenge(null)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div className="relative w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
             <button
+              type="button"
               onClick={() => setActiveChallenge(null)}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors"
+              aria-label="Tutup Modal"
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground size-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
               title="Tutup Modal"
             >
               <X className="size-5" />
@@ -782,7 +843,7 @@ export default function DashboardScreen() {
               <span className="text-[10px] font-bold tracking-widest text-primary uppercase">
                 {activeChallenge.badge}
               </span>
-              <h3 className="text-lg font-bold text-foreground mt-1">
+              <h3 id="challenge-modal-title" className="text-lg font-bold text-foreground mt-1 pr-8">
                 {activeChallenge.title}
               </h3>
             </div>

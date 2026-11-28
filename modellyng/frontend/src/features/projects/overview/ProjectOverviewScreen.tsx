@@ -35,6 +35,8 @@ import { ExportDropdownButton } from "./ExportDropdownButton"
 import { FeaturePromoModal } from "@/features/promotions/components/FeaturePromoModal"
 import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
 import { ROUTES } from "@/app/routes"
+import { AnimatedContent } from "@/components/react-bits"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 
 // Stage label mapping with professional Indonesian academic terminology
@@ -71,6 +73,11 @@ export default function ProjectOverviewScreen() {
   const [isForcePromoOpen, setIsForcePromoOpen] = useState(false)
   const [deletingPaper, setDeletingPaper] = useState<Paper | null>(null)
   const { quota } = useUserQuota()
+
+  useEscapeKey(
+    Boolean(deletingPaper) && !deletePaperMutation.isPending,
+    () => setDeletingPaper(null)
+  )
 
   const handleOpenUploadModal = () => {
     // Jika kuota harian telah habis (0 tersisa)
@@ -244,7 +251,7 @@ export default function ProjectOverviewScreen() {
 
         {/* Polling Indicator */}
         {hasProcessingPapers && (
-          <div className="flex items-center gap-2 text-xs font-medium text-primary bg-primary/10 border border-primary/20 px-3.5 py-1.5 rounded-full animate-pulse shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-medium text-primary bg-primary/10 border border-primary/20 px-3.5 py-1.5 rounded-full shadow-xs">
             <Loader2 className="size-3.5 animate-spin" />
             <span>Sedang memproses analisis dokumen secara otomatis...</span>
           </div>
@@ -452,7 +459,7 @@ export default function ProjectOverviewScreen() {
         {/* Redesigned Papers List */}
         {filteredAndSortedPapers.length > 0 && (
           <div className="space-y-3.5">
-            {filteredAndSortedPapers.map((p) => {
+            {filteredAndSortedPapers.map((p, idx) => {
               const isProcessing = ["validating", "processing"].includes(p.status)
               const isNeedsConfirmation = p.status === "needs_confirmation"
               const isFailed = p.status === "failed"
@@ -467,9 +474,15 @@ export default function ProjectOverviewScreen() {
               }
 
               return (
-                <div
+                <AnimatedContent
                   key={p.id}
-                  className={`rounded-2xl border p-5 shadow-xs transition-all space-y-4 bg-card hover:border-primary/30 ${
+                  delay={Math.min(idx, 6) * 45}
+                  distance={14}
+                  duration={400}
+                  immediate={idx < 4}
+                >
+                  <div
+                    className={`rounded-2xl border p-5 shadow-xs transition-all space-y-4 bg-card hover:border-primary/30 ${
                     isNeedsConfirmation
                       ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-950/10"
                       : isFailed
@@ -512,8 +525,8 @@ export default function ProjectOverviewScreen() {
 
                           {/* Status Badge */}
                           {isProcessing && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                              <span className="size-1.5 rounded-full bg-blue-500 animate-pulse" />
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft border border-primary/20 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
+                              <span className="size-1.5 rounded-full bg-primary animate-pulse" />
                               <span>Sedang Diproses</span>
                             </span>
                           )}
@@ -526,7 +539,7 @@ export default function ProjectOverviewScreen() {
                           )}
 
                           {p.status === "needs_review" && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-purple-600 dark:text-purple-400">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
                               <Sparkles className="size-3" />
                               <span>Perlu Ditinjau</span>
                             </span>
@@ -603,10 +616,7 @@ export default function ProjectOverviewScreen() {
                     <div className="rounded-xl bg-primary/5 border border-primary/15 p-3 space-y-2">
                       <div className="flex items-center justify-between text-xs text-primary font-medium">
                         <span className="flex items-center gap-1.5">
-                          <span className="relative flex size-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                            <span className="relative inline-flex rounded-full size-2 bg-primary" />
-                          </span>
+                          <span className="inline-flex rounded-full size-2 bg-primary" />
                           <span>{stageText}</span>
                         </span>
                         <span className="text-[11px] text-muted-foreground">
@@ -673,7 +683,7 @@ export default function ProjectOverviewScreen() {
                   {/* Bottom Minimal Coverage Badge (If ready, without any AI model mentions) */}
                   {p.coverage && (
                     <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border/50 text-[10px]">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-muted-foreground font-medium">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-muted-foreground font-medium tabular-nums">
                         <Layers className="size-3" />
                         <span>
                           {p.coverage.pages_readable}/{p.coverage.pages_total} Halaman Terbaca ({p.coverage.language.toUpperCase()})
@@ -681,7 +691,8 @@ export default function ProjectOverviewScreen() {
                       </span>
                     </div>
                   )}
-                </div>
+                  </div>
+                </AnimatedContent>
               )
             })}
           </div>
@@ -700,7 +711,10 @@ export default function ProjectOverviewScreen() {
       {/* Delete Paper Confirmation Modal */}
       {deletingPaper && (
         <div
-          onClick={() => setDeletingPaper(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-paper-modal-title"
+          onClick={() => !deletePaperMutation.isPending && setDeletingPaper(null)}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
         >
           <div
@@ -712,7 +726,7 @@ export default function ProjectOverviewScreen() {
                 <AlertTriangle className="size-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-base text-foreground">
+                <h3 id="delete-paper-modal-title" className="font-semibold text-base text-foreground">
                   Hapus Dokumen Paper?
                 </h3>
                 <p className="text-xs text-muted-foreground">

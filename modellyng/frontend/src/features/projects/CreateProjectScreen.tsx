@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, ArrowRight, FolderPlus, Loader2, X } from "lucide-react"
 import { useCreateProject } from "./api/projectsApi"
 import { ROUTES } from "@/app/routes"
+import { AnimatedContent } from "@/components/react-bits"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function CreateProjectScreen() {
@@ -83,63 +84,66 @@ export default function CreateProjectScreen() {
       {/* Focused Center Form Card                                                */}
       {/* ----------------------------------------------------------------------- */}
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-10 sm:py-14 flex items-center">
-        <div className="w-full bg-card rounded-3xl border border-border/80 shadow-xs p-6 sm:p-10 space-y-8 animate-in fade-in zoom-in-95 duration-200">
-          {/* Header Title Section */}
-          <div className="flex items-start gap-3.5">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary shrink-0 shadow-2xs">
-              <FolderPlus className="size-5" />
-            </div>
-            <div className="space-y-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                Inisialisasi Ruang Riset Baru
-              </h1>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Tentukan identitas dan rumusan masalah riset untuk memulai telaah komprehensif dokumen akademik Anda.
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Field 1: Project Name */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-foreground">
-                  Judul Proyek Riset <span className="text-destructive">*</span>
-                </label>
-                <span className="text-[11px] text-muted-foreground font-medium">
-                  {name.length}/150 karakter
-                </span>
+        <AnimatedContent distance={18} duration={460} immediate className="w-full">
+          <div className="w-full bg-card rounded-3xl border border-border/80 shadow-xs p-6 sm:p-10 space-y-8">
+            {/* Header Title Section */}
+            <div className="flex items-start gap-3.5">
+              <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary shrink-0 shadow-2xs">
+                <FolderPlus className="size-5" />
               </div>
-              <input
-                type="text"
-                required
-                maxLength={150}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Contoh: Analisis Komparatif Algoritma Deep Learning Pada Citra Medis"
-                className="h-11 w-full rounded-xl border border-input bg-background px-4 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs font-medium"
-              />
-              <p className="text-[11px] text-muted-foreground leading-normal">
-                Gunakan judul yang representatif untuk mempermudah identifikasi dan telaah bukti ilmiah lintas dokumen.
-              </p>
+              <div className="space-y-1">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                  Inisialisasi Ruang Riset Baru
+                </h1>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Tentukan identitas dan rumusan masalah riset untuk memulai telaah komprehensif dokumen akademik Anda.
+                </p>
+              </div>
             </div>
 
-            {/* Field 2: Description */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-foreground">
-                  Deskripsi / Rumusan Masalah Riset
-                </label>
-                <span className="text-[11px] text-muted-foreground">Opsional</span>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Field 1: Project Name */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="project-name-input" className="text-xs font-semibold text-foreground">
+                    Judul Proyek Riset <span className="text-destructive">*</span>
+                  </label>
+                  <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
+                    {name.length}/150 karakter
+                  </span>
+                </div>
+                <input
+                  id="project-name-input"
+                  type="text"
+                  required
+                  maxLength={150}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Contoh: Analisis Komparatif Algoritma Deep Learning Pada Citra Medis"
+                  className="h-11 w-full rounded-xl border border-input bg-background px-4 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground fx-input-glow focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs font-medium"
+                />
+                <p className="text-[11px] text-muted-foreground leading-normal">
+                  Gunakan judul yang representatif untuk mempermudah identifikasi dan telaah bukti ilmiah lintas dokumen.
+                </p>
               </div>
-              <textarea
-                rows={4}
-                maxLength={1000}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Tuliskan latar belakang singkat, celah riset (research gap), atau tujuan spesifik yang ingin diselidiki..."
-                className="w-full rounded-xl border border-input bg-background p-3.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs leading-relaxed"
-              />
+
+              {/* Field 2: Description */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="project-desc-input" className="text-xs font-semibold text-foreground">
+                    Deskripsi / Rumusan Masalah Riset
+                  </label>
+                  <span className="text-[11px] text-muted-foreground">Opsional</span>
+                </div>
+                <textarea
+                  id="project-desc-input"
+                  rows={4}
+                  maxLength={1000}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Tuliskan latar belakang singkat, celah riset (research gap), atau tujuan spesifik yang ingin diselidiki..."
+                  className="w-full rounded-xl border border-input bg-background p-3.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground fx-input-glow focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs leading-relaxed"
+                />
               <p className="text-[11px] text-muted-foreground leading-normal">
                 Deskripsi membantu mengarahkan fokus telaah dan sintesis komparasi parameter.
               </p>
@@ -175,7 +179,8 @@ export default function CreateProjectScreen() {
               </Button>
             </div>
           </form>
-        </div>
+          </div>
+        </AnimatedContent>
       </main>
 
       {/* Footer minimal info */}

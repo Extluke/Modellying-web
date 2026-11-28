@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 import { type User } from "@/lib/api/auth"
 import { type PricingPlan } from "@/features/styleguide/components/PricingSection"
@@ -38,6 +39,8 @@ export function WhatsAppPaymentModal({
   onClose,
 }: WhatsAppPaymentModalProps) {
   const [copied, setCopied] = useState(false)
+
+  useEscapeKey(isOpen && Boolean(plan), onClose)
 
   if (!isOpen || !plan) return null
 
@@ -64,7 +67,15 @@ export function WhatsAppPaymentModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wa-payment-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200"
+    >
       <div
         className="relative w-full max-w-xl rounded-2xl border border-emerald-500/30 bg-card p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -80,7 +91,7 @@ export function WhatsAppPaymentModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-foreground">
+                <h3 id="wa-payment-modal-title" className="text-base font-bold text-foreground">
                   Konfirmasi Pembelian via WhatsApp Admin
                 </h3>
                 <Badge

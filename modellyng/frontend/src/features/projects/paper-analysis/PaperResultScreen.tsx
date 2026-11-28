@@ -385,7 +385,7 @@ export default function PaperResultScreen() {
                 </Button>
 
                 {!isPaperVerified && (
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 animate-pulse">
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
                     <AlertTriangle className="size-3" />
                     <span>Perlu verifikasi sumber</span>
                   </span>
@@ -441,12 +441,12 @@ export default function PaperResultScreen() {
               <TabsContent value="konteks_masalah" className="space-y-4 mt-0">
                 <div className="rounded-xl bg-card border border-border/70 p-3 shadow-2xs flex items-center justify-between text-xs text-muted-foreground">
                   <span className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-primary animate-pulse" />
+                    <span className="size-2 rounded-full bg-primary" />
                     <span className="font-medium text-foreground">
-                      Konteks & Masalah: Fondasi, rumusan masalah, tujuan, dan subjek riset
+                      Konteks &amp; Masalah: Fondasi, rumusan masalah, tujuan, dan subjek riset
                     </span>
                   </span>
-                  <span className="font-mono font-bold text-primary text-[11px] shrink-0 ml-2">
+                  <span className="font-mono font-bold text-primary text-[11px] shrink-0 ml-2 tabular-nums">
                     {groupedComponents.konteks_masalah.length} Parameter
                   </span>
                 </div>
@@ -469,12 +469,12 @@ export default function PaperResultScreen() {
               <TabsContent value="metode_data" className="space-y-4 mt-0">
                 <div className="rounded-xl bg-card border border-border/70 p-3 shadow-2xs flex items-center justify-between text-xs text-muted-foreground">
                   <span className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-primary animate-pulse" />
+                    <span className="size-2 rounded-full bg-primary" />
                     <span className="font-medium text-foreground">
-                      Metode & Data: Metodologi, dataset & sampel, variabel, dan metrik evaluasi
+                      Metode &amp; Data: Metodologi, dataset &amp; sampel, variabel, dan metrik evaluasi
                     </span>
                   </span>
-                  <span className="font-mono font-bold text-primary text-[11px] shrink-0 ml-2">
+                  <span className="font-mono font-bold text-primary text-[11px] shrink-0 ml-2 tabular-nums">
                     {groupedComponents.metode_data.length} Parameter
                   </span>
                 </div>
@@ -497,12 +497,12 @@ export default function PaperResultScreen() {
               <TabsContent value="hasil_gap" className="space-y-4 mt-0">
                 <div className="rounded-xl bg-card border border-border/70 p-3 shadow-2xs flex items-center justify-between text-xs text-muted-foreground">
                   <span className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-primary animate-pulse" />
+                    <span className="size-2 rounded-full bg-primary" />
                     <span className="font-medium text-foreground">
-                      Hasil & Gap: Temuan utama, kebaruan, klaim sentral, dan keterbatasan riset
+                      Hasil &amp; Gap: Temuan utama, kebaruan, klaim sentral, dan keterbatasan riset
                     </span>
                   </span>
-                  <span className="font-mono font-bold text-primary text-[11px] shrink-0 ml-2">
+                  <span className="font-mono font-bold text-primary text-[11px] shrink-0 ml-2 tabular-nums">
                     {groupedComponents.hasil_gap.length} Parameter
                   </span>
                 </div>
@@ -777,10 +777,10 @@ function ComponentCard({
       {/* EVIDENCE: Blok Kutipan Kanonik Dokumen Asli */}
       {primaryEvidence ? (
         <div
-          className={`mx-5 mb-4 rounded-xl p-3.5 bg-gradient-to-br from-indigo-50/70 via-slate-50/50 to-indigo-50/30 dark:from-slate-950/80 dark:to-slate-900/60 border transition-all duration-200 cursor-pointer group/ev relative overflow-hidden ${
+          className={`mx-5 mb-4 rounded-xl p-3.5 bg-primary-soft/45 dark:bg-primary/10 border transition-all duration-200 cursor-pointer group/ev relative overflow-hidden ${
             isEvidenceActive
-              ? "border-primary ring-2 ring-primary/30 shadow-sm bg-indigo-50/90 dark:bg-indigo-950/40"
-              : "border-indigo-100/90 dark:border-indigo-500/20 hover:border-primary/60 hover:shadow-xs"
+              ? "border-primary ring-2 ring-primary/30 shadow-sm bg-primary-soft/75 dark:bg-primary/20"
+              : "border-primary/20 hover:border-primary/60 hover:shadow-xs"
           }`}
           onClick={() => scrollToEvidence(comp, blockId)}
           title="Klik untuk melompat ke halaman PDF dan menyorot teks bukti kanonik"

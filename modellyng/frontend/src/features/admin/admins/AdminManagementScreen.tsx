@@ -13,6 +13,7 @@ import { DUMMY_ADMINS, DUMMY_AUDIT_LOGS } from "../data/dummyAdminData"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 import { useAuthStore } from "@/features/auth/store/authStore"
 
@@ -35,6 +36,9 @@ export default function AdminManagementScreen() {
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState<AdminAccountItem | null>(null)
+
+  useEscapeKey(isCreateModalOpen, () => setIsCreateModalOpen(false))
+  useEscapeKey(Boolean(editingAdmin), () => setEditingAdmin(null))
 
   // Create Form state
   const [email, setEmail] = useState("")
@@ -298,8 +302,8 @@ export default function AdminManagementScreen() {
                       <td className="py-3.5 px-4">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                           adm.admin_role === "super_admin"
-                            ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-300"
-                            : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-300"
+                            ? "bg-primary-soft text-primary dark:bg-primary/15 border border-primary/25"
+                            : "bg-muted text-foreground border border-border"
                         }`}>
                           {adm.admin_role.replace("_", " ")}
                         </span>
@@ -412,16 +416,28 @@ export default function AdminManagementScreen() {
 
       {/* CREATE ADMIN MODAL */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCreateModalOpen(false)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                 <UserPlus className="size-4 text-primary" />
                 <span>Tambah Akun Administrator Baru</span>
               </div>
               <button 
+                type="button"
+                aria-label="Tutup modal tambah admin"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>
@@ -541,16 +557,28 @@ export default function AdminManagementScreen() {
 
       {/* EDIT ADMIN PERMISSIONS MODAL */}
       {editingAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingAdmin(null)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                 <Edit3 className="size-4 text-primary" />
                 <span>Ubah Hak Akses: {editingAdmin.email}</span>
               </div>
               <button 
+                type="button"
+                aria-label="Tutup modal edit hak akses"
                 onClick={() => setEditingAdmin(null)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>

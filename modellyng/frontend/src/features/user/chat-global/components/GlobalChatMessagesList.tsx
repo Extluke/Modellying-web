@@ -1,5 +1,6 @@
 import { useRef, useEffect } from "react"
 import { Sparkles, HelpCircle, ArrowRight, BookOpen, Layers, Lightbulb } from "lucide-react"
+import { AnimatedContent, SpotlightCard } from "@/components/react-bits"
 import { GlobalChatMessage, ContextScopeProject, ContextScopePaper } from "../types/chatGlobalTypes"
 import { GlobalChatMessageItem } from "./GlobalChatMessageItem"
 
@@ -49,7 +50,8 @@ export function GlobalChatMessagesList({
         {messages.length === 0 ? (
           <div className="py-8 sm:py-12 space-y-8 animate-in fade-in duration-300">
             {/* Hero Welcome Card */}
-            <div className="rounded-3xl border border-border bg-card/60 backdrop-blur-sm p-6 sm:p-8 shadow-xs text-center space-y-3 relative overflow-hidden">
+            <AnimatedContent distance={14} duration={440} immediate>
+              <div className="rounded-3xl border border-border bg-card/60 backdrop-blur-sm p-6 sm:p-8 shadow-xs text-center space-y-3 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
                 <Sparkles className="size-40 text-primary" />
               </div>
@@ -84,7 +86,8 @@ export function GlobalChatMessagesList({
                   <span>Cache Lokal 24 Jam</span>
                 </span>
               </div>
-            </div>
+              </div>
+            </AnimatedContent>
 
             {/* Quick Inspiration Prompts Grid */}
             <div className="space-y-3">
@@ -97,27 +100,30 @@ export function GlobalChatMessagesList({
                 {quickPrompts.map((item, idx) => {
                   const Icon = item.icon
                   return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => onSelectQuickPrompt(item.prompt)}
-                      className="p-4 rounded-2xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-left space-y-2 cursor-pointer shadow-2xs group flex flex-col justify-between"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 text-primary font-bold text-xs">
-                          <Icon className="size-4" />
-                          <span>{item.title}</span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">
-                          {item.prompt}
-                        </p>
-                      </div>
+                    <AnimatedContent key={idx} delay={idx * 65} distance={14} duration={420} immediate>
+                      <SpotlightCard className="p-0 overflow-hidden h-full rounded-2xl">
+                        <button
+                          type="button"
+                          onClick={() => onSelectQuickPrompt(item.prompt)}
+                          className="w-full h-full p-4 rounded-2xl text-left space-y-2 cursor-pointer group flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-primary font-bold text-xs">
+                              <Icon className="size-4" />
+                              <span>{item.title}</span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">
+                              {item.prompt}
+                            </p>
+                          </div>
 
-                      <div className="pt-2 flex items-center text-[10px] font-semibold text-primary opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
-                        <span>Gunakan Pertanyaan</span>
-                        <ArrowRight className="size-3 ml-1" />
-                      </div>
-                    </button>
+                          <div className="pt-2 flex items-center text-[10px] font-semibold text-primary opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
+                            <span>Gunakan Pertanyaan</span>
+                            <ArrowRight className="size-3 ml-1" />
+                          </div>
+                        </button>
+                      </SpotlightCard>
+                    </AnimatedContent>
                   )
                 })}
               </div>

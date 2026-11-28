@@ -4,7 +4,7 @@
 
 /**
  * ==============================================================================
- * MODELLYNG OFFICIAL DESIGN SYSTEM — SINGLE SOURCE OF TRUTH (STYLE GUIDE)
+ * MODELLYNG OFFICIAL DESIGN SYSTEM - SINGLE SOURCE OF TRUTH (STYLE GUIDE)
  * Reference: modellyng/rekomendasi_arsitektur_web_dan_transisi.md (Bagian 3)
  * Changing variables here will globally update all components and pages instantly.
  * ==============================================================================
@@ -50,7 +50,7 @@
     --canvas-edge: 217 12% 79%;           /* #C3C8D0 - Garis penghubung bezier */
     --canvas-gap-fire: 24 88% 48%;        /* #EA580C - Celah riset bernilai novelty */
 
-    /* Graf Pengetahuan: jenis simpul tanpa padanan di palet status (mengikuti warna ungu & teal versi mobile) */
+    /* Graf Pengetahuan: jenis simpul tanpa padanan di palet status */
     --graph-method: 262 60% 55%;          /* Metode / Variabel */
     --graph-method-dark: 262 55% 40%;
     --graph-object: 188 72% 36%;          /* Dataset / Objek */
@@ -98,20 +98,45 @@
     --shadow-floating: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
     --shadow-card-hover: 0 8px 24px -4px rgba(81, 71, 229, 0.2);
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
     font-feature-settings: "rlig" 1, "calt" 1, "cv11" 1;
+  }
+
+  /* Pointer affordance base layer (restores pointer over Tailwind preflight reset) */
+  a[href],
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  label[for],
+  label:has(> input[type="checkbox"]:not(:disabled), > input[type="radio"]:not(:disabled)),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
   }
 }
 
 @layer utilities {
-  /* Utilitas untuk menyembunyikan scrollbar di seluruh browser tanpa mematikan scrolling */
+  /* Hide scrollbar while retaining smooth scrolling */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -119,9 +144,166 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Pure-CSS enter animations backing Shadcn-style animate-in utilities across all modals/drawers/popovers */
+  .animate-in {
+    --tw-enter-opacity: 1;
+    --tw-enter-scale: 1;
+    --tw-enter-translate-x: 0px;
+    --tw-enter-translate-y: 0px;
+    animation: rb-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .fade-in,
+  .fade-in-0 {
+    --tw-enter-opacity: 0;
+  }
+
+  .fade-in-50 {
+    --tw-enter-opacity: 0.4;
+  }
+
+  .zoom-in-95 {
+    --tw-enter-scale: 0.96;
+  }
+
+  .slide-in-from-top-2 {
+    --tw-enter-translate-y: -0.5rem;
+  }
+
+  .slide-in-from-top-4 {
+    --tw-enter-translate-y: -1rem;
+  }
+
+  .slide-in-from-bottom-2 {
+    --tw-enter-translate-y: 0.5rem;
+  }
+
+  .slide-in-from-left {
+    --tw-enter-translate-x: -1.5rem;
+  }
+
+  .slide-in-from-right {
+    --tw-enter-translate-x: 1.5rem;
+  }
+
+  /* Calm page transition wrapper for AppShell route changes */
+  .fx-page-enter {
+    animation: rb-page-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Pure-CSS input glow enhancement on focus without changing layout dimensions */
+  .fx-input-glow {
+    transition-property: border-color, box-shadow;
+    transition-duration: 180ms;
+    transition-timing-function: ease-out;
+  }
+  .fx-input-glow:focus-visible {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.16);
+  }
+
+  /* Pure-GPU single-pass hover light sweep for primary CTA buttons */
+  .fx-cta-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .fx-cta-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.22),
+      transparent
+    );
+    transform: translate3d(-140%, 0, 0) skewX(-18deg);
+    pointer-events: none;
+  }
+  @media (hover: hover) {
+    .fx-cta-sheen:hover::after {
+      transform: translate3d(320%, 0, 0) skewX(-18deg);
+      transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+  }
+}
+
+/* React Bits SpotlightCard glossy hover highlight (isolated paint boundary, desktop hover only) */
+.rb-spotlight-card {
+  contain: layout paint;
+}
+
+.rb-spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+@media (hover: hover) {
+  .rb-spotlight-card:hover::before {
+    opacity: 1;
+    background: radial-gradient(
+      320px circle at var(--spotlight-x, 50%) var(--spotlight-y, 50%),
+      var(--spotlight-color, rgba(81, 71, 229, 0.14)),
+      transparent 72%
+    );
+  }
+}
+
+@keyframes rb-enter {
+  from {
+    opacity: var(--tw-enter-opacity, 0);
+    transform: translate3d(
+        var(--tw-enter-translate-x, 0px),
+        var(--tw-enter-translate-y, 0px),
+        0
+      )
+      scale(var(--tw-enter-scale, 1));
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes rb-page-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Respect OS/browser motion sensitivity across all custom & utility transitions */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .fx-page-enter {
+    animation: none !important;
+  }
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce {
+    animation: none !important;
+  }
+  .rb-spotlight-overlay {
+    display: none !important;
+  }
 }

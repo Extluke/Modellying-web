@@ -44,7 +44,7 @@ export function PairwiseComparisonPanel({
         <div className="flex items-center gap-2">
           {isPollingActive && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-              <Activity className="size-3 animate-pulse" />
+              <Activity className="size-3" />
               <span>Sinkronisasi Polling Otomatis (5 detik)</span>
             </span>
           )}

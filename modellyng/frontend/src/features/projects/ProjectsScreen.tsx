@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
+import { AnimatedContent } from "@/components/react-bits"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
+import { toast } from "@/lib/store/useToastStore"
 import { Button } from "@/components/ui/button"
 import {
   FolderKanban,
@@ -38,7 +41,8 @@ type SortOrder = "asc" | "desc"
 
 export default function ProjectsScreen() {
   const navigate = useNavigate()
-  const [search, setSearch] = useState("")
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get("q") || "")
   // Filter tabs: strictly 'all' and 'archived'
   const [statusFilter, setStatusFilter] = useState<"all" | "archived">("all")
 
@@ -71,15 +75,13 @@ export default function ProjectsScreen() {
   // Delete Confirmation state
   const [deletingProject, setDeletingProject] = useState<Project | null>(null)
 
-  // Toast notification state
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
-
-  // Auto-dismiss toast
   useEffect(() => {
-    if (!toastMessage) return
-    const timer = setTimeout(() => setToastMessage(null), 4000)
-    return () => clearTimeout(timer)
-  }, [toastMessage])
+    const urlQuery = searchParams.get("q") || ""
+    setSearch(urlQuery)
+  }, [searchParams])
+
+  useEscapeKey(Boolean(editingProject) && !updateMutation.isPending, () => setEditingProject(null))
+  useEscapeKey(Boolean(deletingProject) && !deleteMutation.isPending, () => setDeletingProject(null))
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -187,12 +189,12 @@ export default function ProjectsScreen() {
       })
       setEditingProject(null)
       if (editStatus === "archived") {
-        setToastMessage(`Proyek "${editName.trim()}" berhasil diperbarui dan dipindahkan ke tab Arsip.`)
+        toast.success(`Proyek "${editName.trim()}" berhasil diperbarui dan dipindahkan ke tab Arsip.`, 5000)
       } else {
-        setToastMessage(`Proyek "${editName.trim()}" berhasil diperbarui.`)
+        toast.success(`Proyek "${editName.trim()}" berhasil diperbarui.`, 5000)
       }
     } catch {
-      setToastMessage("Gagal memperbarui proyek. Silakan coba kembali.")
+      toast.error("Gagal memperbarui proyek. Silakan coba kembali.", 5000)
     }
   }
 
@@ -208,12 +210,12 @@ export default function ProjectsScreen() {
         payload: { status: newStatus },
       })
       if (newStatus === "archived") {
-        setToastMessage(`Proyek "${project.name}" berhasil diarsipkan dan dipindahkan ke tab "Diarsipkan".`)
+        toast.info(`Proyek "${project.name}" berhasil diarsipkan dan dipindahkan ke tab "Diarsipkan".`, 5000)
       } else {
-        setToastMessage(`Proyek "${project.name}" berhasil diaktifkan kembali ke tab "Semua".`)
+        toast.success(`Proyek "${project.name}" berhasil diaktifkan kembali ke tab "Semua".`, 5000)
       }
     } catch {
-      setToastMessage("Gagal mengubah status arsip proyek.")
+      toast.error("Gagal mengubah status arsip proyek.", 5000)
     }
   }
 
@@ -224,9 +226,9 @@ export default function ProjectsScreen() {
       await deleteMutation.mutateAsync(deletingProject.id)
       setDeletingProject(null)
       setActiveDropdownId(null)
-      setToastMessage(`Proyek "${name}" berhasil dihapus.`)
+      toast.success(`Proyek "${name}" berhasil dihapus.`, 5000)
     } catch {
-      setToastMessage("Gagal menghapus proyek.")
+      toast.error("Gagal menghapus proyek.", 5000)
     }
   }
 
@@ -247,21 +249,6 @@ export default function ProjectsScreen() {
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Toast Notification Banner */}
-      {toastMessage && (
-        <div className="fixed top-18 right-6 z-50 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary text-primary-foreground px-4 py-2.5 shadow-lg text-xs font-medium animate-in slide-in-from-top-2 duration-200">
-          <Check className="size-4 shrink-0 text-emerald-300" />
-          <span>{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 hover:opacity-75 transition-opacity"
-          >
-            <X className="size-3.5" />
-          </button>
-        </div>
-      )}
-
       {/* Header section */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -539,26 +526,33 @@ export default function ProjectsScreen() {
       {/* Projects Grid */}
       {!isLoading && !isError && sortedProjects.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sortedProjects.map((p) => {
+          {sortedProjects.map((p, idx) => {
             const isArchived = p.status === "archived"
             return (
-              <div
+              <AnimatedContent
                 key={p.id}
-                onClick={() => navigate(`/projects/${p.id}/overview`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    navigate(`/projects/${p.id}/overview`)
-                  }
-                }}
-                className={`group relative rounded-xl border p-5 shadow-xs transition-all hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 ${
-                  isArchived
-                    ? "border-amber-500/30 bg-card/80 hover:border-amber-500/60"
-                    : "border-border/70 bg-card hover:border-primary/40"
-                }`}
+                delay={Math.min(idx, 8) * 40}
+                distance={14}
+                duration={420}
+                immediate={idx < 6}
+                className="h-full"
               >
+                <div
+                  onClick={() => navigate(`/projects/${p.id}/overview`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      navigate(`/projects/${p.id}/overview`)
+                    }
+                  }}
+                  className={`group relative h-full rounded-xl border p-5 shadow-xs transition-all hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+                    isArchived
+                      ? "border-amber-500/30 bg-card/80 hover:border-amber-500/60"
+                      : "border-border/70 bg-card hover:border-primary/40"
+                  }`}
+                >
                 <div>
                   {/* Top card row: Icon, Date, 3-dots Menu */}
                   <div className="flex items-start justify-between gap-2">
@@ -677,7 +671,7 @@ export default function ProjectsScreen() {
                 <div className="mt-5 flex items-center justify-between border-t border-border/60 pt-3 text-xs">
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <FileText className="size-3.5 text-primary" />
-                    <span className="font-medium text-foreground">
+                    <span className="font-medium text-foreground tabular-nums">
                       {p.ready_count}/{p.paper_count} Paper
                     </span>
                     <span className="text-[11px] text-muted-foreground">
@@ -709,7 +703,8 @@ export default function ProjectsScreen() {
                     </button>
                   </div>
                 </div>
-              </div>
+                </div>
+              </AnimatedContent>
             )
           })}
         </div>
@@ -720,7 +715,10 @@ export default function ProjectsScreen() {
       {/* ========================================================================= */}
       {editingProject && (
         <div
-          onClick={() => setEditingProject(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-project-modal-title"
+          onClick={() => !updateMutation.isPending && setEditingProject(null)}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150"
         >
           <div
@@ -732,12 +730,15 @@ export default function ProjectsScreen() {
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Edit2 className="size-4" />
                 </div>
-                <h3 className="font-semibold text-base text-foreground">Edit Proyek Riset</h3>
+                <h3 id="edit-project-modal-title" className="font-semibold text-base text-foreground">
+                  Edit Proyek Riset
+                </h3>
               </div>
               <button
                 type="button"
+                aria-label="Tutup modal edit proyek"
                 onClick={() => setEditingProject(null)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-md"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>
@@ -826,7 +827,10 @@ export default function ProjectsScreen() {
       {/* ========================================================================= */}
       {deletingProject && (
         <div
-          onClick={() => setDeletingProject(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-project-modal-title"
+          onClick={() => !deleteMutation.isPending && setDeletingProject(null)}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150"
         >
           <div
@@ -838,7 +842,9 @@ export default function ProjectsScreen() {
                 <AlertTriangle className="size-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-base text-foreground">Hapus Proyek Riset?</h3>
+                <h3 id="delete-project-modal-title" className="font-semibold text-base text-foreground">
+                  Hapus Proyek Riset?
+                </h3>
                 <p className="text-xs text-muted-foreground">Tindakan ini tidak dapat dibatalkan.</p>
               </div>
             </div>

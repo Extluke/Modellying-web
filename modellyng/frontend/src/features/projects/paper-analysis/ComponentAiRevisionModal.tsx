@@ -416,8 +416,8 @@ export function ComponentAiRevisionModal({
             </div>
           ) : (
             <form onSubmit={handleSendPrompt} className="relative">
-              <div className="relative group p-[1.5px] rounded-2xl bg-gradient-to-r from-primary/30 via-purple-500/30 to-indigo-500/30 hover:from-primary hover:via-purple-500 hover:to-indigo-500 shadow-2xs hover:shadow-xs transition-all duration-300">
-                <div className="flex items-center gap-2 bg-card rounded-2xl px-3 py-1">
+              <div className="relative rounded-2xl border border-border bg-card shadow-2xs transition-colors duration-150 hover:border-primary/40 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
+                <div className="flex items-center gap-2 rounded-2xl px-3 py-1">
                   <input
                     ref={inputRef}
                     type="text"

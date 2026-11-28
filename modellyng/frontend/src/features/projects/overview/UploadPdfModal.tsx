@@ -19,6 +19,7 @@ import { uploadFileWithProgress } from "@/lib/api/client"
 import { projectKeys, Paper } from "../api/projectsApi"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import { useUserQuota } from "@/features/user/pricing/hooks/useUserQuota"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 
 interface UploadFileItem {
@@ -66,6 +67,8 @@ export function UploadPdfModal({
   const hasActiveUploads = queue.some((item) =>
     ["validating", "uploading"].includes(item.status)
   )
+
+  useEscapeKey(isOpen && !hasActiveUploads, onClose)
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -340,6 +343,9 @@ export function UploadPdfModal({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="upload-pdf-modal-title"
       onClick={hasActiveUploads ? undefined : onClose}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in duration-200"
     >
@@ -354,7 +360,7 @@ export function UploadPdfModal({
               <UploadCloud className="size-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-base text-foreground tracking-tight">
+              <h3 id="upload-pdf-modal-title" className="font-semibold text-base text-foreground tracking-tight">
                 Unggah Dokumen Paper Riset
               </h3>
               <p className="text-xs text-muted-foreground">
@@ -365,7 +371,8 @@ export function UploadPdfModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+            aria-label="Tutup modal unggah"
+            className="text-muted-foreground hover:text-foreground size-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors cursor-pointer"
           >
             <X className="size-4" />
           </button>
@@ -389,7 +396,7 @@ export function UploadPdfModal({
           <div
             className={`rounded-xl border p-3 text-xs transition-colors ${
               quota.is_developer
-                ? "border-purple-200/80 bg-purple-500/10 text-purple-900 dark:border-purple-900/60 dark:text-purple-200"
+                ? "border-primary/25 bg-primary-soft/60 text-foreground dark:bg-primary/15"
                 : quota.remaining_files <= 0
                 ? "border-amber-300/80 bg-amber-500/10 text-amber-950 dark:border-amber-900/60 dark:text-amber-200"
                 : "border-primary/20 bg-primary/5 text-foreground"
@@ -398,11 +405,11 @@ export function UploadPdfModal({
             {quota.is_developer ? (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="size-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <Sparkles className="size-4 text-primary shrink-0" />
                   <span className="font-semibold">Akun Developer / Testing:</span>
                   <span>Akses tanpa batas kuota unggahan naskah.</span>
                 </div>
-                <span className="text-[10px] font-bold bg-purple-200/70 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded-full shrink-0">
+                <span className="text-[10px] font-bold bg-primary/15 text-primary px-2 py-0.5 rounded-full shrink-0">
                   Unlimited
                 </span>
               </div>

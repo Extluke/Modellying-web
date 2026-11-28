@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom"
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   Settings,
   LogOut,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -21,6 +23,7 @@ import { ROUTES } from "@/app/routes"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import modellyngLogo from "@/assets/modellyng-logo.jpg"
 import { toast } from "@/lib/store/useToastStore"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 
 const navigationItems = [
   { name: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
@@ -40,7 +43,13 @@ const adminNavigationItems = [
   { name: "Tata Kelola Admin", href: ROUTES.ADMIN.ADMINS, icon: ShieldCheck },
 ]
 
-export function Sidebar() {
+interface SidebarContentProps {
+  onNavigate?: () => void
+  showCloseButton?: boolean
+  onClose?: () => void
+}
+
+function SidebarContent({ onNavigate, showCloseButton = false, onClose }: SidebarContentProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuthStore()
@@ -59,6 +68,7 @@ export function Sidebar() {
 
   const handleLogout = () => {
     logout()
+    onNavigate?.()
     toast.info("Anda telah keluar dari sesi Modellyng.", 5000)
     navigate(ROUTES.AUTH.LOGIN, { replace: true })
   }
@@ -68,11 +78,11 @@ export function Sidebar() {
     : "Researcher"
 
   return (
-    <aside className="hidden md:flex w-64 flex-col border-r bg-card h-full shrink-0 select-none">
+    <div className="flex h-full flex-col bg-card select-none">
       {/* 1. Header Sidebar: Logo & Badge */}
-      <div className="flex h-14 items-center gap-2 border-b px-6 shrink-0">
-        <Link to={ROUTES.DASHBOARD} className="flex items-center gap-2.5 group">
-          <div className="size-7 rounded-lg overflow-hidden border border-border/60 shrink-0 shadow-xs group-hover:ring-2 group-hover:ring-primary/20 transition-all">
+      <div className="flex h-14 items-center gap-2 border-b px-5 shrink-0">
+        <Link to={ROUTES.DASHBOARD} onClick={onNavigate} className="flex items-center gap-2.5 group">
+          <div className="size-7 rounded-lg overflow-hidden border border-border/60 shrink-0 shadow-xs group-hover:ring-2 group-hover:ring-primary/20 transition-[transform,box-shadow] duration-150 group-hover:scale-105">
             <img
               src={modellyngLogo}
               alt="Logo Modellyng"
@@ -86,36 +96,66 @@ export function Sidebar() {
         <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground ml-auto">
           WEB
         </span>
+        {showCloseButton && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup menu navigasi"
+            className="ml-1 inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {/* 2. Scrollable Navigation List */}
-      <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
+      <nav aria-label="Navigasi utama" className="flex-1 space-y-1 p-3 overflow-y-auto">
+        <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Ruang Riset
+        </div>
         {navigationItems.map((item) => {
           const Icon = item.icon
           return (
             <NavLink
               key={item.name}
               to={item.href}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-xs font-medium transition-colors",
+                  "group relative flex items-center gap-3 rounded-lg px-3 min-h-[40px] py-2 text-xs font-medium transition-[transform,background-color,color] duration-150 active:scale-[0.98]",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                    : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                 )
               }
             >
-              <Icon className="size-4 shrink-0" />
-              <span>{item.name}</span>
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-white/90"
+                    />
+                  )}
+                  <Icon
+                    aria-hidden="true"
+                    className={cn(
+                      "size-4 shrink-0 transition-transform duration-150",
+                      !isActive && "group-hover:scale-110"
+                    )}
+                  />
+                  <span className="truncate">{item.name}</span>
+                </>
+              )}
             </NavLink>
           )
         })}
 
         {isAdmin && (
-          <div className="pt-3 mt-3 border-t">
-            <div className="px-3 pb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="pt-3 mt-3 border-t space-y-1">
+            <div className="px-3 pb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <span>Panel Administrator</span>
-              <span className="rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 text-[9px] font-bold">
+              <span className="rounded bg-primary-soft dark:bg-primary/15 text-primary border border-primary/20 px-1.5 py-0.5 text-[9px] font-bold">
                 Admin
               </span>
             </div>
@@ -125,17 +165,34 @@ export function Sidebar() {
                 <NavLink
                   key={item.name}
                   to={item.href}
+                  onClick={onNavigate}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-xs font-medium transition-colors",
+                      "group relative flex items-center gap-3 rounded-lg px-3 min-h-[40px] py-2 text-xs font-medium transition-[transform,background-color,color] duration-150 active:scale-[0.98]",
                       isActive
-                        ? "bg-purple-600 text-white"
-                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                        : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                     )
                   }
                 >
-                  <Icon className="size-4 shrink-0" />
-                  <span>{item.name}</span>
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-white/90"
+                        />
+                      )}
+                      <Icon
+                        aria-hidden="true"
+                        className={cn(
+                          "size-4 shrink-0 transition-transform duration-150",
+                          !isActive && "group-hover:scale-110"
+                        )}
+                      />
+                      <span className="truncate">{item.name}</span>
+                    </>
+                  )}
                 </NavLink>
               )
             })}
@@ -148,9 +205,10 @@ export function Sidebar() {
         <div className="flex items-center justify-between gap-1.5">
           <Link
             to={ROUTES.USER.SETTINGS}
+            onClick={onNavigate}
             title={`Pengaturan Profil: ${user?.full_name || "Peneliti Modellyng"}${user?.email ? ` (${user.email})` : ""}`}
             className={cn(
-              "flex items-center gap-2.5 rounded-xl p-1.5 transition-all cursor-pointer group flex-1 min-w-0",
+              "flex items-center gap-2.5 rounded-xl p-1.5 min-h-[44px] transition-[background-color,box-shadow] cursor-pointer group flex-1 min-w-0",
               isSettingsActive
                 ? "bg-primary/10 ring-1 ring-primary/25"
                 : "hover:bg-muted"
@@ -158,7 +216,7 @@ export function Sidebar() {
           >
             <div
               className={cn(
-                "size-8 rounded-full flex items-center justify-center font-bold text-xs ring-1 transition-all shrink-0",
+                "size-8 rounded-full flex items-center justify-center font-bold text-xs ring-1 transition-[transform,background-color,box-shadow] shrink-0",
                 isSettingsActive
                   ? "bg-primary text-primary-foreground ring-primary"
                   : "bg-primary/10 text-primary ring-primary/20 group-hover:ring-primary/40"
@@ -171,7 +229,7 @@ export function Sidebar() {
                 <span className="font-semibold text-foreground truncate group-hover:text-primary transition-colors text-xs">
                   {user?.full_name || "Peneliti Modellyng"}
                 </span>
-                <Settings className="size-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                <Settings className="size-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0" aria-hidden="true" />
               </div>
               <span className="text-[10px] text-muted-foreground truncate">
                 {roleDisplay}
@@ -180,16 +238,73 @@ export function Sidebar() {
           </Link>
 
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             onClick={handleLogout}
+            aria-label="Keluar dari akun"
             title="Keluar (Logout)"
-            className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 rounded-lg cursor-pointer"
+            className="size-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 rounded-lg cursor-pointer"
           >
-            <LogOut className="size-4" />
+            <LogOut className="size-4" aria-hidden="true" />
           </Button>
         </div>
       </div>
-    </aside>
+    </div>
+  )
+}
+
+export interface SidebarProps {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
+  const closeRef = useRef<HTMLDivElement | null>(null)
+  useEscapeKey(mobileOpen, () => onMobileClose?.())
+
+  useEffect(() => {
+    if (mobileOpen && closeRef.current) {
+      const firstFocusable = closeRef.current.querySelector<HTMLElement>(
+        'a[href], button:not([disabled])'
+      )
+      firstFocusable?.focus()
+    }
+  }, [mobileOpen])
+
+  return (
+    <>
+      {/* Desktop persistent sidebar */}
+      <aside className="hidden md:flex w-64 flex-col border-r bg-card h-full shrink-0">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile slide-over navigation drawer */}
+      {mobileOpen && (
+        <div
+          id="mobile-sidebar-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu navigasi Modellyng"
+          className="fixed inset-0 z-50 flex md:hidden"
+        >
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={onMobileClose}
+            aria-hidden="true"
+          />
+          <div
+            ref={closeRef}
+            className="relative z-10 w-72 max-w-[85vw] h-full border-r border-border bg-card shadow-2xl animate-in slide-in-from-left duration-200"
+          >
+            <SidebarContent
+              onNavigate={onMobileClose}
+              showCloseButton
+              onClose={onMobileClose}
+            />
+          </div>
+        </div>
+      )}
+    </>
   )
 }

@@ -6,22 +6,22 @@ import { cn } from "@/lib/utils"
 /**
  * Modellyng Official Button Primitive.
  * Reference: modellyng/rekomendasi_arsitektur_web_dan_transisi.md (Section C)
- * Fully tokenized with border-radius: 12px (rounded-button).
+ * Fully tokenized with border-radius: 12px (rounded-button) and crisp tactile press feedback.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-label-btn font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.98]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-label-btn font-semibold transition-[transform,background-color,border-color,color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.96] cursor-pointer",
   {
     variants: {
       variant: {
         // 1. Primary Action (Indigo #5147E5 -> Hover #3730A3)
         default:
-          "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover rounded-button",
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover hover:shadow-md rounded-button",
         primary:
-          "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover rounded-button",
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover hover:shadow-md rounded-button",
 
         // 2. Outlined Action (Border #E5E8EF -> Text #172033 -> Hover #F6F7FB)
         outline:
-          "border border-border bg-card text-foreground shadow-sm hover:bg-background hover:text-primary rounded-button",
+          "border border-border bg-card text-foreground shadow-sm hover:bg-background hover:text-primary hover:border-primary/40 rounded-button",
 
         // 3. Tonal / Soft Action (Surface #EEECFF -> Text #3730A3)
         soft:

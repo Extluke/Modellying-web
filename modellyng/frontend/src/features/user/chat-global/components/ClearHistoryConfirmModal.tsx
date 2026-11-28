@@ -1,5 +1,6 @@
 import { AlertTriangle, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { useGlobalChatStore } from "../store/useGlobalChatStore"
 
 interface ClearHistoryConfirmModalProps {
@@ -9,6 +10,8 @@ interface ClearHistoryConfirmModalProps {
 export function ClearHistoryConfirmModal({ onConfirmClear }: ClearHistoryConfirmModalProps) {
   const { clearHistoryModalOpen, setClearHistoryModalOpen } = useGlobalChatStore()
 
+  useEscapeKey(clearHistoryModalOpen, () => setClearHistoryModalOpen(false))
+
   if (!clearHistoryModalOpen) return null
 
   const handleConfirm = () => {
@@ -17,7 +20,12 @@ export function ClearHistoryConfirmModal({ onConfirmClear }: ClearHistoryConfirm
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setClearHistoryModalOpen(false)
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150"
+    >
       <div
         className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
         role="dialog"
@@ -43,7 +51,8 @@ export function ClearHistoryConfirmModal({ onConfirmClear }: ClearHistoryConfirm
             <button
               type="button"
               onClick={() => setClearHistoryModalOpen(false)}
-              className="p-1 rounded-lg text-muted-foreground hover:text-foreground ml-auto -mr-1 cursor-pointer"
+              aria-label="Tutup jendela"
+              className="size-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground ml-auto -mr-1 cursor-pointer"
             >
               <X className="size-4" />
             </button>

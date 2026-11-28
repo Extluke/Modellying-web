@@ -36,6 +36,7 @@ import { DUMMY_API_CONFIGS, DUMMY_VENDOR_DASHBOARDS } from "../data/dummyAdminDa
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function ApiConfigScreen() {
@@ -43,6 +44,8 @@ export default function ApiConfigScreen() {
   const [configsList, setConfigsList] = useState<ApiConfigItem[]>(DUMMY_API_CONFIGS)
   const [selectedConfig, setSelectedConfig] = useState<ApiConfigItem | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  useEscapeKey(isModalOpen && Boolean(selectedConfig), () => setIsModalOpen(false))
 
   // Vendor Token Dashboard Drill-Down State
   const [selectedVendorDashboard, setSelectedVendorDashboard] = useState<string | null>(null)
@@ -130,7 +133,7 @@ export default function ApiConfigScreen() {
                 ...c,
                 last_latency_ms: res.latency_ms,
                 last_tested_at: new Date().toISOString(),
-                status: res.status as any,
+                status: res.status as ApiConfigItem["status"],
               }
             : c
         )
@@ -284,25 +287,25 @@ export default function ApiConfigScreen() {
     switch (provider.toLowerCase()) {
       case "gemini":
         return {
-          gradient: "from-indigo-600 via-blue-600 to-indigo-700",
-          cardBorder: "border-indigo-200/80 dark:border-indigo-800/80 hover:border-indigo-400",
-          accentBg: "bg-indigo-50/70 dark:bg-indigo-950/30",
-          accentText: "text-indigo-600 dark:text-indigo-400",
-          badgeBg: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
+          gradient: "from-primary to-[#3730A3]",
+          cardBorder: "border-primary/25 hover:border-primary/50",
+          accentBg: "bg-primary-soft/60 dark:bg-primary/10",
+          accentText: "text-primary",
+          badgeBg: "bg-primary-soft text-primary dark:bg-primary/20",
           icon: Sparkles,
         }
       case "groq":
         return {
-          gradient: "from-amber-500 via-orange-500 to-amber-600",
-          cardBorder: "border-amber-200/80 dark:border-amber-800/80 hover:border-amber-400",
-          accentBg: "bg-amber-50/70 dark:bg-amber-950/30",
-          accentText: "text-amber-600 dark:text-amber-400",
-          badgeBg: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+          gradient: "from-slate-700 to-slate-900",
+          cardBorder: "border-border hover:border-foreground/30",
+          accentBg: "bg-muted/60",
+          accentText: "text-foreground/80",
+          badgeBg: "bg-muted text-foreground/80 border border-border/60",
           icon: Flame,
         }
       default:
         return {
-          gradient: "from-primary via-indigo-600 to-primary",
+          gradient: "from-primary to-[#3730A3]",
           cardBorder: "border-border hover:border-primary/50",
           accentBg: "bg-secondary/60",
           accentText: "text-primary",
@@ -432,7 +435,7 @@ export default function ApiConfigScreen() {
                   title="Prompt (Input) Tokens"
                 />
                 <div 
-                  className="bg-purple-500 h-full transition-all"
+                  className="bg-slate-400 dark:bg-slate-600 h-full transition-all"
                   style={{
                     width: `${Math.round((activeVendorData.total_completion_tokens / (activeVendorData.total_tokens_month || 1)) * 100)}%`
                   }} 
@@ -445,7 +448,7 @@ export default function ApiConfigScreen() {
                   Input: {new Intl.NumberFormat("id-ID").format(activeVendorData.total_prompt_tokens)}
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="size-1.5 rounded-full bg-purple-500" />
+                  <span className="size-1.5 rounded-full bg-slate-400 dark:bg-slate-600" />
                   Output: {new Intl.NumberFormat("id-ID").format(activeVendorData.total_completion_tokens)}
                 </span>
               </div>
@@ -592,7 +595,7 @@ export default function ApiConfigScreen() {
                   Prompt / Input Tokens
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-sm bg-purple-500" />
+                  <span className="size-2.5 rounded-sm bg-slate-400 dark:bg-slate-600" />
                   Completion / Output Tokens
                 </span>
               </div>
@@ -639,7 +642,7 @@ export default function ApiConfigScreen() {
                         style={{ height: `${heightPercent}%` }}
                       >
                         <div 
-                          className="w-full bg-purple-500" 
+                          className="w-full bg-slate-400 dark:bg-slate-600" 
                           style={{ height: `${Math.round(completionRatio * 100)}%` }} 
                         />
                         <div 
@@ -1125,16 +1128,28 @@ export default function ApiConfigScreen() {
 
       {/* EDIT MODAL */}
       {isModalOpen && selectedConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsModalOpen(false)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                 <Cpu className="size-4 text-primary" />
                 <span>Ubah Konfigurasi Model: {selectedConfig.display_name}</span>
               </div>
               <button 
+                type="button"
+                aria-label="Tutup modal konfigurasi API"
                 onClick={() => setIsModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>

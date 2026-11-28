@@ -14,6 +14,7 @@ import { DUMMY_ANNOUNCEMENTS } from "../data/dummyAdminData"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function CmsAnnouncementsScreen() {
@@ -22,6 +23,8 @@ export default function CmsAnnouncementsScreen() {
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<AnnouncementItem | null>(null)
+
+  useEscapeKey(isModalOpen, () => setIsModalOpen(false))
 
   // Form states
   const [title, setTitle] = useState("")
@@ -238,12 +241,12 @@ export default function CmsAnnouncementsScreen() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Badge className={`text-[10px] ${
+                    <Badge variant="outline" className={`text-[10px] ${
                       item.category === "promo"
-                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                        ? "bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/25"
                         : item.category === "update"
-                        ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
-                        : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                        ? "bg-primary-soft text-primary dark:bg-primary/15 border-primary/25"
+                        : "bg-muted text-foreground border-border"
                     }`}>
                       {item.category.toUpperCase()}
                     </Badge>
@@ -258,7 +261,7 @@ export default function CmsAnnouncementsScreen() {
                     item.status === "published"
                       ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
                       : item.status === "scheduled"
-                      ? "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 flex items-center gap-1"
+                      ? "bg-primary-soft text-primary dark:bg-primary/15 flex items-center gap-1"
                       : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   }`}>
                     {item.status === "scheduled" && <Clock className="size-3" />}
@@ -275,7 +278,7 @@ export default function CmsAnnouncementsScreen() {
                 </p>
 
                 {item.status === "scheduled" && item.scheduled_at && (
-                  <div className="p-2 rounded bg-sky-50/60 dark:bg-sky-950/30 border border-sky-200/50 text-[11px] text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                  <div className="p-2 rounded bg-primary/5 border border-primary/20 text-[11px] text-primary flex items-center gap-1.5">
                     <Calendar className="size-3.5" />
                     <span>Jadwal Kirim: {new Date(item.scheduled_at).toLocaleString("id-ID")}</span>
                   </div>
@@ -312,16 +315,28 @@ export default function CmsAnnouncementsScreen() {
 
       {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsModalOpen(false)
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
                 <Megaphone className="size-4 text-primary" />
                 <span>{editingItem ? "Ubah Konten Pengumuman CMS" : "Buat Berita / Promo Baru"}</span>
               </div>
               <button 
+                type="button"
+                aria-label="Tutup modal pengumuman"
                 onClick={() => setIsModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground size-7 flex items-center justify-center rounded-md hover:bg-muted"
               >
                 <X className="size-4" />
               </button>
@@ -419,8 +434,8 @@ export default function CmsAnnouncementsScreen() {
 
               {/* Scheduling Field */}
               {status === "scheduled" && (
-                <div className="space-y-1 bg-sky-50/60 dark:bg-sky-950/30 p-3 rounded-lg border border-sky-200/50">
-                  <label className="font-medium text-sky-900 dark:text-sky-300 flex items-center gap-1.5">
+                <div className="space-y-1 bg-primary/5 p-3 rounded-lg border border-primary/20">
+                  <label className="font-medium text-primary flex items-center gap-1.5">
                     <Calendar className="size-3.5" />
                     <span>Jadwal Pengiriman (Waktu Siar)</span>
                   </label>

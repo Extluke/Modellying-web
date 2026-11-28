@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Settings,
   User,
@@ -15,10 +15,12 @@ import {
   Lock,
   RefreshCw,
   History,
+  Check,
 } from "lucide-react"
 import { useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { AnimatedContent, SpotlightCard } from "@/components/react-bits"
 import { useAuthStore } from "@/features/auth/store/authStore"
 import { ROUTES } from "@/app/routes"
 import { formatSubscriptionTierName } from "@/features/user/pricing/utils/whatsappPricing"
@@ -26,12 +28,44 @@ import { useUserQuota, useUserUsageLogs } from "@/features/user/pricing/hooks/us
 import { useSubscriptionPlans } from "@/features/user/pricing/hooks/useSubscriptionPlans"
 import { toast } from "@/lib/store/useToastStore"
 
+const SETTINGS_STORAGE_KEY = "modellyng_researcher_preferences"
+
+interface ResearcherPreferences {
+  fullName?: string
+  citationStyle?: string
+}
+
+function readStoredPreferences(): ResearcherPreferences {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw) as ResearcherPreferences
+  } catch {
+    return {}
+  }
+}
+
 export default function SettingsScreen() {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const { quota, isLoading: isQuotaLoading, invalidateQuota } = useUserQuota()
   const { data: usageLogs, isLoading: isLogsLoading } = useUserUsageLogs(5)
   const { plans: subscriptionPlans } = useSubscriptionPlans()
+
+  const storedPrefs = useMemo(() => readStoredPreferences(), [])
+  const [fullName, setFullName] = useState(
+    () => storedPrefs.fullName || user?.full_name || "Peneliti Modellyng"
+  )
+  const [citationStyle, setCitationStyle] = useState(
+    () => storedPrefs.citationStyle || "APA"
+  )
+  const [isSavedJustNow, setIsSavedJustNow] = useState(false)
+
+  useEffect(() => {
+    if (!storedPrefs.fullName && user?.full_name) {
+      setFullName(user.full_name)
+    }
+  }, [user?.full_name, storedPrefs.fullName])
 
   const isDev = quota?.is_developer ?? (user?.subscription_tier === "developer" || user?.role === "admin")
   const isPro =
@@ -81,49 +115,85 @@ export default function SettingsScreen() {
     navigate(ROUTES.AUTH.LOGIN, { replace: true })
   }
 
+  const handleSavePreferences = () => {
+    const trimmedName = fullName.trim()
+    if (!trimmedName) {
+      toast.error("Nama lengkap peneliti tidak boleh kosong.", 5000)
+      return
+    }
+    try {
+      localStorage.setItem(
+        SETTINGS_STORAGE_KEY,
+        JSON.stringify({
+          fullName: trimmedName,
+          citationStyle,
+        })
+      )
+      setFullName(trimmedName)
+      setIsSavedJustNow(true)
+      setTimeout(() => setIsSavedJustNow(false), 2500)
+      toast.success(
+        `Preferensi profil dan format sitasi (${citationStyle}) berhasil disimpan.`,
+        5000
+      )
+    } catch {
+      toast.error("Gagal menyimpan preferensi pada penyimpanan peramban.", 5000)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6 w-full">
       <div className="border-b pb-4">
         <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <Settings className="size-5 text-primary" />
-          <span>Pengaturan Akun & Preferensi Sitasi</span>
+          <span>Pengaturan Akun &amp; Preferensi Sitasi</span>
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Atur profil peneliti, standar format sitasi, dan ambang keyakinan AI.
+          Atur profil peneliti, standar format sitasi, dan ambang keyakinan ekstraksi.
         </p>
       </div>
 
       <div className="space-y-4">
         {/* Profile Card */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
-            <User className="size-4 text-primary" />
-            <span>Profil Peneliti</span>
-          </h3>
+        <AnimatedContent distance={14} duration={420} immediate>
+          <SpotlightCard className="p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
+              <User className="size-4 text-primary" />
+              <span>Profil Peneliti</span>
+            </h3>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground">Nama Lengkap</label>
-              <input
-                type="text"
-                defaultValue={user?.full_name || "Peneliti Modellyng"}
-                className="h-9 w-full rounded-md border bg-background px-3 text-xs"
-              />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label htmlFor="researcher-fullname" className="text-[11px] font-medium text-muted-foreground">
+                  Nama Lengkap
+                </label>
+                <input
+                  id="researcher-fullname"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-xs fx-input-glow focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="researcher-email" className="text-[11px] font-medium text-muted-foreground">
+                  Email
+                </label>
+                <input
+                  id="researcher-email"
+                  type="email"
+                  value={user?.email || "peneliti@modellyng.ac.id"}
+                  disabled
+                  className="h-9 w-full rounded-md border bg-muted px-3 text-xs opacity-75 cursor-not-allowed"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground">Email</label>
-              <input
-                type="email"
-                defaultValue={user?.email || "peneliti@modellyng.ac.id"}
-                disabled
-                className="h-9 w-full rounded-md border bg-muted px-3 text-xs opacity-75"
-              />
-            </div>
-          </div>
-        </div>
+          </SpotlightCard>
+        </AnimatedContent>
 
         {/* Subscription Plan & Upgrade Access Card (Real-time data) */}
-        <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-card via-card to-primary/[0.04] p-5 shadow-xs space-y-3">
+        <AnimatedContent delay={60} distance={14} duration={440} immediate>
+          <SpotlightCard className="relative overflow-hidden border-primary/25 bg-gradient-to-br from-card via-card to-primary/[0.04] p-5 shadow-xs space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -178,10 +248,12 @@ export default function SettingsScreen() {
               </Link>
             </Button>
           </div>
-        </div>
+          </SpotlightCard>
+        </AnimatedContent>
 
         {/* Real-Time Usage Limits Card */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
+        <AnimatedContent delay={110} distance={14} duration={440} immediate>
+          <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
               <BarChart3 className="size-4 text-primary" />
@@ -215,15 +287,15 @@ export default function SettingsScreen() {
               </span>
               <span className="font-semibold text-foreground">
                 {isDev ? (
-                  <span className="text-purple-600 dark:text-purple-400 font-bold">
+                  <span className="text-primary font-bold">
                     Tanpa Batas <span className="text-[11px] font-normal text-muted-foreground">(Akses Developer)</span>
                   </span>
                 ) : (
                   <>
-                    <span className={remainingFiles <= 0 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-primary font-bold"}>
+                    <span className={remainingFiles <= 0 ? "text-amber-600 dark:text-amber-400 font-bold tabular-nums" : "text-primary font-bold tabular-nums"}>
                       {usedFiles} / {dailyLimit} File
                     </span>{" "}
-                    <span className="text-[11px] font-normal text-muted-foreground">
+                    <span className="text-[11px] font-normal text-muted-foreground tabular-nums">
                       (Sisa {remainingFiles} file)
                     </span>
                   </>
@@ -234,7 +306,7 @@ export default function SettingsScreen() {
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${isDev
-                    ? "bg-purple-600"
+                    ? "bg-primary"
                     : remainingFiles <= 0
                       ? "bg-amber-500"
                       : "bg-primary"
@@ -402,38 +474,48 @@ export default function SettingsScreen() {
             )}
           </div>
         </div>
+        </AnimatedContent>
 
         {/* Citation Preferences */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
-            <Sliders className="size-4 text-primary" />
-            <span>Preferensi Sitasi & Model AI</span>
-          </h3>
+        <AnimatedContent delay={150} distance={14} duration={440}>
+          <SpotlightCard className="p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
+              <Sliders className="size-4 text-primary" />
+              <span>Preferensi Sitasi &amp; Ambang Keyakinan</span>
+            </h3>
 
-          <div className="grid gap-4 sm:grid-cols-2 text-xs">
-            <div className="space-y-1">
-              <label className="font-medium text-muted-foreground">Format Standar Daftar Pustaka</label>
-              <select className="h-9 w-full rounded-md border bg-background px-3 text-xs">
-                <option value="APA">APA 7th Edition (Default)</option>
-                <option value="IEEE">IEEE Reference Style</option>
-                <option value="Harvard">Harvard Referencing</option>
-                <option value="Chicago">Chicago Manual of Style</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <label className="font-medium text-muted-foreground">
-                  Ambang Batas Keyakinan Peninjauan AI
+            <div className="grid gap-4 sm:grid-cols-2 text-xs">
+              <div className="space-y-1">
+                <label htmlFor="citation-style-select" className="font-medium text-muted-foreground">
+                  Format Standar Daftar Pustaka
                 </label>
-                <span className="font-semibold text-primary">80%</span>
+                <select
+                  id="citation-style-select"
+                  value={citationStyle}
+                  onChange={(e) => setCitationStyle(e.target.value)}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-xs fx-input-glow cursor-pointer focus:outline-none focus:border-primary"
+                >
+                  <option value="APA">APA 7th Edition (Default)</option>
+                  <option value="IEEE">IEEE Reference Style</option>
+                  <option value="Harvard">Harvard Referencing</option>
+                  <option value="Chicago">Chicago Manual of Style</option>
+                </select>
               </div>
-              <p className="text-[11px] text-muted-foreground pt-1">
-                Komponen dengan skor di bawah 80% akan otomatis masuk ke Antrean Review.
-              </p>
+
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span className="font-medium text-muted-foreground">
+                    Ambang Batas Keyakinan Peninjauan AI
+                  </span>
+                  <span className="font-semibold text-primary tabular-nums">80%</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Komponen dengan skor di bawah 80% akan otomatis masuk ke Antrean Review.
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
+          </SpotlightCard>
+        </AnimatedContent>
 
         <div className="flex justify-between items-center pt-2">
           <Button
@@ -446,7 +528,15 @@ export default function SettingsScreen() {
             <LogOut className="size-3.5" />
             <span>Keluar Akun</span>
           </Button>
-          <Button size="sm">Simpan Perubahan</Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSavePreferences}
+            className="gap-1.5"
+          >
+            {isSavedJustNow ? <Check className="size-3.5" /> : null}
+            <span>{isSavedJustNow ? "Tersimpan" : "Simpan Perubahan"}</span>
+          </Button>
         </div>
       </div>
     </div>

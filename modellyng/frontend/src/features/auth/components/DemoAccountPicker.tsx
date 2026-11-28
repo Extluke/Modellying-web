@@ -22,11 +22,11 @@ const DEMO_ACCOUNTS: readonly DemoAccountPreset[] = [
     email: "admin@modellyng.ac.id",
     password: "Password123",
     cardClass:
-      "border-purple-200/80 dark:border-purple-900/60 hover:border-purple-600 hover:bg-purple-500/5",
-    titleHoverClass: "group-hover:text-purple-600",
+      "border-primary/25 hover:border-primary hover:bg-primary/5",
+    titleHoverClass: "group-hover:text-primary",
     badgeClass:
-      "text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/60 border-purple-300/40",
-    ctaClass: "text-purple-600 dark:text-purple-400",
+      "text-primary bg-primary-soft dark:bg-primary/15 border-primary/25",
+    ctaClass: "text-primary",
   },
   {
     id: "cahayu_pro",
@@ -35,7 +35,7 @@ const DEMO_ACCOUNTS: readonly DemoAccountPreset[] = [
     email: "cahayu@modellyng.ac.id",
     password: "Password123",
     cardClass:
-      "border-indigo-200/80 dark:border-indigo-900/60 hover:border-primary hover:bg-primary/5",
+      "border-primary/25 hover:border-primary hover:bg-primary/5",
     titleHoverClass: "group-hover:text-primary",
     badgeClass: "text-primary bg-primary/10 border-primary/25",
     ctaClass: "text-primary",
@@ -67,9 +67,9 @@ export function DemoAccountPicker({ onSelect, disabled = false }: DemoAccountPic
   }
 
   return (
-    <div className="mb-5 flex flex-col gap-2.5 rounded-xl border border-indigo-200/90 bg-indigo-50/70 p-3 text-xs text-indigo-950 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-200">
+    <div className="mb-5 flex flex-col gap-2.5 rounded-xl border border-primary/20 bg-primary-soft/50 p-3 text-xs text-foreground dark:border-primary/25 dark:bg-primary/10">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold text-indigo-900 dark:text-indigo-300">
+        <span className="text-[11px] font-semibold text-primary">
           Pilihan Akun Uji Coba:
         </span>
         <span className="text-[10px] text-muted-foreground">
@@ -85,7 +85,7 @@ export function DemoAccountPicker({ onSelect, disabled = false }: DemoAccountPic
             disabled={disabled}
             onClick={() => onSelect(account.email, account.password)}
             className={cn(
-              "flex flex-col items-start justify-between rounded-lg border bg-background/95 p-2 text-left transition-all shadow-2xs group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+              "flex flex-col items-start justify-between rounded-lg border bg-background/95 p-2.5 text-left transition-[transform,border-color,background-color,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.97] shadow-2xs group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
               account.cardClass
             )}
           >

@@ -471,7 +471,7 @@ export default function RegisterScreen() {
                 <button
                   type="button"
                   onClick={() => setLegalModalTab("terms")}
-                  className="font-medium text-primary hover:underline focus:outline-none"
+                  className="font-medium text-primary hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Syarat & Ketentuan Riset
                 </button>{" "}
@@ -479,7 +479,7 @@ export default function RegisterScreen() {
                 <button
                   type="button"
                   onClick={() => setLegalModalTab("privacy")}
-                  className="font-medium text-primary hover:underline focus:outline-none"
+                  className="font-medium text-primary hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Kebijakan Privasi Data PDF
                 </button>

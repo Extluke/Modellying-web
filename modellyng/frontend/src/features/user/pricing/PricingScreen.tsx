@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
+import { AnimatedContent } from "@/components/react-bits"
 import { ROUTES } from "@/app/routes"
 import { toast } from "@/lib/store/useToastStore"
 import { type PricingPlan } from "@/features/styleguide/components/PricingSection"
@@ -248,24 +249,31 @@ export default function PricingScreen() {
               : "md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           }`}
         >
-          {plans.map((plan) => {
+          {plans.map((plan, idx) => {
             const isSelected = selectedPlanId === plan.id
             const isCurrentActivePlan =
               user?.subscription_tier === plan.id ||
               (plan.id === "free" && (!user?.subscription_tier || user?.subscription_tier === "free"))
 
             return (
-              <Card
+              <AnimatedContent
                 key={plan.id}
-                onClick={() => setSelectedPlanId(plan.id)}
-                className={`relative flex flex-col justify-between transition-all duration-300 rounded-2xl cursor-pointer ${
-                  plan.isPopular
-                    ? "border-2 border-primary shadow-xl ring-2 ring-primary/20 md:-translate-y-2 bg-gradient-to-b from-card via-card to-primary/[0.02]"
-                    : isSelected
-                    ? "border-primary/80 shadow-md ring-1 ring-primary/20 bg-card"
-                    : "border-border/80 hover:border-primary/40 hover:shadow-md bg-card"
-                }`}
+                delay={idx * 70}
+                distance={18}
+                duration={480}
+                immediate
+                className="h-full"
               >
+                <Card
+                  onClick={() => setSelectedPlanId(plan.id)}
+                  className={`relative h-full flex flex-col justify-between transition-all duration-300 rounded-2xl cursor-pointer ${
+                    plan.isPopular
+                      ? "border-2 border-primary shadow-xl ring-2 ring-primary/20 md:-translate-y-2 bg-gradient-to-b from-card via-card to-primary/[0.02]"
+                      : isSelected
+                      ? "border-primary/80 shadow-md ring-1 ring-primary/20 bg-card"
+                      : "border-border/80 hover:border-primary/40 hover:shadow-md bg-card"
+                  }`}
+                >
                 {/* Highlight Ribbon for Popular / Best Value Plan */}
                 {plan.isPopular && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
@@ -322,7 +330,7 @@ export default function PricingScreen() {
                     {/* Price Block */}
                     <div className="pt-2 border-t border-border/60">
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                        <span className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight tabular-nums">
                           {plan.priceFormatted}
                         </span>
                         {plan.priceNumeric > 0 && (
@@ -440,7 +448,8 @@ export default function PricingScreen() {
                     </Button>
                   )}
                 </CardFooter>
-              </Card>
+                </Card>
+              </AnimatedContent>
             )
           })}
         </div>
@@ -648,6 +657,7 @@ export default function PricingScreen() {
               <div key={idx} className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                 <button
                   type="button"
+                  aria-expanded={isOpen}
                   onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
                   className="w-full flex items-center justify-between p-3.5 text-left text-xs font-semibold text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
                 >

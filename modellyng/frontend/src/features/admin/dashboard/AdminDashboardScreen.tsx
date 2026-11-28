@@ -17,6 +17,7 @@ import { adminApi, AdminDashboardMetrics } from "../api/adminApi"
 import { DUMMY_DASHBOARD_METRICS } from "../data/dummyAdminData"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { AnimatedContent, CountUp, SpotlightCard } from "@/components/react-bits"
 import { toast } from "@/lib/store/useToastStore"
 
 export default function AdminDashboardScreen() {
@@ -38,9 +39,9 @@ export default function AdminDashboardScreen() {
     setIsSyncing(true)
     try {
       await refetch()
-      toast.success("Data metrik dasbor sistem berhasil diperbarui.")
+      toast.success("Data metrik dasbor sistem berhasil diperbarui.", 5000)
     } catch {
-      toast.info("Memperbarui tampilan metrik dasbor administratif terkini.")
+      toast.info("Memperbarui tampilan metrik dasbor administratif terkini.", 5000)
     } finally {
       setTimeout(() => setIsSyncing(false), 500)
     }
@@ -65,7 +66,7 @@ export default function AdminDashboardScreen() {
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
               Dasbor Administrator Sistem
-              <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-purple-200">
+              <Badge variant="outline" className="text-[10px] bg-primary-soft text-primary dark:bg-primary/15 border-primary/25">
                 Eksekutif S3
               </Badge>
             </h1>
@@ -95,102 +96,115 @@ export default function AdminDashboardScreen() {
       {/* Highlight KPI: Subscribed vs Free Users & Revenue */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Users & Ratio */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total Pengguna Terdaftar</span>
-            <div className="p-2 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
-              <Users className="size-4" />
+        <AnimatedContent delay={0} distance={14} duration={420} immediate className="h-full">
+          <SpotlightCard className="p-5 shadow-sm space-y-3 relative overflow-hidden h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Total Pengguna Terdaftar</span>
+              <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/15">
+                <Users className="size-4" />
+              </div>
             </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-2xl font-bold text-foreground">{metrics.total_users}</div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
-                <TrendingUp className="size-3 mr-0.5" />
-                {metrics.subscribed_ratio_percent}%
-              </span>
-              <span className="text-muted-foreground">konversi berbayar</span>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-foreground tabular-nums">
+                <CountUp to={metrics.total_users} />
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center tabular-nums">
+                  <TrendingUp className="size-3 mr-0.5" />
+                  {metrics.subscribed_ratio_percent}%
+                </span>
+                <span className="text-muted-foreground">konversi berbayar</span>
+              </div>
             </div>
-          </div>
 
-          {/* Progress bar visualizer */}
-          <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden flex">
-            <div 
-              className="bg-primary h-full transition-all duration-500" 
-              style={{ width: `${metrics.subscribed_ratio_percent}%` }}
-              title={`Berlangganan: ${metrics.subscribed_users_count}`}
-            />
-            <div 
-              className="bg-slate-300 dark:bg-slate-600 h-full transition-all duration-500" 
-              style={{ width: `${100 - metrics.subscribed_ratio_percent}%` }}
-              title={`Gratis: ${metrics.free_users_count}`}
-            />
-          </div>
-          <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5">
-            <span className="flex items-center gap-1">
-              <span className="size-2 rounded-full bg-primary" />
-              Berbayar: <strong>{metrics.subscribed_users_count}</strong>
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="size-2 rounded-full bg-slate-400" />
-              Free: <strong>{metrics.free_users_count}</strong>
-            </span>
-          </div>
-        </div>
+            {/* Progress bar visualizer */}
+            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden flex">
+              <div 
+                className="bg-primary h-full transition-all duration-500" 
+                style={{ width: `${metrics.subscribed_ratio_percent}%` }}
+                title={`Berlangganan: ${metrics.subscribed_users_count}`}
+              />
+              <div 
+                className="bg-slate-300 dark:bg-slate-600 h-full transition-all duration-500" 
+                style={{ width: `${100 - metrics.subscribed_ratio_percent}%` }}
+                title={`Gratis: ${metrics.free_users_count}`}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5 tabular-nums">
+              <span className="flex items-center gap-1">
+                <span className="size-2 rounded-full bg-primary" />
+                Berbayar: <strong>{metrics.subscribed_users_count}</strong>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="size-2 rounded-full bg-slate-400" />
+                Free: <strong>{metrics.free_users_count}</strong>
+              </span>
+            </div>
+          </SpotlightCard>
+        </AnimatedContent>
 
         {/* Total Revenue */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Pendapatan Langganan (MRR)</span>
-            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
-              <CreditCard className="size-4" />
+        <AnimatedContent delay={60} distance={14} duration={420} immediate className="h-full">
+          <SpotlightCard className="p-5 shadow-sm space-y-3 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Pendapatan Langganan (MRR)</span>
+              <div className="p-2 rounded-lg bg-muted/80 text-foreground/75 border border-border/60">
+                <CreditCard className="size-4" />
+              </div>
             </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-2xl font-bold text-foreground">{formatIDR(metrics.total_revenue_idr)}</div>
-            <p className="text-xs text-muted-foreground">
-              Dari total <strong>{metrics.subscribed_users_count}</strong> akun peneliti aktif
-            </p>
-          </div>
-        </div>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-foreground tabular-nums">{formatIDR(metrics.total_revenue_idr)}</div>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                Dari total <strong>{metrics.subscribed_users_count}</strong> akun peneliti aktif
+              </p>
+            </div>
+          </SpotlightCard>
+        </AnimatedContent>
 
         {/* Total Papers & Components */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total Dokumen Ilmiah</span>
-            <div className="p-2 rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400">
-              <FileText className="size-4" />
+        <AnimatedContent delay={120} distance={14} duration={420} immediate className="h-full">
+          <SpotlightCard className="p-5 shadow-sm space-y-3 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Total Dokumen Ilmiah</span>
+              <div className="p-2 rounded-lg bg-muted/80 text-foreground/75 border border-border/60">
+                <FileText className="size-4" />
+              </div>
             </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-2xl font-bold text-foreground">{metrics.total_papers}</div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Sparkles className="size-3.5 text-amber-500" />
-              <span>{metrics.total_extracted_components.toLocaleString("id-ID")} bukti ilmiah diekstrak</span>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-foreground tabular-nums">
+                <CountUp to={metrics.total_papers} />
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+                <Sparkles className="size-3.5 text-primary" />
+                <span>{metrics.total_extracted_components.toLocaleString("id-ID")} bukti ilmiah diekstrak</span>
+              </div>
             </div>
-          </div>
-        </div>
+          </SpotlightCard>
+        </AnimatedContent>
 
         {/* System Health / Redis & Tokens */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Kesehatan Sistem & Token</span>
-            <div className="p-2 rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-              <Activity className="size-4" />
+        <AnimatedContent delay={180} distance={14} duration={420} immediate className="h-full">
+          <SpotlightCard className="p-5 shadow-sm space-y-3 h-full" spotlightColor="rgba(81, 71, 229, 0.08)">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Kesehatan Sistem &amp; Token</span>
+              <div className="p-2 rounded-lg bg-muted/80 text-foreground/75 border border-border/60">
+                <Activity className="size-4" />
+              </div>
             </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-              <span>{metrics.worker_queue_load}</span>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-foreground flex items-center gap-2 tabular-nums">
+                <span className="size-2.5 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />
+                <span>{metrics.worker_queue_load}</span>
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-2 tabular-nums">
+                <Server className="size-3 text-slate-400" />
+                <span>Redis: {metrics.redis_status}</span>
+                <span>•</span>
+                <span>Token: {metrics.estimated_tokens_today}</span>
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground flex items-center gap-2">
-              <Server className="size-3 text-slate-400" />
-              <span>Redis: {metrics.redis_status}</span>
-              <span>•</span>
-              <span>Token: {metrics.estimated_tokens_today}</span>
-            </p>
-          </div>
-        </div>
+          </SpotlightCard>
+        </AnimatedContent>
       </div>
 
       {/* Section 2: Plan Breakdown & Papers Processing Distribution */}
@@ -222,7 +236,7 @@ export default function AdminDashboardScreen() {
                       plan.code.includes('pro') 
                         ? 'bg-primary' 
                         : plan.code.includes('enterprise') 
-                        ? 'bg-purple-600' 
+                        ? 'bg-primary/60' 
                         : 'bg-slate-400'
                     }`} 
                     style={{ width: `${Math.max(plan.percentage, 5)}%` }} 
@@ -246,30 +260,42 @@ export default function AdminDashboardScreen() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 p-3 space-y-1">
-              <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300">Selesai (Ready)</span>
-              <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+            <div className="rounded-lg border border-border/70 bg-muted/25 p-3 space-y-1">
+              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span>Selesai (Ready)</span>
+              </span>
+              <div className="text-xl font-bold text-foreground tabular-nums">
                 {metrics.papers_by_status.ready || 0}
               </div>
             </div>
 
-            <div className="rounded-lg border bg-blue-50/50 dark:bg-blue-950/20 p-3 space-y-1">
-              <span className="text-[11px] font-medium text-blue-800 dark:text-blue-300">Sedang Diproses</span>
-              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+            <div className="rounded-lg border border-border/70 bg-muted/25 p-3 space-y-1">
+              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+                <span>Sedang Diproses</span>
+              </span>
+              <div className="text-xl font-bold text-foreground tabular-nums">
                 {metrics.papers_by_status.processing || 0}
               </div>
             </div>
 
-            <div className="rounded-lg border bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-1">
-              <span className="text-[11px] font-medium text-amber-800 dark:text-amber-300">Perlu Review</span>
-              <div className="text-xl font-bold text-amber-600 dark:text-amber-400">
+            <div className="rounded-lg border border-border/70 bg-muted/25 p-3 space-y-1">
+              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                <span>Perlu Review</span>
+              </span>
+              <div className="text-xl font-bold text-foreground tabular-nums">
                 {metrics.papers_by_status.needs_review || 0}
               </div>
             </div>
 
-            <div className="rounded-lg border bg-rose-50/50 dark:bg-rose-950/20 p-3 space-y-1">
-              <span className="text-[11px] font-medium text-rose-800 dark:text-rose-300">Gagal (Failed)</span>
-              <div className="text-xl font-bold text-rose-600 dark:text-rose-400">
+            <div className="rounded-lg border border-border/70 bg-muted/25 p-3 space-y-1">
+              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-rose-500" aria-hidden="true" />
+                <span>Gagal (Failed)</span>
+              </span>
+              <div className="text-xl font-bold text-foreground tabular-nums">
                 {metrics.papers_by_status.failed || 0}
               </div>
             </div>

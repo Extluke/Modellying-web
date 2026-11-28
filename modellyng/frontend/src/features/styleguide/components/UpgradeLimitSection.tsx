@@ -235,11 +235,10 @@ function FeatureThumbnailPreview({
             </div>
           </div>
 
-          {/* Frosted Glass Lock Callout */}
+          {/* Lock Callout */}
           <div className="relative pt-1 text-center space-y-2">
             <div className="relative inline-flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-35" />
-              <div className="size-11 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30">
+              <div className="size-11 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md shadow-primary/25">
                 <Lock className="size-5" />
               </div>
             </div>
@@ -280,38 +279,38 @@ function FeatureThumbnailPreview({
                 {content.previewTitle}
               </span>
             </div>
-            <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30 shrink-0">
+            <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
               Flow Canvas
             </span>
           </div>
 
           {/* Interactive React Flow Canvas Graph Graphic */}
-          <div className="relative rounded-xl border border-border/60 bg-slate-50/70 dark:bg-slate-900/40 p-2.5 min-h-[95px] flex flex-col justify-between overflow-hidden bg-[radial-gradient(#94a3b8_0.75px,transparent_0.75px)] dark:bg-[radial-gradient(#475569_0.75px,transparent_0.75px)] [background-size:6px_6px]">
+          <div className="relative rounded-xl border border-border/60 bg-slate-50/80 dark:bg-slate-900/40 p-2.5 min-h-[95px] flex flex-col justify-between overflow-hidden">
             {/* Top Nodes */}
             <div className="flex items-center justify-between gap-1 text-[8px]">
-              <div className="flex items-center gap-1 rounded-md bg-card border border-indigo-200 dark:border-indigo-900/60 px-1.5 py-0.5 shadow-2xs font-semibold text-foreground">
-                <span className="size-1.5 rounded-full bg-indigo-500" />
+              <div className="flex items-center gap-1 rounded-md bg-card border border-primary/20 px-1.5 py-0.5 shadow-2xs font-semibold text-foreground">
+                <span className="size-1.5 rounded-full bg-primary" />
                 <span>Paper A (2023)</span>
               </div>
-              <div className="flex items-center gap-1 rounded-md bg-card border border-sky-200 dark:border-sky-900/60 px-1.5 py-0.5 shadow-2xs font-semibold text-foreground">
-                <span className="size-1.5 rounded-full bg-sky-500" />
+              <div className="flex items-center gap-1 rounded-md bg-card border border-border px-1.5 py-0.5 shadow-2xs font-semibold text-foreground">
+                <span className="size-1.5 rounded-full bg-slate-400" />
                 <span>Paper B (2024)</span>
               </div>
             </div>
 
             {/* Flow Connecting Lines */}
             <div className="my-1 flex items-center justify-center gap-1 text-[7.5px] text-muted-foreground font-mono">
-              <span className="h-px w-8 bg-indigo-400/60" />
-              <span className="rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 px-1 font-semibold border border-amber-500/20">
+              <span className="h-px w-8 bg-border" />
+              <span className="rounded bg-primary-soft text-primary dark:bg-primary/15 px-1 font-semibold border border-primary/20">
                 Limitasi Terdeteksi
               </span>
-              <span className="h-px w-8 bg-sky-400/60" />
+              <span className="h-px w-8 bg-border" />
             </div>
 
             {/* Converging Novelty Center Node */}
-            <div className="rounded-lg border-2 border-emerald-500/80 bg-emerald-50/90 dark:bg-emerald-950/50 p-1.5 text-center shadow-xs">
-              <div className="text-[8.5px] font-extrabold text-emerald-800 dark:text-emerald-300 flex items-center justify-center gap-1">
-                <Sparkles className="size-2.5 text-amber-500" />
+            <div className="rounded-lg border border-primary/40 bg-primary-soft/80 dark:bg-primary/15 p-1.5 text-center shadow-xs">
+              <div className="text-[8.5px] font-extrabold text-primary flex items-center justify-center gap-1">
+                <Sparkles className="size-2.5 text-primary" />
                 <span>Celah Riset Baru (Novelty Gap)</span>
               </div>
               <div className="text-[7.5px] text-muted-foreground mt-0.5">
@@ -320,17 +319,16 @@ function FeatureThumbnailPreview({
             </div>
           </div>
 
-          {/* Frosted Glass Lock Callout */}
+          {/* Lock Callout */}
           <div className="relative pt-1 text-center space-y-2">
             <div className="relative inline-flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping opacity-35" />
-              <div className="size-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30">
+              <div className="size-11 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md shadow-primary/25">
                 <Lock className="size-5" />
               </div>
             </div>
             <div className="space-y-0.5">
-              <div className="inline-block rounded-full bg-emerald-500/10 dark:bg-card px-3 py-0.5 shadow-2xs border border-emerald-500/30">
-                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+              <div className="inline-block rounded-full bg-primary/10 dark:bg-card px-3 py-0.5 shadow-2xs border border-primary/25">
+                <span className="text-[10px] font-bold text-primary">
                   Visualisasi Relasi & Celah Terkunci
                 </span>
               </div>
@@ -342,7 +340,7 @@ function FeatureThumbnailPreview({
         </div>
 
         {/* Bottom Tag */}
-        <div className="mt-3.5 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+        <div className="mt-3.5 flex items-center gap-1.5 text-[11px] font-semibold text-primary">
           <IconComponent className="size-3.5" />
           <span>{content.previewSubtitle}</span>
         </div>
@@ -354,11 +352,11 @@ function FeatureThumbnailPreview({
   return (
     <div className="w-full flex flex-col items-center">
       {/* Mock Preview Card Container */}
-      <div className="relative w-full max-w-[290px] rounded-2xl bg-white dark:bg-card border border-amber-500/30 shadow-xl p-3.5 space-y-3 overflow-hidden">
+      <div className="relative w-full max-w-[290px] rounded-2xl bg-white dark:bg-card border border-primary/25 shadow-xl p-3.5 space-y-3 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <div className="flex items-center gap-2">
-            <div className="size-6 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <div className="size-6 rounded-lg bg-primary-soft text-primary dark:bg-primary/15 flex items-center justify-center">
               <IconComponent className="size-3.5" />
             </div>
             <span className="text-[11px] font-bold text-foreground truncate">
@@ -375,22 +373,22 @@ function FeatureThumbnailPreview({
           {/* File 1: Ingested */}
           <div className="flex items-center justify-between p-1.5 rounded-lg border border-border/60 bg-muted/20">
             <div className="flex items-center gap-1.5 min-w-0">
-              <FileText className="size-3 text-rose-500 shrink-0" />
+              <FileText className="size-3 text-primary shrink-0" />
               <div className="truncate">
                 <p className="font-semibold text-foreground truncate">DeepLearning_NLP.pdf</p>
                 <p className="text-[7.5px] text-muted-foreground">3.8 MB • 13 Parameter Siap</p>
               </div>
             </div>
-            <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />
+            <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
           </div>
 
           {/* File 2: Blocked by quota */}
           <div className="flex items-center justify-between p-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5">
             <div className="flex items-center gap-1.5 min-w-0">
-              <Clock className="size-3 text-amber-500 shrink-0" />
+              <Clock className="size-3 text-amber-600 shrink-0" />
               <div className="truncate">
                 <p className="font-semibold text-foreground truncate">Vision_Transformer.pdf</p>
-                <p className="text-[7.5px] text-amber-600 dark:text-amber-400">Tertahan (Batas Tercapai)</p>
+                <p className="text-[7.5px] text-amber-700 dark:text-amber-400">Tertahan (Batas Tercapai)</p>
               </div>
             </div>
             <span className="text-[7px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-1 py-0.2 rounded">
@@ -402,7 +400,7 @@ function FeatureThumbnailPreview({
           <div className="pt-0.5 space-y-1">
             <div className="flex items-center justify-between text-[7.5px]">
               <span className="font-medium text-muted-foreground">Kuota Hari Ini: 3 / 3 File</span>
-              <span className="font-bold text-amber-600">100% Penuh</span>
+              <span className="font-bold text-amber-700 dark:text-amber-400">100% Penuh</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
               <div className="h-full bg-amber-500 rounded-full w-full" />
@@ -410,17 +408,16 @@ function FeatureThumbnailPreview({
           </div>
         </div>
 
-        {/* Frosted Glass Lock Callout */}
+        {/* Lock Callout */}
         <div className="relative pt-1 text-center space-y-2">
           <div className="relative inline-flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-amber-500/20 animate-ping opacity-35" />
-            <div className="size-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/30">
+            <div className="size-11 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md shadow-primary/25">
               <Lock className="size-5" />
             </div>
           </div>
           <div className="space-y-0.5">
-            <div className="inline-block rounded-full bg-amber-500/10 dark:bg-card px-3 py-0.5 shadow-2xs border border-amber-500/30">
-              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
+            <div className="inline-block rounded-full bg-primary/10 dark:bg-card px-3 py-0.5 shadow-2xs border border-primary/25">
+              <span className="text-[10px] font-bold text-primary">
                 Batas 3 File/Hari Tercapai
               </span>
             </div>
@@ -432,7 +429,7 @@ function FeatureThumbnailPreview({
       </div>
 
       {/* Bottom Tag */}
-      <div className="mt-3.5 flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+      <div className="mt-3.5 flex items-center gap-1.5 text-[11px] font-semibold text-primary">
         <IconComponent className="size-3.5" />
         <span>{content.previewSubtitle}</span>
       </div>
@@ -752,20 +749,8 @@ export function UpgradeLimitSection() {
         {/* EMBEDDED SHOWCASE (Tampilan Utuh Sesuai Preview Desain) */}
         <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card shadow-xl max-w-4xl mx-auto">
           <div className="grid md:grid-cols-12 min-h-[460px]">
-            {/* SISI KIRI: Ilustrasi Visual Fitur Terkunci (Dinamis per Fitur) */}
-            <div
-              className={`md:col-span-5 p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-border/60 transition-colors duration-300 ${
-                selectedPromoFeature === "matrix"
-                  ? "bg-gradient-to-br from-[#F1EFFF] via-[#ECE8FF] to-[#E5E0FF] dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-background"
-                  : selectedPromoFeature === "gap_map"
-                  ? "bg-gradient-to-br from-[#EBF8F2] via-[#E2F4EB] to-[#D5EFE3] dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-background"
-                  : "bg-gradient-to-br from-[#FFF7ED] via-[#FFEDD5] to-[#FED7AA] dark:from-amber-950/30 dark:via-orange-950/20 dark:to-background"
-              }`}
-            >
-              {/* Floating decorative elements */}
-              <div className="absolute -top-12 -left-12 size-40 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
-              <div className="absolute -bottom-12 -right-12 size-40 rounded-full bg-purple-500/10 blur-2xl pointer-events-none" />
-
+            {/* SISI KIRI: Ilustrasi Visual Fitur Terkunci */}
+            <div className="md:col-span-5 p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-border/60 bg-primary-soft/50 dark:bg-primary/10">
               {/* Dynamic Feature Thumbnail Component */}
               <FeatureThumbnailPreview feature={selectedPromoFeature} />
             </div>
@@ -973,16 +958,8 @@ export function UpgradeLimitSection() {
             </button>
 
             <div className="grid md:grid-cols-12 min-h-[440px]">
-              {/* SISI KIRI: Ilustrasi Fitur Terkunci (Dinamis per Fitur) */}
-              <div
-                className={`md:col-span-5 p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-border/60 ${
-                  selectedPromoFeature === "matrix"
-                    ? "bg-gradient-to-br from-[#F1EFFF] via-[#ECE8FF] to-[#E5E0FF] dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-background"
-                    : selectedPromoFeature === "gap_map"
-                    ? "bg-gradient-to-br from-[#EBF8F2] via-[#E2F4EB] to-[#D5EFE3] dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-background"
-                    : "bg-gradient-to-br from-[#FFF7ED] via-[#FFEDD5] to-[#FED7AA] dark:from-amber-950/30 dark:via-orange-950/20 dark:to-background"
-                }`}
-              >
+              {/* SISI KIRI: Ilustrasi Fitur Terkunci */}
+              <div className="md:col-span-5 p-6 flex flex-col justify-center items-center relative overflow-hidden border-b md:border-b-0 md:border-r border-border/60 bg-primary-soft/50 dark:bg-primary/10">
                 <FeatureThumbnailPreview feature={selectedPromoFeature} />
               </div>
 
